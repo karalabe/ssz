@@ -46,3 +46,8 @@ var ErrStaticObjectInDynamicSlot = errors.New("ssz: static object in dynamic slo
 // ErrDynamicObjectInStaticSlot is returned during encoding or decoding, if a static
 // slot is being encoded into / decoded from a type that self-declares as dynamic.
 var ErrDynamicObjectInStaticSlot = errors.New("ssz: dynamic object in static slot")
+
+// ErrStaticObjectBehavedDynamic is returned during encoding or decoding, if the
+// outer object self-declared as static but requested a dynamic component. This is
+// mostly there to detect programming errors.
+var ErrStaticObjectBehavedDynamic = errors.New("ssz: static object requested dynamic encoding")

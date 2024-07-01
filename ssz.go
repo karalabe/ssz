@@ -6,6 +6,7 @@
 package ssz
 
 import (
+	"fmt"
 	"io"
 	"sync"
 )
@@ -51,8 +52,11 @@ func Encode(w io.Writer, obj Object) error {
 	enc := encoderPool.Get().(*Encoder)
 	defer encoderPool.Put(enc)
 
-	enc.out, enc.err = w, nil
+	enc.out, enc.err, enc.dyn = w, nil, false
 	obj.EncodeSSZ(enc)
+	if enc.err == nil && enc.dyn && obj.StaticSSZ() {
+		return fmt.Errorf("%w: %T", ErrStaticObjectBehavedDynamic, obj)
+	}
 	return enc.err
 }
 
@@ -61,7 +65,10 @@ func Decode(r io.Reader, obj Object, size uint32) error {
 	dec := decoderPool.Get().(*Decoder)
 	defer decoderPool.Put(dec)
 
-	dec.in, dec.length, dec.err = r, size, nil
+	dec.in, dec.length, dec.err, dec.dyn = r, size, nil, false
 	obj.DecodeSSZ(dec)
+	if dec.err == nil && dec.dyn && obj.StaticSSZ() {
+		return fmt.Errorf("%w: %T", ErrStaticObjectBehavedDynamic, obj)
+	}
 	return dec.err
 }

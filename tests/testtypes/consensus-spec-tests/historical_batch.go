@@ -17,19 +17,11 @@ func (h *HistoricalBatch) StaticSSZ() bool { return true }
 func (h *HistoricalBatch) SizeSSZ() uint32 { return 2 * 8192 * 32 }
 
 func (h *HistoricalBatch) EncodeSSZ(enc *ssz.Encoder) {
-	// Initialize a dynamic encoder with the given starting offsets
-	defer enc.OffsetDynamics(8)()
-
-	// Serialize static fields and offsets for dynamic ones (lazy fill)
 	ssz.EncodeArrayOfStaticBytes(enc, h.BlockRoots[:])
 	ssz.EncodeArrayOfStaticBytes(enc, h.StateRoots[:])
 }
 
 func (h *HistoricalBatch) DecodeSSZ(dec *ssz.Decoder) {
-	// Initialize a dynamic decoder with the given starting offsets
-	defer dec.OffsetDynamics(8)()
-
-	// Parse static fields and offsets for dynamic ones (lazy fill)
 	ssz.DecodeArrayOfStaticBytes(dec, h.BlockRoots[:])
 	ssz.DecodeArrayOfStaticBytes(dec, h.StateRoots[:])
 }

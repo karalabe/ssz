@@ -35,6 +35,7 @@ import (
 type Encoder struct {
 	out io.Writer // Underlying output stream to write into
 	err error     // Any write error to halt future encoding calls
+	dyn bool      // Whether dynamics were found encoding
 	buf [32]byte  // Integer conversion buffer
 
 	offset  uint32     // Offset tracker for dynamic fields
@@ -46,6 +47,8 @@ type Encoder struct {
 // OffsetDynamics marks the item being encoded as a dynamic type, setting the starting
 // offset for the dynamic fields.
 func (enc *Encoder) OffsetDynamics(offset int) func() {
+	enc.dyn = true
+
 	enc.offsets = append(enc.offsets, enc.offset)
 	enc.offset = uint32(offset)
 	enc.pends = append(enc.pends, enc.pend)

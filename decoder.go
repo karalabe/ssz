@@ -27,6 +27,7 @@ import (
 type Decoder struct {
 	in  io.Reader // Underlying output stream to write into
 	err error     // Any write error to halt future encoding calls
+	dyn bool      // Whether dynamics were found encoding
 	buf [32]byte  // Integer conversion buffer
 
 	length   uint32     // Message length being decoded
@@ -41,6 +42,8 @@ type Decoder struct {
 // OffsetDynamics marks the item being decoded as a dynamic type, setting the starting
 // offset for the dynamic fields.
 func (dec *Decoder) OffsetDynamics(offset int) func() {
+	dec.dyn = true
+
 	dec.offsetss = append(dec.offsetss, dec.offsets)
 	dec.offsets = nil
 	dec.offset = uint32(offset)
