@@ -21,15 +21,15 @@ func (h *HistoricalBatch) EncodeSSZ(enc *ssz.Encoder) {
 	defer enc.OffsetDynamics(8)()
 
 	// Serialize static fields and offsets for dynamic ones (lazy fill)
-	ssz.EncodeStaticBinaries(enc, h.BlockRoots[:])
-	ssz.EncodeStaticBinaries(enc, h.StateRoots[:])
+	ssz.EncodeArrayOfStaticBytes(enc, h.BlockRoots[:])
+	ssz.EncodeArrayOfStaticBytes(enc, h.StateRoots[:])
 }
 
 func (h *HistoricalBatch) DecodeSSZ(dec *ssz.Decoder) {
 	// Initialize a dynamic decoder with the given starting offsets
 	defer dec.OffsetDynamics(8)()
 
-	// Serialize static fields and offsets for dynamic ones (lazy fill)
-	ssz.DecodeStaticBinaries(dec, h.BlockRoots[:])
-	ssz.DecodeStaticBinaries(dec, h.StateRoots[:])
+	// Parse static fields and offsets for dynamic ones (lazy fill)
+	ssz.DecodeArrayOfStaticBytes(dec, h.BlockRoots[:])
+	ssz.DecodeArrayOfStaticBytes(dec, h.StateRoots[:])
 }

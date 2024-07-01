@@ -87,33 +87,33 @@ func DecodeUint256(dec *Decoder, n **uint256.Int) {
 	(*n).UnmarshalSSZ(dec.buf[:32])
 }
 
-// DecodeBinary serializes raw bytes as is.
-func DecodeBinary(dec *Decoder, bytes []byte) {
+// DecodeStaticBytes serializes raw bytes as is.
+func DecodeStaticBytes(dec *Decoder, bytes []byte) {
 	if dec.err != nil {
 		return
 	}
 	_, dec.err = io.ReadFull(dec.in, bytes)
 }
 
-// DecodeDynamicBlob parses the current offset as a uint32 little-endian, validates
+// DecodeDynamicBytes parses the current offset as a uint32 little-endian, validates
 // it against expected and previous offsets and stores it.
 //
 // Later when all the static fields have been parsed out, the dynamic content
 // will also be read. Make sure you called Decoder.OffsetDynamics and defer-ed the
 // return lambda.
-func DecodeDynamicBlob(dec *Decoder, blob *[]byte, maxSize uint32) {
+func DecodeDynamicBytes(dec *Decoder, blob *[]byte, maxSize uint32) {
 	if dec.err != nil {
 		return
 	}
 	if dec.err = dec.decodeOffset(false); dec.err != nil {
 		return
 	}
-	dec.pend = append(dec.pend, func() { decodeDynamicBlob(dec, blob, maxSize) })
+	dec.pend = append(dec.pend, func() { decodeDynamicBytes(dec, blob, maxSize) })
 }
 
-// decodeDynamicBlob parses a dynamic blob based on the offsets tracked by the
+// decodeDynamicBytes parses a dynamic blob based on the offsets tracked by the
 // decoder.
-func decodeDynamicBlob(dec *Decoder, blob *[]byte, maxSize uint32) {
+func decodeDynamicBytes(dec *Decoder, blob *[]byte, maxSize uint32) {
 	if dec.err != nil {
 		return
 	}
@@ -129,39 +129,39 @@ func decodeDynamicBlob(dec *Decoder, blob *[]byte, maxSize uint32) {
 	} else {
 		*blob = (*blob)[:size]
 	}
-	DecodeBinary(dec, *blob)
+	DecodeStaticBytes(dec, *blob)
 }
 
-// DecodeStaticBinaries parses a static array of static binary blobs.
+// DecodeArrayOfStaticBytes parses a static array of static binary blobs.
 //
 // Note, the input slice is assumed to be pre-allocated.
-func DecodeStaticBinaries[T commonBinaryLengths](dec *Decoder, bytes []T) {
+func DecodeArrayOfStaticBytes[T commonBinaryLengths](dec *Decoder, bytes []T) {
 	if dec.err != nil {
 		return
 	}
 	for i := 0; i < len(bytes); i++ {
 		// The code below should have used `blob[:]`, alas Go's generics compiler
 		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-		DecodeBinary(dec, unsafe.Slice(&bytes[i][0], len(bytes[i])))
+		DecodeStaticBytes(dec, unsafe.Slice(&bytes[i][0], len(bytes[i])))
 	}
 }
 
-// DecodeDynamicBinaries serializes the current offset as a uint32 little-endian,
+// DecodeSliceOfStaticBytes serializes the current offset as a uint32 little-endian,
 // and shifts if by the cumulative length of the static binary slices needed to
 // encode them.
-func DecodeDynamicBinaries[T commonBinaryLengths](dec *Decoder, bytes *[]T, maxItems uint32) {
+func DecodeSliceOfStaticBytes[T commonBinaryLengths](dec *Decoder, bytes *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}
 	if dec.err = dec.decodeOffset(false); dec.err != nil {
 		return
 	}
-	dec.pend = append(dec.pend, func() { decodeDynamicBinaries(dec, bytes, maxItems) })
+	dec.pend = append(dec.pend, func() { decodeSliceOfStaticBytes(dec, bytes, maxItems) })
 }
 
-// decodeDynamicBinaries serializes a slice of static objects by simply iterating
+// decodeSliceOfStaticBytes serializes a slice of static objects by simply iterating
 // the slice and serializing each individually.
-func decodeDynamicBinaries[T commonBinaryLengths](dec *Decoder, bytes *[]T, maxItems uint32) {
+func decodeSliceOfStaticBytes[T commonBinaryLengths](dec *Decoder, bytes *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}
@@ -192,29 +192,29 @@ func decodeDynamicBinaries[T commonBinaryLengths](dec *Decoder, bytes *[]T, maxI
 	for i := uint32(0); i < itemCount; i++ {
 		// The code below should have used `blob[:]`, alas Go's generics compiler
 		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-		DecodeBinary(dec, unsafe.Slice(&(*bytes)[i][0], len((*bytes)[i])))
+		DecodeStaticBytes(dec, unsafe.Slice(&(*bytes)[i][0], len((*bytes)[i])))
 	}
 }
 
-// DecodeDynamicBlobs parses the current offset as a uint32 little-endian,
+// DecodeSliceOfDynamicBytes parses the current offset as a uint32 little-endian,
 // validates it against expected and previous offsets and stores it.
 //
 // Later when all the static fields have been parsed out, the dynamic content
 // will also be read. Make sure you called Decoder.OffsetDynamics and defer-ed the
 // return lambda.
-func DecodeDynamicBlobs(dec *Decoder, blobs *[][]byte, maxItems uint32, maxSize uint32) {
+func DecodeSliceOfDynamicBytes(dec *Decoder, blobs *[][]byte, maxItems uint32, maxSize uint32) {
 	if dec.err != nil {
 		return
 	}
 	if dec.err = dec.decodeOffset(false); dec.err != nil {
 		return
 	}
-	dec.pend = append(dec.pend, func() { decodeDynamicBlobs(dec, blobs, maxItems, maxSize) })
+	dec.pend = append(dec.pend, func() { decodeSliceOfDynamicBytes(dec, blobs, maxItems, maxSize) })
 }
 
-// decodeDynamicBlob parses a dynamic set of dynamic blobs based on the offsets
+// decodeDynamicBytes parses a dynamic set of dynamic blobs based on the offsets
 // tracked by the decoder.
-func decodeDynamicBlobs(dec *Decoder, blobs *[][]byte, maxItems uint32, maxSize uint32) {
+func decodeSliceOfDynamicBytes(dec *Decoder, blobs *[][]byte, maxItems uint32, maxSize uint32) {
 	if dec.err != nil {
 		return
 	}
@@ -258,20 +258,20 @@ func decodeDynamicBlobs(dec *Decoder, blobs *[][]byte, maxItems uint32, maxSize 
 	// We have consumed the first offset out of bounds, so schedule a dynamic
 	// retrieval explicitly for it. For all the rest, consume as individual
 	// blobs.
-	dec.pend = append(dec.pend, func() { decodeDynamicBlob(dec, &(*blobs)[0], maxSize) })
+	dec.pend = append(dec.pend, func() { decodeDynamicBytes(dec, &(*blobs)[0], maxSize) })
 
 	for i := uint32(1); i < items; i++ {
-		DecodeDynamicBlob(dec, &(*blobs)[i], maxSize)
+		DecodeDynamicBytes(dec, &(*blobs)[i], maxSize)
 	}
 }
 
-// DecodeDynamicStatics parses the current offset as a uint32 little-endian,
+// DecodeSliceOfStaticObjects parses the current offset as a uint32 little-endian,
 // validates it against expected and previous offsets and stores it.
 //
 // Later when all the static fields have been parsed out, the dynamic content
 // will also be read. Make sure you called Decoder.OffsetDynamics and defer-ed the
 // return lambda.
-func DecodeDynamicStatics[T newableObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
+func DecodeSliceOfStaticObjects[T newableObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}
@@ -282,12 +282,12 @@ func DecodeDynamicStatics[T newableObject[U], U any](dec *Decoder, objects *[]T,
 	if dec.err = dec.decodeOffset(false); dec.err != nil {
 		return
 	}
-	dec.pend = append(dec.pend, func() { decodeDynamicStatics(dec, objects, maxItems) })
+	dec.pend = append(dec.pend, func() { decodeSliceOfStaticObjects(dec, objects, maxItems) })
 }
 
-// decodeDynamicStatics parses a dynamic set of static objects based on the offsets
+// decodeSliceOfStaticObjects parses a dynamic set of static objects based on the offsets
 // trakced by the decoder.
-func decodeDynamicStatics[T newableObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
+func decodeSliceOfStaticObjects[T newableObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}

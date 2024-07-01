@@ -84,21 +84,21 @@ func EncodeUint256(enc *Encoder, n *uint256.Int) {
 	_, enc.err = enc.out.Write(enc.buf[:32])
 }
 
-// EncodeBinary serializes raw bytes as is.
-func EncodeBinary(enc *Encoder, bytes []byte) {
+// EncodeStaticBytes serializes raw bytes as is.
+func EncodeStaticBytes(enc *Encoder, bytes []byte) {
 	if enc.err != nil {
 		return
 	}
 	_, enc.err = enc.out.Write(bytes)
 }
 
-// EncodeDynamicBlob serializes the current offset as a uint32 little-endian,
+// EncodeDynamicBytes serializes the current offset as a uint32 little-endian,
 // and shifts it by the size of the blob.
 //
 // Later when all the static fields have been written out, the dynamic content
 // will also be flushed. Make sure you called Encoder.OffsetDynamics and defer-ed the
 // return lambda.
-func EncodeDynamicBlob(enc *Encoder, blob []byte) {
+func EncodeDynamicBytes(enc *Encoder, blob []byte) {
 	if enc.err != nil {
 		return
 	}
@@ -106,25 +106,25 @@ func EncodeDynamicBlob(enc *Encoder, blob []byte) {
 	_, enc.err = enc.out.Write(enc.buf[:4])
 	enc.offset += uint32(len(blob))
 
-	enc.pend = append(enc.pend, func() { EncodeBinary(enc, blob) })
+	enc.pend = append(enc.pend, func() { EncodeStaticBytes(enc, blob) })
 }
 
-// EncodeStaticBinaries serializes a static number of static bytes.
-func EncodeStaticBinaries[T commonBinaryLengths](enc *Encoder, bytes []T) {
+// EncodeArrayOfStaticBytes serializes a static number of static bytes.
+func EncodeArrayOfStaticBytes[T commonBinaryLengths](enc *Encoder, bytes []T) {
 	if enc.err != nil {
 		return
 	}
 	for i := 0; i < len(bytes); i++ {
 		// The code below should have used `bytes[i][:]`, alas Go's generics compiler
 		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-		EncodeBinary(enc, unsafe.Slice(&bytes[i][0], len(bytes[i])))
+		EncodeStaticBytes(enc, unsafe.Slice(&bytes[i][0], len(bytes[i])))
 	}
 }
 
-// EncodeDynamicBinaries serializes the current offset as a uint32 little-endian,
+// EncodeSliceOfStaticBytes serializes the current offset as a uint32 little-endian,
 // and shifts if by the cumulative length of the static binary slices needed to
 // encode them.
-func EncodeDynamicBinaries[T commonBinaryLengths](enc *Encoder, bytes []T) {
+func EncodeSliceOfStaticBytes[T commonBinaryLengths](enc *Encoder, bytes []T) {
 	if enc.err != nil {
 		return
 	}
@@ -134,30 +134,30 @@ func EncodeDynamicBinaries[T commonBinaryLengths](enc *Encoder, bytes []T) {
 	if items := len(bytes); items > 0 {
 		enc.offset += uint32(items * len(bytes[0]))
 	}
-	enc.pend = append(enc.pend, func() { encodeDynamicBinaries(enc, bytes) })
+	enc.pend = append(enc.pend, func() { encodeSliceOfStaticBytes(enc, bytes) })
 }
 
-// encodeDynamicBinaries serializes a slice of static objects by simply iterating
+// encodeSliceOfStaticBytes serializes a slice of static objects by simply iterating
 // the slice and serializing each individually.
-func encodeDynamicBinaries[T commonBinaryLengths](enc *Encoder, bytes []T) {
+func encodeSliceOfStaticBytes[T commonBinaryLengths](enc *Encoder, bytes []T) {
 	if enc.err != nil {
 		return
 	}
 	for _, blob := range bytes {
 		// The code below should have used `blob[:]`, alas Go's generics compiler
 		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-		EncodeBinary(enc, unsafe.Slice(&blob[0], len(blob)))
+		EncodeStaticBytes(enc, unsafe.Slice(&blob[0], len(blob)))
 	}
 }
 
-// EncodeDynamicBlobs serializes the current offset as a uint32 little-endian, and
+// EncodeSliceOfDynamicBytes serializes the current offset as a uint32 little-endian, and
 // shifts if by the cumulative length of the binary slices and the offsets
 // needed to encode them.
 //
 // Later when all the static fields have been written out, the dynamic content
 // will also be flushed. Make sure you called Encoder.OffsetDynamics and defer-ed the
 // return lambda.
-func EncodeDynamicBlobs(enc *Encoder, blobs [][]byte) {
+func EncodeSliceOfDynamicBytes(enc *Encoder, blobs [][]byte) {
 	if enc.err != nil {
 		return
 	}
@@ -166,29 +166,29 @@ func EncodeDynamicBlobs(enc *Encoder, blobs [][]byte) {
 	for _, blob := range blobs {
 		enc.offset += uint32(4 + len(blob))
 	}
-	enc.pend = append(enc.pend, func() { encodeDynamicBlobs(enc, blobs) })
+	enc.pend = append(enc.pend, func() { encodeSliceOfDynamicBytes(enc, blobs) })
 }
 
-// encodeDynamicBlobs serializes a slice of dynamic blobs by first writing all
+// encodeSliceOfDynamicBytes serializes a slice of dynamic blobs by first writing all
 // the individual offsets, and then writing the dynamic data itself.
-func encodeDynamicBlobs(enc *Encoder, blobs [][]byte) {
+func encodeSliceOfDynamicBytes(enc *Encoder, blobs [][]byte) {
 	if enc.err != nil {
 		return
 	}
 	defer enc.OffsetDynamics(4 * len(blobs))()
 
 	for _, blob := range blobs {
-		EncodeDynamicBlob(enc, blob)
+		EncodeDynamicBytes(enc, blob)
 	}
 }
 
-// EncodeDynamicStatics serializes the current offset as a uint32 little-endian, and
+// EncodeSliceOfStaticObjects serializes the current offset as a uint32 little-endian, and
 // shifts if by the cumulative length of the fixed size objects.
 //
 // Later when all the static fields have been written out, the dynamic content
 // will also be flushed. Make sure you called Encoder.OffsetDynamics and defer-ed the
 // return lambda.
-func EncodeDynamicStatics[T newableObject[U], U any](enc *Encoder, objects []T) {
+func EncodeSliceOfStaticObjects[T newableObject[U], U any](enc *Encoder, objects []T) {
 	if enc.err != nil {
 		return
 	}
@@ -202,12 +202,12 @@ func EncodeDynamicStatics[T newableObject[U], U any](enc *Encoder, objects []T) 
 	if items := len(objects); items > 0 {
 		enc.offset += uint32(items) * objects[0].SizeSSZ()
 	}
-	enc.pend = append(enc.pend, func() { encodeDynamicStatics(enc, objects) })
+	enc.pend = append(enc.pend, func() { encodeSliceOfStaticObjects(enc, objects) })
 }
 
-// encodeDynamicStatics serializes a slice of static objects by simply iterating
+// encodeSliceOfStaticObjects serializes a slice of static objects by simply iterating
 // the slice and serializing each individually.
-func encodeDynamicStatics[T Object](enc *Encoder, objects []T) {
+func encodeSliceOfStaticObjects[T Object](enc *Encoder, objects []T) {
 	if enc.err != nil {
 		return
 	}
