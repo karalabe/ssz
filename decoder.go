@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"unsafe"
 
 	"github.com/holiman/uint256"
 )
@@ -129,6 +130,70 @@ func decodeDynamicBlob(dec *Decoder, blob *[]byte, maxSize uint32) {
 		*blob = (*blob)[:size]
 	}
 	DecodeBinary(dec, *blob)
+}
+
+// DecodeStaticBinaries parses a static array of static binary blobs.
+//
+// Note, the input slice is assumed to be pre-allocated.
+func DecodeStaticBinaries[T commonBinaryLengths](dec *Decoder, bytes []T) {
+	if dec.err != nil {
+		return
+	}
+	for i := 0; i < len(bytes); i++ {
+		// The code below should have used `blob[:]`, alas Go's generics compiler
+		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+		DecodeBinary(dec, unsafe.Slice(&bytes[i][0], len(bytes[i])))
+	}
+}
+
+// DecodeDynamicBinaries serializes the current offset as a uint32 little-endian,
+// and shifts if by the cumulative length of the static binary slices needed to
+// encode them.
+func DecodeDynamicBinaries[T commonBinaryLengths](dec *Decoder, bytes *[]T, maxItems uint32) {
+	if dec.err != nil {
+		return
+	}
+	if dec.err = dec.decodeOffset(false); dec.err != nil {
+		return
+	}
+	dec.pend = append(dec.pend, func() { decodeDynamicBinaries(dec, bytes, maxItems) })
+}
+
+// decodeDynamicBinaries serializes a slice of static objects by simply iterating
+// the slice and serializing each individually.
+func decodeDynamicBinaries[T commonBinaryLengths](dec *Decoder, bytes *[]T, maxItems uint32) {
+	if dec.err != nil {
+		return
+	}
+	// Compute the length of the encoded binaries based on the seen offsets
+	size := dec.retrieveSize()
+	if size == 0 {
+		return // empty slice of objects
+	}
+	// Compute the number of items based on the item size of the type
+	var sizer T // SizeSSZ is on *U, objects is static, so nil T is fine
+
+	itemSize := uint32(len(sizer))
+	if size%itemSize != 0 {
+		dec.err = fmt.Errorf("%w: length %d, item size %d", ErrDynamicStaticsIndivisible, size, itemSize)
+		return
+	}
+	itemCount := size / itemSize
+	if itemCount > maxItems {
+		dec.err = fmt.Errorf("%w: decoded %d, max %d", ErrMaxItemsExceeded, itemCount, maxItems)
+		return
+	}
+	// Expand the slice if needed and decode the objects
+	if uint32(cap(*bytes)) < itemCount {
+		*bytes = make([]T, itemCount)
+	} else {
+		*bytes = (*bytes)[:itemCount]
+	}
+	for i := uint32(0); i < itemCount; i++ {
+		// The code below should have used `blob[:]`, alas Go's generics compiler
+		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+		DecodeBinary(dec, unsafe.Slice(&(*bytes)[i][0], len((*bytes)[i])))
+	}
 }
 
 // DecodeDynamicBlobs parses the current offset as a uint32 little-endian,

@@ -30,14 +30,6 @@ type Object interface {
 	DecodeSSZ(dec *Decoder)
 }
 
-// newableObject is a generic type whose purpose is to enforce that ssz.Object
-// is specifically implemented on a struct pointer. That's needed to allow us
-// to instantiate new structs via `new` when parsing.
-type newableObject[U any] interface {
-	Object
-	*U
-}
-
 // encoderPool is a pool of SSZ encoders to reuse some tiny internal helpers
 // without hitting Go's GC constantly.
 var encoderPool = sync.Pool{

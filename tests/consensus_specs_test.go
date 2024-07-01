@@ -31,10 +31,13 @@ var (
 // TestConsensusSpecs iterates over all the (supported) consensus SSZ types and
 // runs the encoding/decoding/hashing round.
 func TestConsensusSpecs(t *testing.T) {
+	// Run the single-version type tests
+	testConsensusSpecType[*types.HistoricalBatch](t, "", "HistoricalBatch")
+	testConsensusSpecType[*types.Withdrawal](t, "", "Withdrawal")
+
+	// Run the fork-specific type tests
 	testConsensusSpecType[*types.ExecutionPayloadBellatrix](t, "bellatrix", "ExecutionPayload")
 	testConsensusSpecType[*types.ExecutionPayloadCapella](t, "capella", "ExecutionPayload")
-	testConsensusSpecType[*types.WithdrawalCapella](t, "capella", "Withdrawal")
-	testConsensusSpecType[*types.WithdrawalDeneb](t, "deneb", "Withdrawal")
 
 	// Iterate over all the untouched tests and report them
 	forks, err := os.ReadDir(consensusSpecTestsRoot)
@@ -67,6 +70,21 @@ type newableObject[U any] interface {
 }
 
 func testConsensusSpecType[T newableObject[U], U any](t *testing.T, fork, kind string) {
+	// If no fork was specified, iterate over all of them and use the same type
+	if fork == "" {
+		forks, err := os.ReadDir(consensusSpecTestsRoot)
+		if err != nil {
+			t.Errorf("failed to walk spec collection %v: %v", consensusSpecTestsRoot, err)
+			return
+		}
+		for _, fork := range forks {
+			if _, err := os.Stat(filepath.Join(consensusSpecTestsRoot, fork.Name(), "ssz_static", kind, "ssz_random")); err == nil {
+				testConsensusSpecType[T, U](t, fork.Name(), kind)
+			}
+		}
+		return
+	}
+	// Some specific fork was requested, look that up explicitly
 	path := filepath.Join(consensusSpecTestsRoot, fork, "ssz_static", kind, "ssz_random")
 
 	tests, err := os.ReadDir(path)

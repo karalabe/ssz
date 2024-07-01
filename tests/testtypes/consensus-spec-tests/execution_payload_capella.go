@@ -24,7 +24,7 @@ type ExecutionPayloadCapella struct {
 	BaseFeePerGas *uint256.Int
 	BlockHash     Hash
 	Transactions  [][]byte
-	Withdrawals   []*WithdrawalCapella
+	Withdrawals   []*Withdrawal
 }
 
 func (e *ExecutionPayloadCapella) StaticSSZ() bool { return false }

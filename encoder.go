@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"unsafe"
 
 	"github.com/holiman/uint256"
 )
@@ -106,6 +107,47 @@ func EncodeDynamicBlob(enc *Encoder, blob []byte) {
 	enc.offset += uint32(len(blob))
 
 	enc.pend = append(enc.pend, func() { EncodeBinary(enc, blob) })
+}
+
+// EncodeStaticBinaries serializes a static number of static bytes.
+func EncodeStaticBinaries[T commonBinaryLengths](enc *Encoder, bytes []T) {
+	if enc.err != nil {
+		return
+	}
+	for i := 0; i < len(bytes); i++ {
+		// The code below should have used `bytes[i][:]`, alas Go's generics compiler
+		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+		EncodeBinary(enc, unsafe.Slice(&bytes[i][0], len(bytes[i])))
+	}
+}
+
+// EncodeDynamicBinaries serializes the current offset as a uint32 little-endian,
+// and shifts if by the cumulative length of the static binary slices needed to
+// encode them.
+func EncodeDynamicBinaries[T commonBinaryLengths](enc *Encoder, bytes []T) {
+	if enc.err != nil {
+		return
+	}
+	binary.LittleEndian.PutUint32(enc.buf[:4], enc.offset)
+	_, enc.err = enc.out.Write(enc.buf[:4])
+
+	if items := len(bytes); items > 0 {
+		enc.offset += uint32(items * len(bytes[0]))
+	}
+	enc.pend = append(enc.pend, func() { encodeDynamicBinaries(enc, bytes) })
+}
+
+// encodeDynamicBinaries serializes a slice of static objects by simply iterating
+// the slice and serializing each individually.
+func encodeDynamicBinaries[T commonBinaryLengths](enc *Encoder, bytes []T) {
+	if enc.err != nil {
+		return
+	}
+	for _, blob := range bytes {
+		// The code below should have used `blob[:]`, alas Go's generics compiler
+		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+		EncodeBinary(enc, unsafe.Slice(&blob[0], len(blob)))
+	}
 }
 
 // EncodeDynamicBlobs serializes the current offset as a uint32 little-endian, and
