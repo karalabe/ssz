@@ -1,0 +1,3 @@
+[submodule "tests/testdata/consensus-spec-tests"]
+	path = tests/testdata/consensus-spec-tests
+	url = https://github.com/ethereum/consensus-spec-tests
