@@ -171,6 +171,7 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 	// Start the benchmarks for all the different operations
 	b.Run(fmt.Sprintf("%s/%s/%s/decode", fork, kind, test), func(b *testing.B) {
 		b.ReportAllocs()
+		b.SetBytes(int64(len(inSSZ)))
 
 		obj := T(new(U))
 		for i := 0; i < b.N; i++ {
@@ -181,10 +182,11 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 	})
 	b.Run(fmt.Sprintf("%s/%s/%s/encode", fork, kind, test), func(b *testing.B) {
 		b.ReportAllocs()
+		b.SetBytes(int64(len(inSSZ)))
 
 		blob := make([]byte, inObj.SizeSSZ())
 		for i := 0; i < b.N; i++ {
-			if err := ssz.Encode(bytes.NewBuffer(blob), inObj); err != nil {
+			if err := ssz.Encode(bytes.NewBuffer(blob[:0]), inObj); err != nil {
 				b.Fatalf("failed to re-encode SSZ stream: %v", err)
 			}
 		}
