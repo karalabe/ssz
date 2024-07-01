@@ -13,6 +13,7 @@ type WithdrawalDeneb struct {
 	Amount    uint64
 }
 
+func (w *WithdrawalDeneb) StaticSSZ() bool { return true }
 func (w *WithdrawalDeneb) SizeSSZ() uint32 { return 44 }
 
 func (w *WithdrawalDeneb) EncodeSSZ(enc *ssz.Encoder) {

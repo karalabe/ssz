@@ -13,6 +13,7 @@ type WithdrawalCapella struct {
 	Amount    uint64
 }
 
+func (w *WithdrawalCapella) StaticSSZ() bool { return true }
 func (w *WithdrawalCapella) SizeSSZ() uint32 { return 44 }
 
 func (w *WithdrawalCapella) EncodeSSZ(enc *ssz.Encoder) {
@@ -21,7 +22,6 @@ func (w *WithdrawalCapella) EncodeSSZ(enc *ssz.Encoder) {
 	ssz.EncodeBinary(enc, w.Address[:]) // Field (2) - Address        - 20 bytes
 	ssz.EncodeUint64(enc, w.Amount)     // Field (3) - Amount         -  8 bytes
 }
-
 func (w *WithdrawalCapella) DecodeSSZ(dec *ssz.Decoder) {
 	ssz.DecodeUint64(dec, &w.Index)     // Field (0) - Index          -  8 bytes
 	ssz.DecodeUint64(dec, &w.Validator) // Field (1) - ValidatorIndex -  8 bytes

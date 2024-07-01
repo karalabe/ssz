@@ -5,8 +5,7 @@
 package consensus_spec_tests
 
 import (
-	"math/big"
-
+	"github.com/holiman/uint256"
 	"github.com/karalabe/ssz"
 )
 
@@ -22,12 +21,13 @@ type ExecutionPayloadCapella struct {
 	GasUsed       uint64
 	Timestamp     uint64
 	ExtraData     []byte
-	BaseFeePerGas *big.Int
+	BaseFeePerGas *uint256.Int
 	BlockHash     Hash
 	Transactions  [][]byte
 	Withdrawals   []*WithdrawalCapella
 }
 
+func (e *ExecutionPayloadCapella) StaticSSZ() bool { return false }
 func (e *ExecutionPayloadCapella) SizeSSZ() uint32 {
 	// Start out with the static size
 	size := uint32(512)
@@ -56,7 +56,7 @@ func (e *ExecutionPayloadCapella) EncodeSSZ(enc *ssz.Encoder) {
 	ssz.EncodeUint64(enc, e.GasUsed)             // Field  ( 8) - GasUsed       -   8 bytes
 	ssz.EncodeUint64(enc, e.Timestamp)           // Field  ( 9) - Timestamp     -   8 bytes
 	ssz.EncodeDynamicBlob(enc, e.ExtraData)      // Offset (10) - ExtraData     -   4 bytes + later max 32 bytes (not enforced)
-	ssz.EncodeBigInt(enc, e.BaseFeePerGas)       // Field  (11) - BaseFeePerGas -  32 bytes
+	ssz.EncodeUint256(enc, e.BaseFeePerGas)      // Field  (11) - BaseFeePerGas -  32 bytes
 	ssz.EncodeBinary(enc, e.BlockHash[:])        // Field  (12) - BlockHash     -  32 bytes
 	ssz.EncodeDynamicBlobs(enc, e.Transactions)  // Offset (13) - Transactions  -   4 bytes + later max 1048576 items, 1073741824 bytes each (not enforced)
 	ssz.EncodeDynamicStatics(enc, e.Withdrawals) // Offset (14) - Withdrawals - 4 bytes + later max 16 items, 44 bytes each (not enforced)
@@ -78,7 +78,7 @@ func (e *ExecutionPayloadCapella) DecodeSSZ(dec *ssz.Decoder) {
 	ssz.DecodeUint64(dec, &e.GasUsed)                                      // Field  ( 8) - GasUsed       -   8 bytes
 	ssz.DecodeUint64(dec, &e.Timestamp)                                    // Field  ( 9) - Timestamp     -   8 bytes
 	ssz.DecodeDynamicBlob(dec, &e.ExtraData, 32)                           // Offset (10) - ExtraData     -   4 bytes
-	ssz.DecodeBigInt(dec, &e.BaseFeePerGas)                                // Field  (11) - BaseFeePerGas -  32 bytes
+	ssz.DecodeUint256(dec, &e.BaseFeePerGas)                               // Field  (11) - BaseFeePerGas -  32 bytes
 	ssz.DecodeBinary(dec, e.BlockHash[:])                                  // Field  (12) - BlockHash     -  32 bytes
 	ssz.DecodeDynamicBlobs(dec, &e.Transactions, 1_048_576, 1_073_741_824) // Offset (13) - Transactions  -   4 bytes
 	ssz.DecodeDynamicStatics(dec, &e.Withdrawals, 16)                      // Offset (14) - Withdrawals - 4 bytes

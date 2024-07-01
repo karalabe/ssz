@@ -6,8 +6,8 @@ package ssz
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/holiman/uint256"
 )
@@ -34,9 +34,7 @@ import (
 type Encoder struct {
 	out io.Writer // Underlying output stream to write into
 	err error     // Any write error to halt future encoding calls
-
-	buf  [32]byte    // Integer conversion buffer
-	ibuf uint256.Int // Big integer conversion buffer
+	buf [32]byte  // Integer conversion buffer
 
 	offset  uint32     // Offset tracker for dynamic fields
 	offsets []uint32   // Stack of offsets from outer calls
@@ -76,13 +74,12 @@ func EncodeUint64(enc *Encoder, n uint64) {
 	_, enc.err = enc.out.Write(enc.buf[:8])
 }
 
-// EncodeBigInt serializes a uint256 as little-endian.
-func EncodeBigInt(enc *Encoder, n *big.Int) {
+// EncodeUint256 serializes a uint256 as little-endian.
+func EncodeUint256(enc *Encoder, n *uint256.Int) {
 	if enc.err != nil {
 		return
 	}
-	enc.ibuf.SetFromBig(n)
-	enc.ibuf.MarshalSSZTo(enc.buf[:32])
+	n.MarshalSSZTo(enc.buf[:32])
 	_, enc.err = enc.out.Write(enc.buf[:32])
 }
 
@@ -112,7 +109,7 @@ func EncodeDynamicBlob(enc *Encoder, blob []byte) {
 }
 
 // EncodeDynamicBlobs serializes the current offset as a uint32 little-endian, and
-// shifts if by the cummulative length of the binary slices and the offsets
+// shifts if by the cumulative length of the binary slices and the offsets
 // needed to encode them.
 //
 // Later when all the static fields have been written out, the dynamic content
@@ -144,13 +141,17 @@ func encodeDynamicBlobs(enc *Encoder, blobs [][]byte) {
 }
 
 // EncodeDynamicStatics serializes the current offset as a uint32 little-endian, and
-// shifts if by the cummulative length of the fixed size objects.
+// shifts if by the cumulative length of the fixed size objects.
 //
 // Later when all the static fields have been written out, the dynamic content
 // will also be flushed. Make sure you called Encoder.OffsetDynamics and defer-ed the
 // return lambda.
-func EncodeDynamicStatics[T Object](enc *Encoder, objects []T) {
+func EncodeDynamicStatics[T newableObject[U], U any](enc *Encoder, objects []T) {
 	if enc.err != nil {
+		return
+	}
+	if !(T)(nil).StaticSSZ() {
+		enc.err = fmt.Errorf("%w: %T", ErrDynamicObjectInStaticSlot, (T)(nil))
 		return
 	}
 	binary.LittleEndian.PutUint32(enc.buf[:4], enc.offset)
@@ -162,7 +163,7 @@ func EncodeDynamicStatics[T Object](enc *Encoder, objects []T) {
 	enc.pend = append(enc.pend, func() { encodeDynamicStatics(enc, objects) })
 }
 
-// encodeDynamicStatics serializes a slice of static iojects by simply iterating
+// encodeDynamicStatics serializes a slice of static objects by simply iterating
 // the slice and serializing each individually.
 func encodeDynamicStatics[T Object](enc *Encoder, objects []T) {
 	if enc.err != nil {

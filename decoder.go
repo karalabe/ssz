@@ -8,7 +8,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/holiman/uint256"
 )
@@ -27,9 +26,7 @@ import (
 type Decoder struct {
 	in  io.Reader // Underlying output stream to write into
 	err error     // Any write error to halt future encoding calls
-
-	buf  [32]byte    // Integer conversion buffer
-	ibuf uint256.Int // Big integer conversion buffer
+	buf [32]byte  // Integer conversion buffer
 
 	length   uint32     // Message length being decoded
 	lengths  []uint32   // Stack of lenths from outer calls
@@ -77,15 +74,16 @@ func DecodeUint64(dec *Decoder, n *uint64) {
 	*n = binary.LittleEndian.Uint64(dec.buf[:8])
 }
 
-// DecodeBigInt parses a uint256 as little-endian.
-func DecodeBigInt(dec *Decoder, n **big.Int) {
+// DecodeUint256 parses a uint256 as little-endian.
+func DecodeUint256(dec *Decoder, n **uint256.Int) {
 	if dec.err != nil {
 		return
 	}
 	_, dec.err = io.ReadFull(dec.in, dec.buf[:32])
-
-	dec.ibuf.UnmarshalSSZ(dec.buf[:32])
-	*n = dec.ibuf.ToBig()
+	if *n == nil {
+		*n = new(uint256.Int)
+	}
+	(*n).UnmarshalSSZ(dec.buf[:32])
 }
 
 // DecodeBinary serializes raw bytes as is.
@@ -112,7 +110,7 @@ func DecodeDynamicBlob(dec *Decoder, blob *[]byte, maxSize uint32) {
 	dec.pend = append(dec.pend, func() { decodeDynamicBlob(dec, blob, maxSize) })
 }
 
-// decodeDynamicBlob parses a dynamic blob based on the offsets trakced by the
+// decodeDynamicBlob parses a dynamic blob based on the offsets tracked by the
 // decoder.
 func decodeDynamicBlob(dec *Decoder, blob *[]byte, maxSize uint32) {
 	if dec.err != nil {
@@ -202,14 +200,6 @@ func decodeDynamicBlobs(dec *Decoder, blobs *[][]byte, maxItems uint32, maxSize 
 	}
 }
 
-// newableObject is a generic type whose purpose is to enforce that ssz.Object
-// is specifically implemented on a struct pointer. That's needed to allow us
-// to instantiate new structs via `new` when parsing.
-type newableObject[U any] interface {
-	Object
-	*U
-}
-
 // DecodeDynamicStatics parses the current offset as a uint32 little-endian,
 // validates it against expected and previous offsets and stores it.
 //
@@ -218,6 +208,10 @@ type newableObject[U any] interface {
 // return lambda.
 func DecodeDynamicStatics[T newableObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
 	if dec.err != nil {
+		return
+	}
+	if !(T)(nil).StaticSSZ() {
+		dec.err = fmt.Errorf("%w: %T", ErrDynamicObjectInStaticSlot, (T)(nil))
 		return
 	}
 	if dec.err = dec.decodeOffset(false); dec.err != nil {

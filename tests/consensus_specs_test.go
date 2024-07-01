@@ -127,3 +127,55 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, fork, kind s
 		})
 	}
 }
+
+// TestConsensusSpecs iterates over all the (supported) consensus SSZ types and
+// runs the encoding/decoding/hashing benchmark round.
+func BenchmarkConsensusSpecs(b *testing.B) {
+	benchmarkConsensusSpecType[*types.ExecutionPayloadCapella](b, "capella", "ExecutionPayload", "case_4")
+}
+
+func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, kind, test string) {
+	path := filepath.Join(consensusSpecTestsRoot, fork, "ssz_static", kind, "ssz_random", test)
+
+	// Parse the input SSZ data for this specific dataset and decode it
+	inSnappy, err := os.ReadFile(filepath.Join(path, "serialized.ssz_snappy"))
+	if err != nil {
+		b.Fatalf("failed to load snapy ssz binary: %v", err)
+	}
+	inSSZ, err := snappy.Decode(nil, inSnappy)
+	if err != nil {
+		b.Fatalf("failed to parse snappy ssz binary: %v", err)
+	}
+	inObj := T(new(U))
+	if err := ssz.Decode(bytes.NewReader(inSSZ), inObj, uint32(len(inSSZ))); err != nil {
+		b.Fatalf("failed to decode SSZ stream: %v", err)
+	}
+	// Start the benchmarks for all the different operations
+	b.Run(fmt.Sprintf("%s/%s/%s/decode", fork, kind, test), func(b *testing.B) {
+		b.ReportAllocs()
+
+		obj := T(new(U))
+		for i := 0; i < b.N; i++ {
+			if err := ssz.Decode(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err != nil {
+				b.Fatalf("failed to decode SSZ stream: %v", err)
+			}
+		}
+	})
+	b.Run(fmt.Sprintf("%s/%s/%s/encode", fork, kind, test), func(b *testing.B) {
+		b.ReportAllocs()
+
+		blob := make([]byte, inObj.SizeSSZ())
+		for i := 0; i < b.N; i++ {
+			if err := ssz.Encode(bytes.NewBuffer(blob), inObj); err != nil {
+				b.Fatalf("failed to re-encode SSZ stream: %v", err)
+			}
+		}
+	})
+	b.Run(fmt.Sprintf("%s/%s/%s/size", fork, kind, test), func(b *testing.B) {
+		b.ReportAllocs()
+
+		for i := 0; i < b.N; i++ {
+			inObj.SizeSSZ()
+		}
+	})
+}
