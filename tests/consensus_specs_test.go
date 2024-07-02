@@ -32,7 +32,14 @@ var (
 // runs the encoding/decoding/hashing round.
 func TestConsensusSpecs(t *testing.T) {
 	// Run the single-version type tests
+	testConsensusSpecType[*types.AttestationData](t, "", "AttestationData")
+	testConsensusSpecType[*types.AttesterSlashing](t, "", "AttesterSlashing")
+	testConsensusSpecType[*types.BeaconBlockHeader](t, "", "BeaconBlockHeader")
+	testConsensusSpecType[*types.Checkpoint](t, "", "Checkpoint")
 	testConsensusSpecType[*types.HistoricalBatch](t, "", "HistoricalBatch")
+	testConsensusSpecType[*types.IndexedAttestation](t, "", "IndexedAttestation")
+	testConsensusSpecType[*types.ProposerSlashing](t, "", "ProposerSlashing")
+	testConsensusSpecType[*types.SignedBeaconBlockHeader](t, "", "SignedBeaconBlockHeader")
 	testConsensusSpecType[*types.Withdrawal](t, "", "Withdrawal")
 
 	// Run the fork-specific type tests

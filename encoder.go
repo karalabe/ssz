@@ -7,10 +7,19 @@ package ssz
 import (
 	"encoding/binary"
 	"io"
+	"sync"
 	"unsafe"
 
 	"github.com/holiman/uint256"
 )
+
+// subEncoderPool is a pool of blank SSZ codecs to use when an encoder needs to
+// descend into an object via a codec interface.
+//
+// Note, this is different from encoderPool, do not mix and match!
+var subEncoderPool = sync.Pool{
+	New: func() any { return new(Codec) },
+}
 
 // Encoder is a wrapper around an io.Writer to implement dense SSZ encoding. It
 // has the following behaviors:
@@ -69,11 +78,11 @@ func (enc *Encoder) dynamicDone() {
 }
 
 // EncodeUint64 serializes a uint64 as little-endian.
-func EncodeUint64(enc *Encoder, n uint64) {
+func EncodeUint64[T ~uint64](enc *Encoder, n T) {
 	if enc.err != nil {
 		return
 	}
-	binary.LittleEndian.PutUint64(enc.buf[:8], n)
+	binary.LittleEndian.PutUint64(enc.buf[:8], (uint64)(n))
 	_, enc.err = enc.out.Write(enc.buf[:8])
 }
 
@@ -115,6 +124,67 @@ func EncodeDynamicBytes(enc *Encoder, blob []byte) {
 	enc.offset += uint32(len(blob))
 
 	enc.pend = append(enc.pend, func() { EncodeStaticBytes(enc, blob) })
+}
+
+// EncodeStaticObject serializes the given static object into the ssz stream.
+func EncodeStaticObject(enc *Encoder, obj Object) {
+	if enc.err != nil {
+		return
+	}
+	codec := subEncoderPool.Get().(*Codec)
+	defer subEncoderPool.Put(codec)
+
+	codec.enc = enc
+	obj.DefineSSZ(codec)
+}
+
+// EncodeDynamicObject serializes the given dynamic object into the ssz stream.
+func EncodeDynamicObject(enc *Encoder, obj Object) {
+	if enc.err != nil {
+		return
+	}
+	binary.LittleEndian.PutUint32(enc.buf[:4], enc.offset)
+	_, enc.err = enc.out.Write(enc.buf[:4])
+	enc.offset += obj.SizeSSZ()
+
+	enc.pend = append(enc.pend, func() { encodeDynamicObject(enc, obj) })
+}
+
+// encodeDynamicObject serializes the given dynamic object into the ssz stream.
+func encodeDynamicObject(enc *Encoder, obj Object) {
+	if enc.err != nil {
+		return
+	}
+	codec := subEncoderPool.Get().(*Codec)
+	defer subEncoderPool.Put(codec)
+
+	codec.enc = enc
+	obj.DefineSSZ(codec)
+}
+
+// EncodeSliceOfUint64s serializes a dynamic slice of uint64s into the ssz stream
+func EncodeSliceOfUint64s[T ~uint64](enc *Encoder, ns []T) {
+	if enc.err != nil {
+		return
+	}
+	binary.LittleEndian.PutUint32(enc.buf[:4], enc.offset)
+	_, enc.err = enc.out.Write(enc.buf[:4])
+
+	if items := len(ns); items > 0 {
+		enc.offset += uint32(items * 8)
+	}
+	enc.pend = append(enc.pend, func() { encodeSliceOfUint64s(enc, ns) })
+}
+
+// encodeSliceOfUint64s serializes a slice of static objects by simply iterating
+// the slice and serializing each individually.
+func encodeSliceOfUint64s[T ~uint64](enc *Encoder, ns []T) {
+	if enc.err != nil {
+		return
+	}
+	for _, n := range ns {
+		EncodeUint64(enc, n)
+	}
 }
 
 // EncodeArrayOfStaticBytes serializes a static number of static bytes.
@@ -196,7 +266,7 @@ func encodeSliceOfDynamicBytes(enc *Encoder, blobs [][]byte) {
 // Later when all the static fields have been written out, the dynamic content
 // will also be flushed. Make sure you called Encoder.OffsetDynamics and defer-ed the
 // return lambda.
-func EncodeSliceOfStaticObjects[T newableObject[U], U any](codec *Codec, enc *Encoder, objects []T) {
+func EncodeSliceOfStaticObjects[T newableObject[U], U any](enc *Encoder, objects []T) {
 	if enc.err != nil {
 		return
 	}
@@ -206,15 +276,19 @@ func EncodeSliceOfStaticObjects[T newableObject[U], U any](codec *Codec, enc *En
 	if items := len(objects); items > 0 {
 		enc.offset += uint32(items) * objects[0].SizeSSZ()
 	}
-	enc.pend = append(enc.pend, func() { encodeSliceOfStaticObjects(codec, enc, objects) })
+	enc.pend = append(enc.pend, func() { encodeSliceOfStaticObjects(enc, objects) })
 }
 
 // encodeSliceOfStaticObjects serializes a slice of static objects by simply iterating
 // the slice and serializing each individually.
-func encodeSliceOfStaticObjects[T Object](codec *Codec, enc *Encoder, objects []T) {
+func encodeSliceOfStaticObjects[T Object](enc *Encoder, objects []T) {
 	if enc.err != nil {
 		return
 	}
+	codec := subEncoderPool.Get().(*Codec)
+	defer subEncoderPool.Put(codec)
+
+	codec.enc = enc
 	for _, obj := range objects {
 		obj.DefineSSZ(codec)
 	}

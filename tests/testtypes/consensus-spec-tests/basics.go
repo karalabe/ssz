@@ -4,6 +4,9 @@
 
 package consensus_spec_tests
 
+// Slot is an alias of uint64
+type Slot uint64
+
 // Hash is a standalone mock of go-ethereum;s common.Hash
 type Hash [32]byte
 

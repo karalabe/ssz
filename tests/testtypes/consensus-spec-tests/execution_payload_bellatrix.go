@@ -27,13 +27,9 @@ type ExecutionPayloadBellatrix struct {
 }
 
 func (e *ExecutionPayloadBellatrix) SizeSSZ() uint32 {
-	// Start out with the static size
 	size := uint32(508)
-
-	// Append all the dynamic sizes
 	size += ssz.SizeDynamicBytes(e.ExtraData)           // Field (10) - ExtraData    - max 32 bytes (not enforced)
 	size += ssz.SizeSliceOfDynamicBytes(e.Transactions) // Field (13) - Transactions - max 1048576 items, 1073741824 bytes each (not enforced)
-
 	return size
 }
 func (e *ExecutionPayloadBellatrix) DefineSSZ(codec *ssz.Codec) {

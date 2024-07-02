@@ -8,10 +8,19 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"sync"
 	"unsafe"
 
 	"github.com/holiman/uint256"
 )
+
+// subDecoderPool is a pool of blank SSZ codecs to use when a decoder needs to
+// descend into an object via a codec interface.
+//
+// Note, this is different from decoderPool, do not mix and match!
+var subDecoderPool = sync.Pool{
+	New: func() any { return new(Codec) },
+}
 
 // Decoder is a wrapper around an io.Reader to implement dense SSZ decoding. It
 // has the following behaviors:
@@ -70,12 +79,12 @@ func (dec *Decoder) dynamicDone() {
 }
 
 // DecodeUint64 parses a uint64 as little-endian.
-func DecodeUint64(dec *Decoder, n *uint64) {
+func DecodeUint64[T ~uint64](dec *Decoder, n *T) {
 	if dec.err != nil {
 		return
 	}
 	_, dec.err = io.ReadFull(dec.in, dec.buf[:8])
-	*n = binary.LittleEndian.Uint64(dec.buf[:8])
+	*n = T(binary.LittleEndian.Uint64(dec.buf[:8]))
 }
 
 // DecodeUint256 parses a uint256 as little-endian.
@@ -133,6 +142,106 @@ func decodeDynamicBytes(dec *Decoder, blob *[]byte, maxSize uint32) {
 		*blob = (*blob)[:size]
 	}
 	DecodeStaticBytes(dec, *blob)
+}
+
+// DecodeStaticObject serializes the given static object into the ssz stream.
+func DecodeStaticObject[T newableObject[U], U any](dec *Decoder, obj *T) {
+	if dec.err != nil {
+		return
+	}
+	codec := subDecoderPool.Get().(*Codec)
+	defer subDecoderPool.Put(codec)
+
+	codec.dec = dec
+	if *obj == nil {
+		*obj = T(new(U))
+	}
+	(*obj).DefineSSZ(codec)
+}
+
+// DecodeDynamicObject parses the current offset as a uint32 little-endian,
+// validates it against expected and previous offsets and stores it.
+//
+// Later when all the static fields have been parsed out, the dynamic content
+// will also be read. Make sure you called Decoder.OffsetDynamics and defer-ed
+// the return lambda.
+func DecodeDynamicObject[T newableObject[U], U any](dec *Decoder, obj *T) {
+	if dec.err != nil {
+		return
+	}
+	if dec.err = dec.decodeOffset(false); dec.err != nil {
+		return
+	}
+	dec.pend = append(dec.pend, func() { decodeDynamicObject(dec, obj) })
+}
+
+// decodeDynamicObject parses a dynamic blob based on the offsets tracked by the
+// decoder.
+func decodeDynamicObject[T newableObject[U], U any](dec *Decoder, obj *T) {
+	if dec.err != nil {
+		return
+	}
+	// Compute the length of the object based on the seen offsets
+	size := dec.retrieveSize()
+
+	// Descend into a new dynamic list type to track a new sub-length and work
+	// with a fresh set of dynamic offsets
+	dec.descendIntoDynamic(size)
+	defer dec.ascendFromDynamic()
+
+	codec := subDecoderPool.Get().(*Codec)
+	defer subDecoderPool.Put(codec)
+
+	codec.dec = dec
+	if *obj == nil {
+		*obj = T(new(U))
+	}
+	(*obj).DefineSSZ(codec)
+}
+
+// DecodeSliceOfUint64s serializes the current offset as a uint32 little-endian,
+// and shifts if by the cumulative length of the static binary slices needed to
+// encode them.
+func DecodeSliceOfUint64s[T ~uint64](dec *Decoder, ns *[]T, maxItems uint32) {
+	if dec.err != nil {
+		return
+	}
+	if dec.err = dec.decodeOffset(false); dec.err != nil {
+		return
+	}
+	dec.pend = append(dec.pend, func() { decodeSliceOfUint64s(dec, ns, maxItems) })
+}
+
+// decodeSliceOfUint64s serializes a slice of static objects by simply iterating
+// the slice and serializing each individually.
+func decodeSliceOfUint64s[T ~uint64](dec *Decoder, ns *[]T, maxItems uint32) {
+	if dec.err != nil {
+		return
+	}
+	// Compute the length of the encoded binaries based on the seen offsets
+	size := dec.retrieveSize()
+	if size == 0 {
+		return // empty slice of objects
+	}
+	// Compute the number of items based on the item size of the type
+	if size%8 != 0 {
+		dec.err = fmt.Errorf("%w: length %d, item size %d", ErrDynamicStaticsIndivisible, size, 8)
+		return
+	}
+	itemCount := size / 8
+	if itemCount > maxItems {
+		dec.err = fmt.Errorf("%w: decoded %d, max %d", ErrMaxItemsExceeded, itemCount, maxItems)
+		return
+	}
+	// Expand the slice if needed and decode the objects
+	if uint32(cap(*ns)) < itemCount {
+		*ns = make([]T, itemCount)
+	} else {
+		*ns = (*ns)[:itemCount]
+	}
+	for i := uint32(0); i < itemCount; i++ {
+		DecodeUint64(dec, &(*ns)[i])
+	}
 }
 
 // DecodeArrayOfStaticBytes parses a static array of static binary blobs.
@@ -274,19 +383,19 @@ func decodeSliceOfDynamicBytes(dec *Decoder, blobs *[][]byte, maxItems uint32, m
 // Later when all the static fields have been parsed out, the dynamic content
 // will also be read. Make sure you called Decoder.OffsetDynamics and defer-ed the
 // return lambda.
-func DecodeSliceOfStaticObjects[T newableObject[U], U any](codec *Codec, dec *Decoder, objects *[]T, maxItems uint32) {
+func DecodeSliceOfStaticObjects[T newableObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}
 	if dec.err = dec.decodeOffset(false); dec.err != nil {
 		return
 	}
-	dec.pend = append(dec.pend, func() { decodeSliceOfStaticObjects(codec, dec, objects, maxItems) })
+	dec.pend = append(dec.pend, func() { decodeSliceOfStaticObjects(dec, objects, maxItems) })
 }
 
 // decodeSliceOfStaticObjects parses a dynamic set of static objects based on the offsets
 // trakced by the decoder.
-func decodeSliceOfStaticObjects[T newableObject[U], U any](codec *Codec, dec *Decoder, objects *[]T, maxItems uint32) {
+func decodeSliceOfStaticObjects[T newableObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}
@@ -314,6 +423,10 @@ func decodeSliceOfStaticObjects[T newableObject[U], U any](codec *Codec, dec *De
 	} else {
 		*objects = (*objects)[:itemCount]
 	}
+	codec := subDecoderPool.Get().(*Codec)
+	defer subDecoderPool.Put(codec)
+
+	codec.dec = dec
 	for i := uint32(0); i < itemCount; i++ {
 		if (*objects)[i] == nil {
 			(*objects)[i] = new(U)

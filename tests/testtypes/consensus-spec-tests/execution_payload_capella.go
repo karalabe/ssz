@@ -28,14 +28,10 @@ type ExecutionPayloadCapella struct {
 }
 
 func (e *ExecutionPayloadCapella) SizeSSZ() uint32 {
-	// Start out with the static size
 	size := uint32(512)
-
-	// Append all the dynamic sizes
 	size += ssz.SizeDynamicBytes(e.ExtraData)           // Field (10) - ExtraData    - max 32 bytes (not enforced)
 	size += ssz.SizeSliceOfDynamicBytes(e.Transactions) // Field (13) - Transactions - max 1048576 items, 1073741824 bytes each (not enforced)
 	size += ssz.SizeSliceOfStaticObjects(e.Withdrawals) // Field (14) - Withdrawals  - max 16 items, 44 bytes each (not enforced)
-
 	return size
 }
 func (e *ExecutionPayloadCapella) DefineSSZ(codec *ssz.Codec) {
