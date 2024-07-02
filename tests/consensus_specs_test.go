@@ -31,20 +31,25 @@ var (
 // TestConsensusSpecs iterates over all the (supported) consensus SSZ types and
 // runs the encoding/decoding/hashing round.
 func TestConsensusSpecs(t *testing.T) {
-	// Run the single-version type tests
-	testConsensusSpecType[*types.AttestationData](t, "", "AttestationData")
-	testConsensusSpecType[*types.AttesterSlashing](t, "", "AttesterSlashing")
-	testConsensusSpecType[*types.BeaconBlockHeader](t, "", "BeaconBlockHeader")
-	testConsensusSpecType[*types.Checkpoint](t, "", "Checkpoint")
-	testConsensusSpecType[*types.HistoricalBatch](t, "", "HistoricalBatch")
-	testConsensusSpecType[*types.IndexedAttestation](t, "", "IndexedAttestation")
-	testConsensusSpecType[*types.ProposerSlashing](t, "", "ProposerSlashing")
-	testConsensusSpecType[*types.SignedBeaconBlockHeader](t, "", "SignedBeaconBlockHeader")
-	testConsensusSpecType[*types.Withdrawal](t, "", "Withdrawal")
-
-	// Run the fork-specific type tests
-	testConsensusSpecType[*types.ExecutionPayloadBellatrix](t, "bellatrix", "ExecutionPayload")
+	testConsensusSpecType[*types.Attestation](t, "Attestation", "altair", "bellatrix", "capella", "deneb", "eip7594", "phase0", "whisk")
+	testConsensusSpecType[*types.AttestationData](t, "AttestationData")
+	testConsensusSpecType[*types.AttesterSlashing](t, "AttesterSlashing")
+	testConsensusSpecType[*types.BeaconBlock](t, "BeaconBlock", "phase0")
+	testConsensusSpecType[*types.BeaconBlockBody](t, "BeaconBlockBody", "phase0")
+	testConsensusSpecType[*types.BeaconBlockHeader](t, "BeaconBlockHeader")
+	testConsensusSpecType[*types.Checkpoint](t, "Checkpoint")
+	testConsensusSpecType[*types.Deposit](t, "Deposit")
+	testConsensusSpecType[*types.DepositData](t, "DepositData")
+	testConsensusSpecType[*types.Eth1Data](t, "Eth1Data")
+	testConsensusSpecType[*types.ExecutionPayload](t, "bellatrix", "ExecutionPayload")
 	testConsensusSpecType[*types.ExecutionPayloadCapella](t, "capella", "ExecutionPayload")
+	testConsensusSpecType[*types.HistoricalBatch](t, "HistoricalBatch")
+	testConsensusSpecType[*types.IndexedAttestation](t, "IndexedAttestation")
+	testConsensusSpecType[*types.ProposerSlashing](t, "ProposerSlashing")
+	testConsensusSpecType[*types.SignedBeaconBlockHeader](t, "SignedBeaconBlockHeader")
+	testConsensusSpecType[*types.SignedVoluntaryExit](t, "SignedVoluntaryExit")
+	testConsensusSpecType[*types.VoluntaryExit](t, "VoluntaryExit")
+	testConsensusSpecType[*types.Withdrawal](t, "Withdrawal")
 
 	// Iterate over all the untouched tests and report them
 	forks, err := os.ReadDir(consensusSpecTestsRoot)
@@ -76,9 +81,9 @@ type newableObject[U any] interface {
 	*U
 }
 
-func testConsensusSpecType[T newableObject[U], U any](t *testing.T, fork, kind string) {
+func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string, forks ...string) {
 	// If no fork was specified, iterate over all of them and use the same type
-	if fork == "" {
+	if len(forks) == 0 {
 		forks, err := os.ReadDir(consensusSpecTestsRoot)
 		if err != nil {
 			t.Errorf("failed to walk spec collection %v: %v", consensusSpecTestsRoot, err)
@@ -86,90 +91,100 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, fork, kind s
 		}
 		for _, fork := range forks {
 			if _, err := os.Stat(filepath.Join(consensusSpecTestsRoot, fork.Name(), "ssz_static", kind, "ssz_random")); err == nil {
-				testConsensusSpecType[T, U](t, fork.Name(), kind)
+				testConsensusSpecType[T, U](t, kind, fork.Name())
 			}
 		}
 		return
 	}
 	// Some specific fork was requested, look that up explicitly
-	path := filepath.Join(consensusSpecTestsRoot, fork, "ssz_static", kind, "ssz_random")
+	for _, fork := range forks {
+		path := filepath.Join(consensusSpecTestsRoot, fork, "ssz_static", kind, "ssz_random")
 
-	tests, err := os.ReadDir(path)
-	if err != nil {
-		t.Errorf("failed to walk test collection %v: %v", path, err)
-		return
-	}
-	// Track this test suite done, whether succeeds of fails is irrelevant
-	consensusSpecTestsLock.Lock()
-	if _, ok := consensusSpecTestsDone[fork]; !ok {
-		consensusSpecTestsDone[fork] = make(map[string]struct{})
-	}
-	consensusSpecTestsDone[fork][kind] = struct{}{}
-	consensusSpecTestsLock.Unlock()
+		tests, err := os.ReadDir(path)
+		if err != nil {
+			t.Errorf("failed to walk test collection %v: %v", path, err)
+			return
+		}
+		// Track this test suite done, whether succeeds of fails is irrelevant
+		consensusSpecTestsLock.Lock()
+		if _, ok := consensusSpecTestsDone[fork]; !ok {
+			consensusSpecTestsDone[fork] = make(map[string]struct{})
+		}
+		consensusSpecTestsDone[fork][kind] = struct{}{}
+		consensusSpecTestsLock.Unlock()
 
-	// Run all the subtests found in the folder
-	for _, test := range tests {
-		t.Run(fmt.Sprintf("%s/%s/%s", fork, kind, test.Name()), func(t *testing.T) {
-			// Parse the input SSZ data and the expected root for the test
-			inSnappy, err := os.ReadFile(filepath.Join(path, test.Name(), "serialized.ssz_snappy"))
-			if err != nil {
-				t.Fatalf("failed to load snapy ssz binary: %v", err)
-			}
-			inSSZ, err := snappy.Decode(nil, inSnappy)
-			if err != nil {
-				t.Fatalf("failed to parse snappy ssz binary: %v", err)
-			}
-			inYAML, err := os.ReadFile(filepath.Join(path, test.Name(), "roots.yaml"))
-			if err != nil {
-				t.Fatalf("failed to load yaml root: %v", err)
-			}
-			inRoot := struct {
-				Root string `yaml:"root"`
-			}{}
-			if err = yaml.Unmarshal(inYAML, &inRoot); err != nil {
-				t.Fatalf("failed to parse yaml root: %v", err)
-			}
-			// Do a decode/encode round. Would be nicer to parse out the value
-			// from yaml and check that too, but hex-in-yaml makes everything
-			// beyond annoying. C'est la vie.
-			obj := T(new(U))
-			if err := ssz.Decode(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err != nil {
-				t.Fatalf("failed to decode SSZ stream: %v", err)
-			}
-			blob := new(bytes.Buffer)
-			if err := ssz.Encode(blob, obj); err != nil {
-				t.Fatalf("failed to re-encode SSZ stream: %v", err)
-			}
-			if !bytes.Equal(blob.Bytes(), inSSZ) {
-				t.Fatalf("re-encoded stream mismatch: have %x, want %x", blob, inSSZ)
-			}
-			// Encoder/decoder seems to work, check if the size reported by the
-			// encoded object actually matches the encoded stream
-			if size := obj.SizeSSZ(); size != uint32(len(inSSZ)) {
-				t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
-			}
-			// TODO(karalabe): check the root hash of the object
-		})
+		// Run all the subtests found in the folder
+		for _, test := range tests {
+			t.Run(fmt.Sprintf("%s/%s/%s", fork, kind, test.Name()), func(t *testing.T) {
+				// Parse the input SSZ data and the expected root for the test
+				inSnappy, err := os.ReadFile(filepath.Join(path, test.Name(), "serialized.ssz_snappy"))
+				if err != nil {
+					t.Fatalf("failed to load snapy ssz binary: %v", err)
+				}
+				inSSZ, err := snappy.Decode(nil, inSnappy)
+				if err != nil {
+					t.Fatalf("failed to parse snappy ssz binary: %v", err)
+				}
+				inYAML, err := os.ReadFile(filepath.Join(path, test.Name(), "roots.yaml"))
+				if err != nil {
+					t.Fatalf("failed to load yaml root: %v", err)
+				}
+				inRoot := struct {
+					Root string `yaml:"root"`
+				}{}
+				if err = yaml.Unmarshal(inYAML, &inRoot); err != nil {
+					t.Fatalf("failed to parse yaml root: %v", err)
+				}
+				// Do a decode/encode round. Would be nicer to parse out the value
+				// from yaml and check that too, but hex-in-yaml makes everything
+				// beyond annoying. C'est la vie.
+				obj := T(new(U))
+				if err := ssz.Decode(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err != nil {
+					t.Fatalf("failed to decode SSZ stream: %v", err)
+				}
+				blob := new(bytes.Buffer)
+				if err := ssz.Encode(blob, obj); err != nil {
+					t.Fatalf("failed to re-encode SSZ stream: %v", err)
+				}
+				if !bytes.Equal(blob.Bytes(), inSSZ) {
+					t.Fatalf("re-encoded stream mismatch: have %x, want %x", blob, inSSZ)
+				}
+				// Encoder/decoder seems to work, check if the size reported by the
+				// encoded object actually matches the encoded stream
+				if size := obj.SizeSSZ(); size != uint32(len(inSSZ)) {
+					t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
+				}
+				// TODO(karalabe): check the root hash of the object
+			})
+		}
 	}
 }
 
 // TestConsensusSpecs iterates over all the (supported) consensus SSZ types and
 // runs the encoding/decoding/hashing benchmark round.
 func BenchmarkConsensusSpecs(b *testing.B) {
-	benchmarkConsensusSpecType[*types.AttestationData](b, "deneb", "AttestationData", "case_4")
-	benchmarkConsensusSpecType[*types.AttesterSlashing](b, "deneb", "AttesterSlashing", "case_4")
-	benchmarkConsensusSpecType[*types.BeaconBlockHeader](b, "deneb", "BeaconBlockHeader", "case_4")
-	benchmarkConsensusSpecType[*types.Checkpoint](b, "deneb", "Checkpoint", "case_4")
-	benchmarkConsensusSpecType[*types.ExecutionPayloadCapella](b, "capella", "ExecutionPayload", "case_4")
-	benchmarkConsensusSpecType[*types.HistoricalBatch](b, "deneb", "HistoricalBatch", "case_4")
-	benchmarkConsensusSpecType[*types.IndexedAttestation](b, "deneb", "IndexedAttestation", "case_4")
-	benchmarkConsensusSpecType[*types.ProposerSlashing](b, "deneb", "ProposerSlashing", "case_4")
-	benchmarkConsensusSpecType[*types.SignedBeaconBlockHeader](b, "deneb", "SignedBeaconBlockHeader", "case_4")
-	benchmarkConsensusSpecType[*types.Withdrawal](b, "deneb", "Withdrawal", "case_4")
+	benchmarkConsensusSpecType[*types.Attestation](b, "deneb", "Attestation")
+	benchmarkConsensusSpecType[*types.AttestationData](b, "deneb", "AttestationData")
+	benchmarkConsensusSpecType[*types.AttesterSlashing](b, "deneb", "AttesterSlashing")
+	benchmarkConsensusSpecType[*types.BeaconBlock](b, "phase0", "BeaconBlock")
+	benchmarkConsensusSpecType[*types.BeaconBlockBody](b, "phase0", "BeaconBlockBody")
+	benchmarkConsensusSpecType[*types.BeaconBlockHeader](b, "deneb", "BeaconBlockHeader")
+	benchmarkConsensusSpecType[*types.Checkpoint](b, "deneb", "Checkpoint")
+	benchmarkConsensusSpecType[*types.Deposit](b, "deneb", "Deposit")
+	benchmarkConsensusSpecType[*types.DepositData](b, "deneb", "DepositData")
+	benchmarkConsensusSpecType[*types.Eth1Data](b, "deneb", "Eth1Data")
+	benchmarkConsensusSpecType[*types.ExecutionPayloadCapella](b, "capella", "ExecutionPayload")
+	benchmarkConsensusSpecType[*types.HistoricalBatch](b, "deneb", "HistoricalBatch")
+	benchmarkConsensusSpecType[*types.IndexedAttestation](b, "deneb", "IndexedAttestation")
+	benchmarkConsensusSpecType[*types.ProposerSlashing](b, "deneb", "ProposerSlashing")
+	benchmarkConsensusSpecType[*types.SignedBeaconBlockHeader](b, "deneb", "SignedBeaconBlockHeader")
+	benchmarkConsensusSpecType[*types.SignedVoluntaryExit](b, "deneb", "SignedVoluntaryExit")
+	benchmarkConsensusSpecType[*types.VoluntaryExit](b, "deneb", "VoluntaryExit")
+	benchmarkConsensusSpecType[*types.Withdrawal](b, "deneb", "Withdrawal")
 }
 
-func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, kind, test string) {
-	path := filepath.Join(consensusSpecTestsRoot, fork, "ssz_static", kind, "ssz_random", test)
+func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, kind string) {
+	path := filepath.Join(consensusSpecTestsRoot, fork, "ssz_static", kind, "ssz_random", "case_4")
 
 	// Parse the input SSZ data for this specific dataset and decode it
 	inSnappy, err := os.ReadFile(filepath.Join(path, "serialized.ssz_snappy"))
@@ -205,13 +220,6 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 			if err := ssz.Decode(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err != nil {
 				b.Fatalf("failed to decode SSZ stream: %v", err)
 			}
-		}
-	})
-	b.Run(fmt.Sprintf("%s/size", kind), func(b *testing.B) {
-		b.ReportAllocs()
-
-		for i := 0; i < b.N; i++ {
-			inObj.SizeSSZ()
 		}
 	})
 }

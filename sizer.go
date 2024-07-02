@@ -40,3 +40,13 @@ func SizeSliceOfStaticObjects[T Object](objects []T) uint32 {
 	}
 	return uint32(len(objects)) * objects[0].SizeSSZ()
 }
+
+// SizeSliceOfDynamicObjects returns the serialized size of the dynamic part of
+// a dynamic list of dynamic objects.
+func SizeSliceOfDynamicObjects[T Object](objects []T) uint32 {
+	var size uint32
+	for _, obj := range objects {
+		size += 4 + obj.SizeSSZ() // 4-byte offset + dynamic data later
+	}
+	return size
+}

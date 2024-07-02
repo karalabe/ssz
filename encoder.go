@@ -241,6 +241,7 @@ func EncodeSliceOfDynamicBytes(enc *Encoder, blobs [][]byte) {
 	}
 	binary.LittleEndian.PutUint32(enc.buf[:4], enc.offset)
 	_, enc.err = enc.out.Write(enc.buf[:4])
+
 	for _, blob := range blobs {
 		enc.offset += uint32(4 + len(blob))
 	}
@@ -266,7 +267,7 @@ func encodeSliceOfDynamicBytes(enc *Encoder, blobs [][]byte) {
 // Later when all the static fields have been written out, the dynamic content
 // will also be flushed. Make sure you called Encoder.OffsetDynamics and defer-ed the
 // return lambda.
-func EncodeSliceOfStaticObjects[T newableObject[U], U any](enc *Encoder, objects []T) {
+func EncodeSliceOfStaticObjects[T Object](enc *Encoder, objects []T) {
 	if enc.err != nil {
 		return
 	}
@@ -291,5 +292,38 @@ func encodeSliceOfStaticObjects[T Object](enc *Encoder, objects []T) {
 	codec.enc = enc
 	for _, obj := range objects {
 		obj.DefineSSZ(codec)
+	}
+}
+
+// EncodeSliceOfDynamicObjects serializes the current offset as a uint32 little-
+// endian, and shifts if by the cumulative length of the binary slices and the
+// offsets needed to encode them.
+//
+// Later when all the static fields have been written out, the dynamic content
+// will also be flushed. Make sure you called Encoder.OffsetDynamics and defer-ed
+// the return lambda.
+func EncodeSliceOfDynamicObjects[T Object](enc *Encoder, objects []T) {
+	if enc.err != nil {
+		return
+	}
+	binary.LittleEndian.PutUint32(enc.buf[:4], enc.offset)
+	_, enc.err = enc.out.Write(enc.buf[:4])
+
+	for _, obj := range objects {
+		enc.offset += 4 + obj.SizeSSZ()
+	}
+	enc.pend = append(enc.pend, func() { encodeSliceOfDynamicObjects(enc, objects) })
+}
+
+// encodeSliceOfDynamicObjects serializes a slice of dynamic objects by first
+// writing all the individual offsets, and then writing the dynamic data itself.
+func encodeSliceOfDynamicObjects[T Object](enc *Encoder, objects []T) {
+	if enc.err != nil {
+		return
+	}
+	defer enc.OffsetDynamics(4 * len(objects))()
+
+	for _, obj := range objects {
+		EncodeDynamicObject(enc, obj)
 	}
 }

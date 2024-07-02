@@ -324,7 +324,7 @@ func DecodeSliceOfDynamicBytes(dec *Decoder, blobs *[][]byte, maxItems uint32, m
 	dec.pend = append(dec.pend, func() { decodeSliceOfDynamicBytes(dec, blobs, maxItems, maxSize) })
 }
 
-// decodeDynamicBytes parses a dynamic set of dynamic blobs based on the offsets
+// decodeSliceOfDynamicBytes parses a dynamic set of dynamic blobs based on the offsets
 // tracked by the decoder.
 func decodeSliceOfDynamicBytes(dec *Decoder, blobs *[][]byte, maxItems uint32, maxSize uint32) {
 	if dec.err != nil {
@@ -432,6 +432,75 @@ func decodeSliceOfStaticObjects[T newableObject[U], U any](dec *Decoder, objects
 			(*objects)[i] = new(U)
 		}
 		(*objects)[i].DefineSSZ(codec)
+	}
+}
+
+// DecodeSliceOfDynamicObjects parses the current offset as a uint32 little-endian,
+// validates it against expected and previous offsets and stores it.
+//
+// Later when all the static fields have been parsed out, the dynamic content will
+// also be read. Make sure you called Decoder.OffsetDynamics and defer-ed the return
+// lambda.
+func DecodeSliceOfDynamicObjects[T newableObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
+	if dec.err != nil {
+		return
+	}
+	if dec.err = dec.decodeOffset(false); dec.err != nil {
+		return
+	}
+	dec.pend = append(dec.pend, func() { decodeSliceOfDynamicObjects(dec, objects, maxItems) })
+}
+
+// decodeSliceOfDynamicObjects parses a dynamic set of dynamic objects based on
+// the offsets tracked by the decoder.
+func decodeSliceOfDynamicObjects[T newableObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
+	if dec.err != nil {
+		return
+	}
+	// Compute the length of the blob slice based on the seen offsets and sanity
+	// check for empty slice or possibly bad data (too short to encode anything)
+	size := dec.retrieveSize()
+	if size == 0 {
+		return // empty slice of blobs
+	}
+	if size < 4 {
+		dec.err = fmt.Errorf("%w: %d bytes available", ErrShortCounterOffset, size)
+		return
+	}
+	// Descend into a new dynamic list type to track a new sub-length and work
+	// with a fresh set of dynamic offsets
+	dec.descendIntoDynamic(size)
+	defer dec.ascendFromDynamic()
+
+	// Since we're decoding a dynamic slice of dynamic objects (blobs here), the
+	// first offset will also act as a counter at to how many items there are in
+	// the list (x4 bytes for offsets being uint32).
+	if err := dec.decodeOffset(true); err != nil {
+		dec.err = err
+		return
+	}
+	if dec.offset%4 != 0 {
+		dec.err = fmt.Errorf("%w: %d bytes", ErrBadCounterOffset, dec.offsets)
+		return
+	}
+	items := dec.offset >> 2
+	if items > maxItems {
+		dec.err = fmt.Errorf("%w: decoded %d, max %d", ErrMaxItemsExceeded, items, maxItems)
+		return
+	}
+	// Expand the blob slice if needed
+	if uint32(cap(*objects)) < items {
+		*objects = make([]T, items)
+	} else {
+		*objects = (*objects)[:items]
+	}
+	// We have consumed the first offset out of bounds, so schedule a dynamic
+	// retrieval explicitly for it. For all the rest, consume as individual
+	// blobs.
+	dec.pend = append(dec.pend, func() { decodeDynamicObject(dec, &(*objects)[0]) })
+
+	for i := uint32(1); i < items; i++ {
+		DecodeDynamicObject(dec, &(*objects)[i])
 	}
 }
 

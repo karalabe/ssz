@@ -9,7 +9,7 @@ import (
 	"github.com/karalabe/ssz"
 )
 
-type ExecutionPayloadBellatrix struct {
+type ExecutionPayload struct {
 	ParentHash    Hash
 	FeeRecipient  Address
 	StateRoot     Hash
@@ -26,13 +26,13 @@ type ExecutionPayloadBellatrix struct {
 	Transactions  [][]byte
 }
 
-func (e *ExecutionPayloadBellatrix) SizeSSZ() uint32 {
+func (e *ExecutionPayload) SizeSSZ() uint32 {
 	size := uint32(508)
 	size += ssz.SizeDynamicBytes(e.ExtraData)           // Field (10) - ExtraData    - max 32 bytes (not enforced)
 	size += ssz.SizeSliceOfDynamicBytes(e.Transactions) // Field (13) - Transactions - max 1048576 items, 1073741824 bytes each (not enforced)
 	return size
 }
-func (e *ExecutionPayloadBellatrix) DefineSSZ(codec *ssz.Codec) {
+func (e *ExecutionPayload) DefineSSZ(codec *ssz.Codec) {
 	defer codec.OffsetDynamics(508)()
 
 	ssz.DefineStaticBytes(codec, e.ParentHash[:])                                   // Field  ( 0) - ParentHash    -  32 bytes

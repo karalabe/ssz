@@ -148,3 +148,13 @@ func DefineSliceOfStaticObjects[T newableObject[U], U any](c *Codec, objects *[]
 	}
 	DecodeSliceOfStaticObjects(c.dec, objects, maxItems)
 }
+
+// DefineSliceOfDynamicObjects defines the next field as a dynamic slice of dynamic
+// binary blobs.
+func DefineSliceOfDynamicObjects[T newableObject[U], U any](c *Codec, objects *[]T, maxItems uint32) {
+	if c.enc != nil {
+		EncodeSliceOfDynamicObjects(c.enc, *objects)
+		return
+	}
+	DecodeSliceOfDynamicObjects(c.dec, objects, maxItems)
+}
