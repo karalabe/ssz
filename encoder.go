@@ -54,20 +54,18 @@ type Encoder struct {
 
 // OffsetDynamics marks the item being encoded as a dynamic type, setting the starting
 // offset for the dynamic fields.
-func (enc *Encoder) OffsetDynamics(offset int) func() {
+func (enc *Encoder) OffsetDynamics(offset int) {
 	enc.dyn = true
 
 	enc.offsets = append(enc.offsets, enc.offset)
 	enc.offset = uint32(offset)
 	enc.pends = append(enc.pends, enc.pend)
 	enc.pend = nil
-
-	return enc.dynamicDone
 }
 
-// dynamicDone marks the end of the dyamic fields, encoding anything queued up and
+// FinishDynamics marks the end of the dynamic fields, encoding anything queued up and
 // restoring any previous states for outer call continuation.
-func (enc *Encoder) dynamicDone() {
+func (enc *Encoder) FinishDynamics() {
 	for _, pend := range enc.pend {
 		pend()
 	}
@@ -238,7 +236,8 @@ func encodeSliceOfDynamicBytes(enc *Encoder, blobs [][]byte) {
 	if enc.err != nil {
 		return
 	}
-	defer enc.OffsetDynamics(4 * len(blobs))()
+	enc.OffsetDynamics(4 * len(blobs))
+	defer enc.FinishDynamics()
 
 	for _, blob := range blobs {
 		EncodeDynamicBytes(enc, blob)
@@ -292,7 +291,8 @@ func encodeSliceOfDynamicObjects[T Object](enc *Encoder, objects []T) {
 	if enc.err != nil {
 		return
 	}
-	defer enc.OffsetDynamics(4 * len(objects))()
+	enc.OffsetDynamics(4 * len(objects))
+	defer enc.FinishDynamics()
 
 	for _, obj := range objects {
 		EncodeDynamicObject(enc, obj)

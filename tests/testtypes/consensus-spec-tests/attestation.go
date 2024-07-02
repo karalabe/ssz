@@ -18,7 +18,8 @@ func (a *Attestation) SizeSSZ() uint32 {
 	return size
 }
 func (a *Attestation) DefineSSZ(codec *ssz.Codec) {
-	defer codec.OffsetDynamics(228)()
+	codec.OffsetDynamics(228)
+	defer codec.FinishDynamics()
 
 	ssz.DefineDynamicBytes(codec, &a.AggregationBits, 2048) // Offset (0) - AggregationBits -  4 bytes
 	ssz.DefineStaticObject(codec, &a.Data)                  // Field  (1) - Data            - 128 bytes

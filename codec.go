@@ -38,11 +38,21 @@ func (c *Codec) DefineDecoder(impl func(dec *Decoder)) {
 
 // OffsetDynamics marks the item being encoded as a dynamic type, setting the starting
 // offset for the dynamic fields.
-func (c *Codec) OffsetDynamics(offset int) func() {
+func (c *Codec) OffsetDynamics(offset int) {
 	if c.enc != nil {
-		return c.enc.OffsetDynamics(offset)
+		c.enc.OffsetDynamics(offset)
+		return
 	}
-	return c.dec.OffsetDynamics(offset)
+	c.dec.OffsetDynamics(offset)
+}
+
+// FinishDynamics marks all dynamic items to have been defined.
+func (c *Codec) FinishDynamics() {
+	if c.enc != nil {
+		c.enc.FinishDynamics()
+		return
+	}
+	c.dec.FinishDynamics()
 }
 
 // DefineUint64 defines the next field as a uint64.

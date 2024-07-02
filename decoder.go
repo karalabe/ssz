@@ -50,7 +50,7 @@ type Decoder struct {
 
 // OffsetDynamics marks the item being decoded as a dynamic type, setting the starting
 // offset for the dynamic fields.
-func (dec *Decoder) OffsetDynamics(offset int) func() {
+func (dec *Decoder) OffsetDynamics(offset int) {
 	dec.dyn = true
 
 	dec.offsetss = append(dec.offsetss, dec.offsets)
@@ -58,13 +58,11 @@ func (dec *Decoder) OffsetDynamics(offset int) func() {
 	dec.offset = uint32(offset)
 	dec.pends = append(dec.pends, dec.pend)
 	dec.pend = nil
-
-	return dec.dynamicDone
 }
 
-// dynamicDone marks the end of the dyamic fields, encoding anything queued up and
+// FinishDynamics marks the end of the dynamic fields, decoding anything queued up and
 // restoring any previous states for outer call continuation.
-func (dec *Decoder) dynamicDone() {
+func (dec *Decoder) FinishDynamics() {
 	for _, pend := range dec.pend {
 		pend()
 	}
@@ -518,7 +516,7 @@ func (dec *Decoder) descendIntoDynamic(length uint32) {
 // ascendFromDynamic is the counterpart of descendIntoDynamic that restores the
 // previously suspended decoding state.
 func (dec *Decoder) ascendFromDynamic() {
-	dec.dynamicDone()
+	dec.FinishDynamics()
 
 	dec.length = dec.lengths[len(dec.lengths)-1]
 	dec.lengths = dec.lengths[:len(dec.lengths)-1]

@@ -16,7 +16,8 @@ func (b *BeaconBlock) SizeSSZ() uint32 {
 	return size
 }
 func (b *BeaconBlock) DefineSSZ(codec *ssz.Codec) {
-	defer codec.OffsetDynamics(84)()
+	codec.OffsetDynamics(84)
+	defer codec.FinishDynamics()
 
 	ssz.DefineUint64(codec, &b.Slot)
 	ssz.DefineUint64(codec, &b.ProposerIndex)

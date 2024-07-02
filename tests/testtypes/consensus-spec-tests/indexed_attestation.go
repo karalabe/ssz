@@ -18,7 +18,8 @@ func (a *IndexedAttestation) SizeSSZ() uint32 {
 	return size
 }
 func (a *IndexedAttestation) DefineSSZ(codec *ssz.Codec) {
-	defer codec.OffsetDynamics(228)()
+	codec.OffsetDynamics(228)
+	defer codec.FinishDynamics()
 
 	ssz.DefineSliceOfUint64s(codec, &a.AttestationIndices, 2048) // Offset (0) - AttestationIndices - 4 bytes
 	ssz.DefineStaticObject(codec, &a.Data)                       // Field (1) - Data      - 128 bytes
