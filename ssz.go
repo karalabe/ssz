@@ -2,7 +2,7 @@
 // Copyright 2024 ssz Authors
 // SPDX-License-Identifier: BSD-3-Clause
 
-// Package ssz contains a few coding helpers to implement SSZ codecs.
+// Package ssz is a simplified SSZ encoder/decoder.
 package ssz
 
 import (
