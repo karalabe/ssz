@@ -45,7 +45,8 @@ func (e *ExecutionPayload) SizeSSZ() uint32 {
 }
 func (e *ExecutionPayload) DefineSSZ(codec *ssz.Codec) {
 	// Signal to the codec that we have dynamic fields
-	defer codec.OffsetDynamics(512)()
+	codec.OffsetDynamics(512)
+	defer codec.FinishDynamics()
 
 	// Enumerate all the fields we need to code
 	ssz.DefineStaticBytes(codec, e.ParentHash[:])                                   // Field  ( 0) - ParentHash    -  32 bytes

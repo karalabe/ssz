@@ -152,7 +152,8 @@ The codec itself is very similar to the static example before, with a few quirks
 ```go
 func (e *ExecutionPayload) DefineSSZ(codec *ssz.Codec) {
 	// Signal to the codec that we have dynamic fields
-	defer codec.OffsetDynamics(512)()
+	codec.OffsetDynamics(512)
+	defer coder.FinishDynamics()
 
 	// Enumerate all the fields we need to code
 	ssz.DefineStaticBytes(codec, e.ParentHash[:])                                   // Field  ( 0) - ParentHash    -  32 bytes
@@ -173,9 +174,9 @@ func (e *ExecutionPayload) DefineSSZ(codec *ssz.Codec) {
 }
 ```
 
-- First up, all dynamic objects must start their codec by running `defer codec.OffsetDynamics(size)()` (note, there's an extra `()` at the end).
-  - A bit unorthodox, notation, but what happens under the hood is that we're telling the encoder/decoder that there will be `512` bytes of fixed data, after which the dynamic content begins. Telling the codec the size heads-up is needed to allow running the encoder/decoder in a streaming way, without having to skip encoding fields and later backfilling them.
-  - The weird `()` is because `codec.OffsetDynamics` actually starts stashing away encountered dynamic fields (they are encoded at the end of the SSZ container) and will encode them when the `defer` runs.
+- First up, all dynamic objects must start their codec by running `codec.OffsetDynamics(size)` and `defer coder.FinishDynamics()`.
+  - What happens is that we're telling the encoder/decoder that there will be `512` bytes of fixed data, after which the dynamic content begins. Telling the codec the size heads-up is needed to allow running the encoder/decoder in a streaming way, without having to skip encoding fields and later backfilling them.
+  - The deferred part is needed because `codec.OffsetDynamics` actually starts stashing away encountered dynamic fields (they are encoded at the end of the SSZ container) and will encode them when the `defer` runs.
 - The `DefineXYZ` methods are used exactly the same as before, only we used more variations this time due to the more complex data structure. You might also note that dynamic fields also pass in size limits that the decoder can enforce.
 
 To encode the above `ExecutionPayload` do just as we have done with the static `Witness` object. Perhaps 
