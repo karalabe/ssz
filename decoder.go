@@ -31,7 +31,7 @@ type Decoder struct {
 	buf [32]byte  // Integer conversion buffer
 
 	length   uint32     // Message length being decoded
-	lengths  []uint32   // Stack of lenths from outer calls
+	lengths  []uint32   // Stack of lengths from outer calls
 	offset   uint32     // Starting offset we expect, or last offset seen after
 	offsets  []uint32   // Queue of offsets for dynamic size calculations
 	offsetss [][]uint32 // Stack of offsets from outer calls
