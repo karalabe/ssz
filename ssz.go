@@ -29,7 +29,7 @@ var encoderPool = sync.Pool{
 	},
 }
 
-// decoderPool is a pool of SSZ edecoders to reuse some tiny internal helpers
+// decoderPool is a pool of SSZ decoders to reuse some tiny internal helpers
 // without hitting Go's GC constantly.
 var decoderPool = sync.Pool{
 	New: func() any {
