@@ -156,8 +156,15 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, fork, kind s
 // TestConsensusSpecs iterates over all the (supported) consensus SSZ types and
 // runs the encoding/decoding/hashing benchmark round.
 func BenchmarkConsensusSpecs(b *testing.B) {
+	benchmarkConsensusSpecType[*types.AttestationData](b, "deneb", "AttestationData", "case_4")
+	benchmarkConsensusSpecType[*types.AttesterSlashing](b, "deneb", "AttesterSlashing", "case_4")
+	benchmarkConsensusSpecType[*types.BeaconBlockHeader](b, "deneb", "BeaconBlockHeader", "case_4")
+	benchmarkConsensusSpecType[*types.Checkpoint](b, "deneb", "Checkpoint", "case_4")
 	benchmarkConsensusSpecType[*types.ExecutionPayloadCapella](b, "capella", "ExecutionPayload", "case_4")
 	benchmarkConsensusSpecType[*types.HistoricalBatch](b, "deneb", "HistoricalBatch", "case_4")
+	benchmarkConsensusSpecType[*types.IndexedAttestation](b, "deneb", "IndexedAttestation", "case_4")
+	benchmarkConsensusSpecType[*types.ProposerSlashing](b, "deneb", "ProposerSlashing", "case_4")
+	benchmarkConsensusSpecType[*types.SignedBeaconBlockHeader](b, "deneb", "SignedBeaconBlockHeader", "case_4")
 	benchmarkConsensusSpecType[*types.Withdrawal](b, "deneb", "Withdrawal", "case_4")
 }
 
@@ -178,18 +185,7 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 		b.Fatalf("failed to decode SSZ stream: %v", err)
 	}
 	// Start the benchmarks for all the different operations
-	b.Run(fmt.Sprintf("%s/%s/%s/decode", fork, kind, test), func(b *testing.B) {
-		b.ReportAllocs()
-		b.SetBytes(int64(len(inSSZ)))
-
-		obj := T(new(U))
-		for i := 0; i < b.N; i++ {
-			if err := ssz.Decode(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err != nil {
-				b.Fatalf("failed to decode SSZ stream: %v", err)
-			}
-		}
-	})
-	b.Run(fmt.Sprintf("%s/%s/%s/encode", fork, kind, test), func(b *testing.B) {
+	b.Run(fmt.Sprintf("%s/encode", kind), func(b *testing.B) {
 		b.ReportAllocs()
 		b.SetBytes(int64(len(inSSZ)))
 
@@ -200,7 +196,18 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 			}
 		}
 	})
-	b.Run(fmt.Sprintf("%s/%s/%s/size", fork, kind, test), func(b *testing.B) {
+	b.Run(fmt.Sprintf("%s/decode", kind), func(b *testing.B) {
+		b.ReportAllocs()
+		b.SetBytes(int64(len(inSSZ)))
+
+		obj := T(new(U))
+		for i := 0; i < b.N; i++ {
+			if err := ssz.Decode(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err != nil {
+				b.Fatalf("failed to decode SSZ stream: %v", err)
+			}
+		}
+	})
+	b.Run(fmt.Sprintf("%s/size", kind), func(b *testing.B) {
 		b.ReportAllocs()
 
 		for i := 0; i < b.N; i++ {
