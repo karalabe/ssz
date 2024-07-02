@@ -226,17 +226,7 @@ func (w *Withdrawal) DefineSSZ(codec *ssz.Codec) {
 - The implementation of the encoder and decoder follows the exact same pattern and naming conventions as with the `codec` but instead of operating on a `ssz.Codec` object, we're operating on an `ssz.Encoder`/`ssz.Decoder` objects; and instead of calling methods named `ssz.DefineXYZ`, we're calling methods named `ssz.EncodeXYZ` and `ssz.DecodeXYZ`.
 - Perhaps note, the `EncodeXYZ` methods do not take pointers to everything anymore, since they do not require the ability to instantiate the field during operation.
 
-Encoding the above split-encoder `Witness` into an SSZ stream, you use the same thing as before. Everything is seamless.
-
-```go
-func main() {
-	blob, err := ssz.EncodeToBytes(new(Withdrawal))
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("ssz: %#x\n", blob)
-}
-```
+Encoding the above `Witness` into an SSZ stream, you use the same thing as before. Everything is seamless.
 
 ### Generated types
 
