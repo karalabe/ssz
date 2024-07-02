@@ -45,7 +45,7 @@ func (c *Codec) OffsetDynamics(offset int) func() {
 	return c.dec.OffsetDynamics(offset)
 }
 
-// DefineUint64 defines the next field as uint64.
+// DefineUint64 defines the next field as a uint64.
 func DefineUint64[T ~uint64](c *Codec, n *T) {
 	if c.enc != nil {
 		EncodeUint64(c.enc, *n)
@@ -54,7 +54,7 @@ func DefineUint64[T ~uint64](c *Codec, n *T) {
 	DecodeUint64(c.dec, n)
 }
 
-// DefineUint256 defines the next field as uint256.
+// DefineUint256 defines the next field as a uint256.
 func DefineUint256(c *Codec, n **uint256.Int) {
 	if c.enc != nil {
 		EncodeUint256(c.enc, *n)
@@ -81,7 +81,7 @@ func DefineDynamicBytes(c *Codec, blob *[]byte, maxSize uint32) {
 	DecodeDynamicBytes(c.dec, blob, maxSize)
 }
 
-// DefineStaticObject defines the next field as a static ssz.Object.
+// DefineStaticObject defines the next field as a static ssz object.
 func DefineStaticObject[T newableObject[U], U any](c *Codec, obj *T) {
 	if c.enc != nil {
 		EncodeStaticObject(c.enc, *obj)
@@ -90,7 +90,7 @@ func DefineStaticObject[T newableObject[U], U any](c *Codec, obj *T) {
 	DecodeStaticObject(c.dec, obj)
 }
 
-// DefineDynamicObject defines the next field as a static ssz.Object.
+// DefineDynamicObject defines the next field as a dynamic ssz object.
 func DefineDynamicObject[T newableObject[U], U any](c *Codec, obj *T) {
 	if c.enc != nil {
 		EncodeDynamicObject(c.enc, *obj)
@@ -99,8 +99,7 @@ func DefineDynamicObject[T newableObject[U], U any](c *Codec, obj *T) {
 	DecodeDynamicObject(c.dec, obj)
 }
 
-// DefineSliceOfUint64s defines the next field as a dynamic slice of static
-// binary blobs.
+// DefineSliceOfUint64s defines the next field as a dynamic slice of uint64s.
 func DefineSliceOfUint64s[T ~uint64](c *Codec, ns *[]T, maxItems uint32) {
 	if c.enc != nil {
 		EncodeSliceOfUint64s(c.enc, *ns)
@@ -150,7 +149,7 @@ func DefineSliceOfStaticObjects[T newableObject[U], U any](c *Codec, objects *[]
 }
 
 // DefineSliceOfDynamicObjects defines the next field as a dynamic slice of dynamic
-// binary blobs.
+// ssz objects.
 func DefineSliceOfDynamicObjects[T newableObject[U], U any](c *Codec, objects *[]T, maxItems uint32) {
 	if c.enc != nil {
 		EncodeSliceOfDynamicObjects(c.enc, *objects)
