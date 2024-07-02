@@ -91,11 +91,11 @@ func DecodeUint256(dec *Decoder, n **uint256.Int) {
 }
 
 // DecodeStaticBytes serializes raw bytes as is.
-func DecodeStaticBytes(dec *Decoder, bytes []byte) {
+func DecodeStaticBytes(dec *Decoder, blob []byte) {
 	if dec.err != nil {
 		return
 	}
-	_, dec.err = io.ReadFull(dec.in, bytes)
+	_, dec.err = io.ReadFull(dec.in, blob)
 }
 
 // DecodeDynamicBytes parses the current offset as a uint32 little-endian, validates
@@ -138,33 +138,33 @@ func decodeDynamicBytes(dec *Decoder, blob *[]byte, maxSize uint32) {
 // DecodeArrayOfStaticBytes parses a static array of static binary blobs.
 //
 // Note, the input slice is assumed to be pre-allocated.
-func DecodeArrayOfStaticBytes[T commonBinaryLengths](dec *Decoder, bytes []T) {
+func DecodeArrayOfStaticBytes[T commonBinaryLengths](dec *Decoder, blobs []T) {
 	if dec.err != nil {
 		return
 	}
-	for i := 0; i < len(bytes); i++ {
-		// The code below should have used `blob[:]`, alas Go's generics compiler
+	for i := 0; i < len(blobs); i++ {
+		// The code below should have used `blobs[:]`, alas Go's generics compiler
 		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-		DecodeStaticBytes(dec, unsafe.Slice(&bytes[i][0], len(bytes[i])))
+		DecodeStaticBytes(dec, unsafe.Slice(&blobs[i][0], len(blobs[i])))
 	}
 }
 
 // DecodeSliceOfStaticBytes serializes the current offset as a uint32 little-endian,
 // and shifts if by the cumulative length of the static binary slices needed to
 // encode them.
-func DecodeSliceOfStaticBytes[T commonBinaryLengths](dec *Decoder, bytes *[]T, maxItems uint32) {
+func DecodeSliceOfStaticBytes[T commonBinaryLengths](dec *Decoder, blobs *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}
 	if dec.err = dec.decodeOffset(false); dec.err != nil {
 		return
 	}
-	dec.pend = append(dec.pend, func() { decodeSliceOfStaticBytes(dec, bytes, maxItems) })
+	dec.pend = append(dec.pend, func() { decodeSliceOfStaticBytes(dec, blobs, maxItems) })
 }
 
 // decodeSliceOfStaticBytes serializes a slice of static objects by simply iterating
 // the slice and serializing each individually.
-func decodeSliceOfStaticBytes[T commonBinaryLengths](dec *Decoder, bytes *[]T, maxItems uint32) {
+func decodeSliceOfStaticBytes[T commonBinaryLengths](dec *Decoder, blobs *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}
@@ -187,15 +187,15 @@ func decodeSliceOfStaticBytes[T commonBinaryLengths](dec *Decoder, bytes *[]T, m
 		return
 	}
 	// Expand the slice if needed and decode the objects
-	if uint32(cap(*bytes)) < itemCount {
-		*bytes = make([]T, itemCount)
+	if uint32(cap(*blobs)) < itemCount {
+		*blobs = make([]T, itemCount)
 	} else {
-		*bytes = (*bytes)[:itemCount]
+		*blobs = (*blobs)[:itemCount]
 	}
 	for i := uint32(0); i < itemCount; i++ {
-		// The code below should have used `blob[:]`, alas Go's generics compiler
+		// The code below should have used `blobs[:]`, alas Go's generics compiler
 		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-		DecodeStaticBytes(dec, unsafe.Slice(&(*bytes)[i][0], len((*bytes)[i])))
+		DecodeStaticBytes(dec, unsafe.Slice(&(*blobs)[i][0], len((*blobs)[i])))
 	}
 }
 

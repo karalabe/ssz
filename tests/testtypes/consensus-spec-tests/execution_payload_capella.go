@@ -33,17 +33,15 @@ func (e *ExecutionPayloadCapella) SizeSSZ() uint32 {
 	size := uint32(512)
 
 	// Append all the dynamic sizes
-	size += ssz.SizeDynamicBlob(e.ExtraData)      // Field (10) - ExtraData    - max 32 bytes (not enforced)
-	size += ssz.SizeDynamicBlobs(e.Transactions)  // Field (13) - Transactions - max 1048576 items, 1073741824 bytes each (not enforced)
-	size += ssz.SizeDynamicStatics(e.Withdrawals) // Field (14) - Withdrawals  - max 16 items, 44 bytes each (not enforced)
+	size += ssz.SizeDynamicBytes(e.ExtraData)           // Field (10) - ExtraData    - max 32 bytes (not enforced)
+	size += ssz.SizeSliceOfDynamicBytes(e.Transactions) // Field (13) - Transactions - max 1048576 items, 1073741824 bytes each (not enforced)
+	size += ssz.SizeSliceOfStaticObjects(e.Withdrawals) // Field (14) - Withdrawals  - max 16 items, 44 bytes each (not enforced)
 
 	return size
 }
 func (e *ExecutionPayloadCapella) DefineSSZ(codec *ssz.Codec) {
-	// Initialize a dynamic decoder with the given starting offsets
 	defer codec.OffsetDynamics(512)()
 
-	// Parse static fields and offsets for dynamic ones (lazy fill)
 	ssz.DefineStaticBytes(codec, e.ParentHash[:])                                   // Field  ( 0) - ParentHash    -  32 bytes
 	ssz.DefineStaticBytes(codec, e.FeeRecipient[:])                                 // Field  ( 1) - FeeRecipient  -  20 bytes
 	ssz.DefineStaticBytes(codec, e.StateRoot[:])                                    // Field  ( 2) - StateRoot     -  32 bytes

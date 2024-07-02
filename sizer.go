@@ -4,15 +4,15 @@
 
 package ssz
 
-// SizeDynamicBlob returns the serialized size of the dynamic part of a dynamic
+// SizeDynamicBytes returns the serialized size of the dynamic part of a dynamic
 // blob.
-func SizeDynamicBlob(blob []byte) uint32 {
-	return uint32(len(blob))
+func SizeDynamicBytes(blobs []byte) uint32 {
+	return uint32(len(blobs))
 }
 
-// SizeDynamicBlobs returns the serialized size of the dynamic part of a dynamic
+// SizeSliceOfDynamicBytes returns the serialized size of the dynamic part of a dynamic
 // list of dynamic blobs.
-func SizeDynamicBlobs(blobs [][]byte) uint32 {
+func SizeSliceOfDynamicBytes(blobs [][]byte) uint32 {
 	var size uint32
 	for _, blob := range blobs {
 		size += uint32(4 + len(blob)) // 4-byte offset + dynamic data later
@@ -20,9 +20,9 @@ func SizeDynamicBlobs(blobs [][]byte) uint32 {
 	return size
 }
 
-// SizeDynamicStatics returns the serialized size of the dynamic part of a dynamic
+// SizeSliceOfStaticObjects returns the serialized size of the dynamic part of a dynamic
 // list of static objects.
-func SizeDynamicStatics[T Object](objects []T) uint32 {
+func SizeSliceOfStaticObjects[T Object](objects []T) uint32 {
 	if len(objects) == 0 {
 		return 0
 	}

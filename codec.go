@@ -14,115 +14,109 @@ type Codec struct {
 	dec *Decoder
 }
 
+// DefineEncoder uses a dedicated encoder in case the types SSZ conversion is for
+// some reason asymmetric (e.g. encoding depends on fields, decoding depends on
+// outer context).
+//
+// In reality, it will be the live code run when the object is being serialized.
+func (c *Codec) DefineEncoder(impl func(enc *Encoder)) {
+	if c.enc != nil {
+		impl(c.enc)
+	}
+}
+
+// DefineDecoder uses a dedicated decoder in case the types SSZ conversion is for
+// some reason asymmetric (e.g. encoding depends on fields, decoding depends on
+// outer context).
+//
+// In reality, it will be the live code run when the object is being parsed.
+func (c *Codec) DefineDecoder(impl func(dec *Decoder)) {
+	if c.dec != nil {
+		impl(c.dec)
+	}
+}
+
 // OffsetDynamics marks the item being encoded as a dynamic type, setting the starting
 // offset for the dynamic fields.
 func (c *Codec) OffsetDynamics(offset int) func() {
-	switch {
-	case c.enc != nil:
+	if c.enc != nil {
 		return c.enc.OffsetDynamics(offset)
-	case c.dec != nil:
-		return c.dec.OffsetDynamics(offset)
-	default:
-		panic("not implemented")
 	}
+	return c.dec.OffsetDynamics(offset)
 }
 
 // DefineUint64 defines the next field as uint64.
 func DefineUint64(c *Codec, n *uint64) {
-	switch {
-	case c.enc != nil:
+	if c.enc != nil {
 		EncodeUint64(c.enc, *n)
-	case c.dec != nil:
-		DecodeUint64(c.dec, n)
-	default:
-		panic("not implemented")
+		return
 	}
+	DecodeUint64(c.dec, n)
 }
 
 // DefineUint256 defines the next field as uint256.
 func DefineUint256(c *Codec, n **uint256.Int) {
-	switch {
-	case c.enc != nil:
+	if c.enc != nil {
 		EncodeUint256(c.enc, *n)
-	case c.dec != nil:
-		DecodeUint256(c.dec, n)
-	default:
-		panic("not implemented")
+		return
 	}
+	DecodeUint256(c.dec, n)
 }
 
 // DefineStaticBytes defines the next field as static binary blob.
 func DefineStaticBytes(c *Codec, bytes []byte) {
-	switch {
-	case c.enc != nil:
+	if c.enc != nil {
 		EncodeStaticBytes(c.enc, bytes)
-	case c.dec != nil:
-		DecodeStaticBytes(c.dec, bytes)
-	default:
-		panic("not implemented")
+		return
 	}
+	DecodeStaticBytes(c.dec, bytes)
 }
 
 // DefineDynamicBytes defines the next field as dynamic binary blob.
 func DefineDynamicBytes(c *Codec, blob *[]byte, maxSize uint32) {
-	switch {
-	case c.enc != nil:
+	if c.enc != nil {
 		EncodeDynamicBytes(c.enc, *blob)
-	case c.dec != nil:
-		DecodeDynamicBytes(c.dec, blob, maxSize)
-	default:
-		panic("not implemented")
+		return
 	}
+	DecodeDynamicBytes(c.dec, blob, maxSize)
 }
 
 // DefineArrayOfStaticBytes defines the next field as a static array of static
 // binary blobs.
 func DefineArrayOfStaticBytes[T commonBinaryLengths](c *Codec, bytes []T) {
-	switch {
-	case c.enc != nil:
+	if c.enc != nil {
 		EncodeArrayOfStaticBytes(c.enc, bytes)
-	case c.dec != nil:
-		DecodeArrayOfStaticBytes(c.dec, bytes)
-	default:
-		panic("not implemented")
+		return
 	}
+	DecodeArrayOfStaticBytes(c.dec, bytes)
 }
 
 // DefineSliceOfStaticBytes defines the next field as a dynamic slice of static
 // binary blobs.
 func DefineSliceOfStaticBytes[T commonBinaryLengths](c *Codec, bytes *[]T, maxItems uint32) {
-	switch {
-	case c.enc != nil:
+	if c.enc != nil {
 		EncodeSliceOfStaticBytes(c.enc, *bytes)
-	case c.dec != nil:
-		DecodeSliceOfStaticBytes(c.dec, bytes, maxItems)
-	default:
-		panic("not implemented")
+		return
 	}
+	DecodeSliceOfStaticBytes(c.dec, bytes, maxItems)
 }
 
 // DefineSliceOfDynamicBytes defines the next field as a dynamic slice of dynamic
 // binary blobs.
 func DefineSliceOfDynamicBytes(c *Codec, blobs *[][]byte, maxItems uint32, maxSize uint32) {
-	switch {
-	case c.enc != nil:
+	if c.enc != nil {
 		EncodeSliceOfDynamicBytes(c.enc, *blobs)
-	case c.dec != nil:
-		DecodeSliceOfDynamicBytes(c.dec, blobs, maxItems, maxSize)
-	default:
-		panic("not implemented")
+		return
 	}
+	DecodeSliceOfDynamicBytes(c.dec, blobs, maxItems, maxSize)
 }
 
 // DefineSliceOfStaticObjects defines the next field as a dynamic slice of static
 // ssz objects.
 func DefineSliceOfStaticObjects[T newableObject[U], U any](c *Codec, objects *[]T, maxItems uint32) {
-	switch {
-	case c.enc != nil:
+	if c.enc != nil {
 		EncodeSliceOfStaticObjects(c, c.enc, *objects)
-	case c.dec != nil:
-		DecodeSliceOfStaticObjects(c, c.dec, objects, maxItems)
-	default:
-		panic("not implemented")
+		return
 	}
+	DecodeSliceOfStaticObjects(c, c.dec, objects, maxItems)
 }

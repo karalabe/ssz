@@ -88,11 +88,11 @@ func EncodeUint256(enc *Encoder, n *uint256.Int) {
 }
 
 // EncodeStaticBytes serializes raw bytes as is.
-func EncodeStaticBytes(enc *Encoder, bytes []byte) {
+func EncodeStaticBytes(enc *Encoder, blob []byte) {
 	if enc.err != nil {
 		return
 	}
-	_, enc.err = enc.out.Write(bytes)
+	_, enc.err = enc.out.Write(blob)
 }
 
 // EncodeDynamicBytes serializes the current offset as a uint32 little-endian,
@@ -113,40 +113,40 @@ func EncodeDynamicBytes(enc *Encoder, blob []byte) {
 }
 
 // EncodeArrayOfStaticBytes serializes a static number of static bytes.
-func EncodeArrayOfStaticBytes[T commonBinaryLengths](enc *Encoder, bytes []T) {
+func EncodeArrayOfStaticBytes[T commonBinaryLengths](enc *Encoder, blobs []T) {
 	if enc.err != nil {
 		return
 	}
-	for i := 0; i < len(bytes); i++ {
-		// The code below should have used `bytes[i][:]`, alas Go's generics compiler
+	for i := 0; i < len(blobs); i++ {
+		// The code below should have used `blobs[i][:]`, alas Go's generics compiler
 		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-		EncodeStaticBytes(enc, unsafe.Slice(&bytes[i][0], len(bytes[i])))
+		EncodeStaticBytes(enc, unsafe.Slice(&blobs[i][0], len(blobs[i])))
 	}
 }
 
 // EncodeSliceOfStaticBytes serializes the current offset as a uint32 little-endian,
 // and shifts if by the cumulative length of the static binary slices needed to
 // encode them.
-func EncodeSliceOfStaticBytes[T commonBinaryLengths](enc *Encoder, bytes []T) {
+func EncodeSliceOfStaticBytes[T commonBinaryLengths](enc *Encoder, blobs []T) {
 	if enc.err != nil {
 		return
 	}
 	binary.LittleEndian.PutUint32(enc.buf[:4], enc.offset)
 	_, enc.err = enc.out.Write(enc.buf[:4])
 
-	if items := len(bytes); items > 0 {
-		enc.offset += uint32(items * len(bytes[0]))
+	if items := len(blobs); items > 0 {
+		enc.offset += uint32(items * len(blobs[0]))
 	}
-	enc.pend = append(enc.pend, func() { encodeSliceOfStaticBytes(enc, bytes) })
+	enc.pend = append(enc.pend, func() { encodeSliceOfStaticBytes(enc, blobs) })
 }
 
 // encodeSliceOfStaticBytes serializes a slice of static objects by simply iterating
 // the slice and serializing each individually.
-func encodeSliceOfStaticBytes[T commonBinaryLengths](enc *Encoder, bytes []T) {
+func encodeSliceOfStaticBytes[T commonBinaryLengths](enc *Encoder, blobs []T) {
 	if enc.err != nil {
 		return
 	}
-	for _, blob := range bytes {
+	for _, blob := range blobs {
 		// The code below should have used `blob[:]`, alas Go's generics compiler
 		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 		EncodeStaticBytes(enc, unsafe.Slice(&blob[0], len(blob)))
