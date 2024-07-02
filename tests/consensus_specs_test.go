@@ -150,6 +150,8 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, fork, kind s
 // runs the encoding/decoding/hashing benchmark round.
 func BenchmarkConsensusSpecs(b *testing.B) {
 	benchmarkConsensusSpecType[*types.ExecutionPayloadCapella](b, "capella", "ExecutionPayload", "case_4")
+	benchmarkConsensusSpecType[*types.HistoricalBatch](b, "deneb", "HistoricalBatch", "case_4")
+	benchmarkConsensusSpecType[*types.Withdrawal](b, "deneb", "Withdrawal", "case_4")
 }
 
 func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, kind, test string) {
