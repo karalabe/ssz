@@ -6,7 +6,6 @@ package ssz
 
 import (
 	"encoding/binary"
-	"fmt"
 	"io"
 	"unsafe"
 
@@ -83,7 +82,13 @@ func EncodeUint256(enc *Encoder, n *uint256.Int) {
 	if enc.err != nil {
 		return
 	}
-	n.MarshalSSZTo(enc.buf[:32])
+	// There might be degenerate cases where n was not initialized. Whilst we
+	// *could* panic, it's probably cleaner to assume it's zero.
+	if n != nil {
+		n.MarshalSSZTo(enc.buf[:32])
+	} else {
+		copy(enc.buf[:], []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
+	}
 	_, enc.err = enc.out.Write(enc.buf[:32])
 }
 
@@ -193,10 +198,6 @@ func encodeSliceOfDynamicBytes(enc *Encoder, blobs [][]byte) {
 // return lambda.
 func EncodeSliceOfStaticObjects[T newableObject[U], U any](codec *Codec, enc *Encoder, objects []T) {
 	if enc.err != nil {
-		return
-	}
-	if !(T)(nil).StaticSSZ() {
-		enc.err = fmt.Errorf("%w: %T", ErrDynamicObjectInStaticSlot, (T)(nil))
 		return
 	}
 	binary.LittleEndian.PutUint32(enc.buf[:4], enc.offset)

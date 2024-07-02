@@ -6,7 +6,7 @@
 package ssz
 
 import (
-	"fmt"
+	"bytes"
 	"io"
 	"sync"
 )
@@ -14,17 +14,10 @@ import (
 // Object defines the methods a type needs to implement to be used as an SSZ
 // encodable and decodable object.
 type Object interface {
-	// StaticSSZ returns whether the object is static in size (i.e. always takes
-	// up the same space to encode) or variable.
-	//
-	// Note, this method *must* be implemented on the pointer type and should
-	// simply return true or false. It *will* be called on nil.
-	StaticSSZ() bool
-
 	// SizeSSZ returns the total size of an SSZ object.
 	SizeSSZ() uint32
 
-	// DefineSSZ runs the object's schema definition against an SSZ codec.
+	// DefineSSZ defines how an object would be encoded/decoded.
 	DefineSSZ(codec *Codec)
 }
 
@@ -44,18 +37,23 @@ var decoderPool = sync.Pool{
 	},
 }
 
-// Encode serializes the provided object into an SSZ stream.
+// Encode serializes the object into an SSZ stream.
 func Encode(w io.Writer, obj Object) error {
 	codec := encoderPool.Get().(*Codec)
 	defer encoderPool.Put(codec)
 
 	codec.enc.out, codec.enc.err, codec.enc.dyn = w, nil, false
 	obj.DefineSSZ(codec)
-
-	if codec.enc.err == nil && codec.enc.dyn && obj.StaticSSZ() {
-		return fmt.Errorf("%w: %T", ErrStaticObjectBehavedDynamic, obj)
-	}
 	return codec.enc.err
+}
+
+// EncodeToBytes serializes the object into a newly allocated byte buffer.
+func EncodeToBytes(obj Object) ([]byte, error) {
+	buffer := make([]byte, obj.SizeSSZ())
+	if err := Encode(bytes.NewBuffer(buffer[:0]), obj); err != nil {
+		return nil, err
+	}
+	return buffer, nil
 }
 
 // Decode parses an object with the given size out of an SSZ stream.
@@ -65,9 +63,10 @@ func Decode(r io.Reader, obj Object, size uint32) error {
 
 	codec.dec.in, codec.dec.length, codec.dec.err, codec.dec.dyn = r, size, nil, false
 	obj.DefineSSZ(codec)
-
-	if codec.dec.err == nil && codec.dec.dyn && obj.StaticSSZ() {
-		return fmt.Errorf("%w: %T", ErrStaticObjectBehavedDynamic, obj)
-	}
 	return codec.dec.err
+}
+
+// DecodeFromBytes parses an object from the given SSZ blob.
+func DecodeFromBytes(blob []byte, obj Object) error {
+	return Decode(bytes.NewReader(blob), obj, uint32(len(blob)))
 }

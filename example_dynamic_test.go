@@ -2,32 +2,37 @@
 // Copyright 2024 ssz Authors
 // SPDX-License-Identifier: BSD-3-Clause
 
-package consensus_spec_tests
+package ssz_test
 
 import (
+	"fmt"
+
 	"github.com/holiman/uint256"
 	"github.com/karalabe/ssz"
 )
 
-type ExecutionPayloadCapella struct {
-	ParentHash    Hash
-	FeeRecipient  Address
-	StateRoot     Hash
-	ReceiptsRoot  Hash
-	LogsBloom     LogsBloom
-	PrevRandao    Hash
-	BlockNumber   uint64
-	GasLimit      uint64
-	GasUsed       uint64
-	Timestamp     uint64
-	ExtraData     []byte
-	BaseFeePerGas *uint256.Int
-	BlockHash     Hash
-	Transactions  [][]byte
-	Withdrawals   []*Withdrawal
+type Hash [32]byte
+type LogsBLoom [256]byte
+
+type ExecutionPayload struct {
+	ParentHash    Hash          `ssz-size:"32"`
+	FeeRecipient  Address       `ssz-size:"20"`
+	StateRoot     Hash          `ssz-size:"32"`
+	ReceiptsRoot  Hash          `ssz-size:"32"`
+	LogsBloom     LogsBLoom     `ssz-size:"256"`
+	PrevRandao    Hash          `ssz-size:"32"`
+	BlockNumber   uint64        `ssz-size:"8"`
+	GasLimit      uint64        `ssz-size:"8"`
+	GasUsed       uint64        `ssz-size:"8"`
+	Timestamp     uint64        `ssz-size:"8"`
+	ExtraData     []byte        `ssz-max:"32"`
+	BaseFeePerGas *uint256.Int  `ssz-size:"32"`
+	BlockHash     Hash          `ssz-size:"32"`
+	Transactions  [][]byte      `ssz-max:"1048576,1073741824"`
+	Withdrawals   []*Withdrawal `ssz-max:"16"`
 }
 
-func (e *ExecutionPayloadCapella) SizeSSZ() uint32 {
+func (e *ExecutionPayload) SizeSSZ() uint32 {
 	// Start out with the static size
 	size := uint32(512)
 
@@ -38,9 +43,11 @@ func (e *ExecutionPayloadCapella) SizeSSZ() uint32 {
 
 	return size
 }
-func (e *ExecutionPayloadCapella) DefineSSZ(codec *ssz.Codec) {
+func (e *ExecutionPayload) DefineSSZ(codec *ssz.Codec) {
+	// Signal to the codec that we have dynamic fields
 	defer codec.OffsetDynamics(512)()
 
+	// Enumerate all the fields we need to code
 	ssz.DefineStaticBytes(codec, e.ParentHash[:])                                   // Field  ( 0) - ParentHash    -  32 bytes
 	ssz.DefineStaticBytes(codec, e.FeeRecipient[:])                                 // Field  ( 1) - FeeRecipient  -  20 bytes
 	ssz.DefineStaticBytes(codec, e.StateRoot[:])                                    // Field  ( 2) - StateRoot     -  32 bytes
@@ -55,5 +62,15 @@ func (e *ExecutionPayloadCapella) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUint256(codec, &e.BaseFeePerGas)                                      // Field  (11) - BaseFeePerGas -  32 bytes
 	ssz.DefineStaticBytes(codec, e.BlockHash[:])                                    // Field  (12) - BlockHash     -  32 bytes
 	ssz.DefineSliceOfDynamicBytes(codec, &e.Transactions, 1_048_576, 1_073_741_824) // Offset (13) - Transactions  -   4 bytes
-	ssz.DefineSliceOfStaticObjects(codec, &e.Withdrawals, 16)                       // Offset (14) - Withdrawals - 4 bytes
+	ssz.DefineSliceOfStaticObjects(codec, &e.Withdrawals, 16)                       // Offset (14) - Withdrawals   -   4 bytes
+}
+
+func ExampleEncodeDynamicObject() {
+	blob, err := ssz.EncodeToBytes(new(ExecutionPayload))
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ssz: %#x\n", blob)
+	// Output:
+	// ssz: 0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000020000
 }

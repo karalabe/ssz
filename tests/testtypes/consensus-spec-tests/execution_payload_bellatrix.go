@@ -26,7 +26,6 @@ type ExecutionPayloadBellatrix struct {
 	Transactions  [][]byte
 }
 
-func (e *ExecutionPayloadBellatrix) StaticSSZ() bool { return false }
 func (e *ExecutionPayloadBellatrix) SizeSSZ() uint32 {
 	// Start out with the static size
 	size := uint32(508)

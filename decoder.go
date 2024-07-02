@@ -278,10 +278,6 @@ func DecodeSliceOfStaticObjects[T newableObject[U], U any](codec *Codec, dec *De
 	if dec.err != nil {
 		return
 	}
-	if !(T)(nil).StaticSSZ() {
-		dec.err = fmt.Errorf("%w: %T", ErrDynamicObjectInStaticSlot, (T)(nil))
-		return
-	}
 	if dec.err = dec.decodeOffset(false); dec.err != nil {
 		return
 	}

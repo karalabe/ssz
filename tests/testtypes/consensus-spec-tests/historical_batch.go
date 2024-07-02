@@ -13,7 +13,6 @@ type HistoricalBatch struct {
 	StateRoots [8192]Hash
 }
 
-func (h *HistoricalBatch) StaticSSZ() bool { return true }
 func (h *HistoricalBatch) SizeSSZ() uint32 { return 2 * 8192 * 32 }
 func (h *HistoricalBatch) DefineSSZ(codec *ssz.Codec) {
 	codec.DefineEncoder(func(enc *ssz.Encoder) {
