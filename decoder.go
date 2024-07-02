@@ -274,7 +274,7 @@ func decodeSliceOfDynamicBytes(dec *Decoder, blobs *[][]byte, maxItems uint32, m
 // Later when all the static fields have been parsed out, the dynamic content
 // will also be read. Make sure you called Decoder.OffsetDynamics and defer-ed the
 // return lambda.
-func DecodeSliceOfStaticObjects[T newableObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
+func DecodeSliceOfStaticObjects[T newableObject[U], U any](codec *Codec, dec *Decoder, objects *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}
@@ -285,12 +285,12 @@ func DecodeSliceOfStaticObjects[T newableObject[U], U any](dec *Decoder, objects
 	if dec.err = dec.decodeOffset(false); dec.err != nil {
 		return
 	}
-	dec.pend = append(dec.pend, func() { decodeSliceOfStaticObjects(dec, objects, maxItems) })
+	dec.pend = append(dec.pend, func() { decodeSliceOfStaticObjects(codec, dec, objects, maxItems) })
 }
 
 // decodeSliceOfStaticObjects parses a dynamic set of static objects based on the offsets
 // trakced by the decoder.
-func decodeSliceOfStaticObjects[T newableObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
+func decodeSliceOfStaticObjects[T newableObject[U], U any](codec *Codec, dec *Decoder, objects *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}
@@ -322,7 +322,7 @@ func decodeSliceOfStaticObjects[T newableObject[U], U any](dec *Decoder, objects
 		if (*objects)[i] == nil {
 			(*objects)[i] = new(U)
 		}
-		(*objects)[i].DecodeSSZ(dec)
+		(*objects)[i].DefineSSZ(codec)
 	}
 }
 

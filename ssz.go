@@ -24,18 +24,15 @@ type Object interface {
 	// SizeSSZ returns the total size of an SSZ object.
 	SizeSSZ() uint32
 
-	// EncodeSSZ serializes the object though an SSZ encoder.
-	EncodeSSZ(enc *Encoder)
-
-	// DecodeSSZ parses the object via an SSZ decoder.
-	DecodeSSZ(dec *Decoder)
+	// DefineSSZ runs the object's schema definition against an SSZ codec.
+	DefineSSZ(codec *Codec)
 }
 
 // encoderPool is a pool of SSZ encoders to reuse some tiny internal helpers
 // without hitting Go's GC constantly.
 var encoderPool = sync.Pool{
 	New: func() any {
-		return new(Encoder)
+		return &Codec{enc: new(Encoder)}
 	},
 }
 
@@ -43,32 +40,34 @@ var encoderPool = sync.Pool{
 // without hitting Go's GC constantly.
 var decoderPool = sync.Pool{
 	New: func() any {
-		return new(Decoder)
+		return &Codec{dec: new(Decoder)}
 	},
 }
 
 // Encode serializes the provided object into an SSZ stream.
 func Encode(w io.Writer, obj Object) error {
-	enc := encoderPool.Get().(*Encoder)
-	defer encoderPool.Put(enc)
+	codec := encoderPool.Get().(*Codec)
+	defer encoderPool.Put(codec)
 
-	enc.out, enc.err, enc.dyn = w, nil, false
-	obj.EncodeSSZ(enc)
-	if enc.err == nil && enc.dyn && obj.StaticSSZ() {
+	codec.enc.out, codec.enc.err, codec.enc.dyn = w, nil, false
+	obj.DefineSSZ(codec)
+
+	if codec.enc.err == nil && codec.enc.dyn && obj.StaticSSZ() {
 		return fmt.Errorf("%w: %T", ErrStaticObjectBehavedDynamic, obj)
 	}
-	return enc.err
+	return codec.enc.err
 }
 
 // Decode parses an object with the given size out of an SSZ stream.
 func Decode(r io.Reader, obj Object, size uint32) error {
-	dec := decoderPool.Get().(*Decoder)
-	defer decoderPool.Put(dec)
+	codec := decoderPool.Get().(*Codec)
+	defer decoderPool.Put(codec)
 
-	dec.in, dec.length, dec.err, dec.dyn = r, size, nil, false
-	obj.DecodeSSZ(dec)
-	if dec.err == nil && dec.dyn && obj.StaticSSZ() {
+	codec.dec.in, codec.dec.length, codec.dec.err, codec.dec.dyn = r, size, nil, false
+	obj.DefineSSZ(codec)
+
+	if codec.dec.err == nil && codec.dec.dyn && obj.StaticSSZ() {
 		return fmt.Errorf("%w: %T", ErrStaticObjectBehavedDynamic, obj)
 	}
-	return dec.err
+	return codec.dec.err
 }

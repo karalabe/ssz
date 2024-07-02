@@ -191,7 +191,7 @@ func encodeSliceOfDynamicBytes(enc *Encoder, blobs [][]byte) {
 // Later when all the static fields have been written out, the dynamic content
 // will also be flushed. Make sure you called Encoder.OffsetDynamics and defer-ed the
 // return lambda.
-func EncodeSliceOfStaticObjects[T newableObject[U], U any](enc *Encoder, objects []T) {
+func EncodeSliceOfStaticObjects[T newableObject[U], U any](codec *Codec, enc *Encoder, objects []T) {
 	if enc.err != nil {
 		return
 	}
@@ -205,16 +205,16 @@ func EncodeSliceOfStaticObjects[T newableObject[U], U any](enc *Encoder, objects
 	if items := len(objects); items > 0 {
 		enc.offset += uint32(items) * objects[0].SizeSSZ()
 	}
-	enc.pend = append(enc.pend, func() { encodeSliceOfStaticObjects(enc, objects) })
+	enc.pend = append(enc.pend, func() { encodeSliceOfStaticObjects(codec, enc, objects) })
 }
 
 // encodeSliceOfStaticObjects serializes a slice of static objects by simply iterating
 // the slice and serializing each individually.
-func encodeSliceOfStaticObjects[T Object](enc *Encoder, objects []T) {
+func encodeSliceOfStaticObjects[T Object](codec *Codec, enc *Encoder, objects []T) {
 	if enc.err != nil {
 		return
 	}
 	for _, obj := range objects {
-		obj.EncodeSSZ(enc)
+		obj.DefineSSZ(codec)
 	}
 }

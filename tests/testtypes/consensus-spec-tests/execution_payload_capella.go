@@ -39,47 +39,24 @@ func (e *ExecutionPayloadCapella) SizeSSZ() uint32 {
 
 	return size
 }
-
-func (e *ExecutionPayloadCapella) EncodeSSZ(enc *ssz.Encoder) {
-	// Initialize a dynamic encoder with the given starting offsets
-	defer enc.OffsetDynamics(512)()
-
-	// Serialize static fields and offsets for dynamic ones (lazy fill)
-	ssz.EncodeStaticBytes(enc, e.ParentHash[:])        // Field  ( 0) - ParentHash    -  32 bytes
-	ssz.EncodeStaticBytes(enc, e.FeeRecipient[:])      // Field  ( 1) - FeeRecipient  -  20 bytes
-	ssz.EncodeStaticBytes(enc, e.StateRoot[:])         // Field  ( 2) - StateRoot     -  32 bytes
-	ssz.EncodeStaticBytes(enc, e.ReceiptsRoot[:])      // Field  ( 3) - ReceiptsRoot  -  32 bytes
-	ssz.EncodeStaticBytes(enc, e.LogsBloom[:])         // Field  ( 4) - LogsBloom     - 256 bytes
-	ssz.EncodeStaticBytes(enc, e.PrevRandao[:])        // Field  ( 5) - PrevRandao    -  32 bytes
-	ssz.EncodeUint64(enc, e.BlockNumber)               // Field  ( 6) - BlockNumber   -   8 bytes
-	ssz.EncodeUint64(enc, e.GasLimit)                  // Field  ( 7) - GasLimit      -   8 bytes
-	ssz.EncodeUint64(enc, e.GasUsed)                   // Field  ( 8) - GasUsed       -   8 bytes
-	ssz.EncodeUint64(enc, e.Timestamp)                 // Field  ( 9) - Timestamp     -   8 bytes
-	ssz.EncodeDynamicBytes(enc, e.ExtraData)           // Offset (10) - ExtraData     -   4 bytes + later max 32 bytes (not enforced)
-	ssz.EncodeUint256(enc, e.BaseFeePerGas)            // Field  (11) - BaseFeePerGas -  32 bytes
-	ssz.EncodeStaticBytes(enc, e.BlockHash[:])         // Field  (12) - BlockHash     -  32 bytes
-	ssz.EncodeSliceOfDynamicBytes(enc, e.Transactions) // Offset (13) - Transactions  -   4 bytes + later max 1048576 items, 1073741824 bytes each (not enforced)
-	ssz.EncodeSliceOfStaticObjects(enc, e.Withdrawals) // Offset (14) - Withdrawals   - 4 bytes + later max 16 items, 44 bytes each (not enforced)
-}
-
-func (e *ExecutionPayloadCapella) DecodeSSZ(dec *ssz.Decoder) {
+func (e *ExecutionPayloadCapella) DefineSSZ(codec *ssz.Codec) {
 	// Initialize a dynamic decoder with the given starting offsets
-	defer dec.OffsetDynamics(512)()
+	defer codec.OffsetDynamics(512)()
 
 	// Parse static fields and offsets for dynamic ones (lazy fill)
-	ssz.DecodeStaticBytes(dec, e.ParentHash[:])                                   // Field  ( 0) - ParentHash    -  32 bytes
-	ssz.DecodeStaticBytes(dec, e.FeeRecipient[:])                                 // Field  ( 1) - FeeRecipient  -  20 bytes
-	ssz.DecodeStaticBytes(dec, e.StateRoot[:])                                    // Field  ( 2) - StateRoot     -  32 bytes
-	ssz.DecodeStaticBytes(dec, e.ReceiptsRoot[:])                                 // Field  ( 3) - ReceiptsRoot  -  32 bytes
-	ssz.DecodeStaticBytes(dec, e.LogsBloom[:])                                    // Field  ( 4) - LogsBloom     - 256 bytes
-	ssz.DecodeStaticBytes(dec, e.PrevRandao[:])                                   // Field  ( 5) - PrevRandao    -  32 bytes
-	ssz.DecodeUint64(dec, &e.BlockNumber)                                         // Field  ( 6) - BlockNumber   -   8 bytes
-	ssz.DecodeUint64(dec, &e.GasLimit)                                            // Field  ( 7) - GasLimit      -   8 bytes
-	ssz.DecodeUint64(dec, &e.GasUsed)                                             // Field  ( 8) - GasUsed       -   8 bytes
-	ssz.DecodeUint64(dec, &e.Timestamp)                                           // Field  ( 9) - Timestamp     -   8 bytes
-	ssz.DecodeDynamicBytes(dec, &e.ExtraData, 32)                                 // Offset (10) - ExtraData     -   4 bytes
-	ssz.DecodeUint256(dec, &e.BaseFeePerGas)                                      // Field  (11) - BaseFeePerGas -  32 bytes
-	ssz.DecodeStaticBytes(dec, e.BlockHash[:])                                    // Field  (12) - BlockHash     -  32 bytes
-	ssz.DecodeSliceOfDynamicBytes(dec, &e.Transactions, 1_048_576, 1_073_741_824) // Offset (13) - Transactions  -   4 bytes
-	ssz.DecodeSliceOfStaticObjects(dec, &e.Withdrawals, 16)                       // Offset (14) - Withdrawals - 4 bytes
+	ssz.DefineStaticBytes(codec, e.ParentHash[:])                                   // Field  ( 0) - ParentHash    -  32 bytes
+	ssz.DefineStaticBytes(codec, e.FeeRecipient[:])                                 // Field  ( 1) - FeeRecipient  -  20 bytes
+	ssz.DefineStaticBytes(codec, e.StateRoot[:])                                    // Field  ( 2) - StateRoot     -  32 bytes
+	ssz.DefineStaticBytes(codec, e.ReceiptsRoot[:])                                 // Field  ( 3) - ReceiptsRoot  -  32 bytes
+	ssz.DefineStaticBytes(codec, e.LogsBloom[:])                                    // Field  ( 4) - LogsBloom     - 256 bytes
+	ssz.DefineStaticBytes(codec, e.PrevRandao[:])                                   // Field  ( 5) - PrevRandao    -  32 bytes
+	ssz.DefineUint64(codec, &e.BlockNumber)                                         // Field  ( 6) - BlockNumber   -   8 bytes
+	ssz.DefineUint64(codec, &e.GasLimit)                                            // Field  ( 7) - GasLimit      -   8 bytes
+	ssz.DefineUint64(codec, &e.GasUsed)                                             // Field  ( 8) - GasUsed       -   8 bytes
+	ssz.DefineUint64(codec, &e.Timestamp)                                           // Field  ( 9) - Timestamp     -   8 bytes
+	ssz.DefineDynamicBytes(codec, &e.ExtraData, 32)                                 // Offset (10) - ExtraData     -   4 bytes
+	ssz.DefineUint256(codec, &e.BaseFeePerGas)                                      // Field  (11) - BaseFeePerGas -  32 bytes
+	ssz.DefineStaticBytes(codec, e.BlockHash[:])                                    // Field  (12) - BlockHash     -  32 bytes
+	ssz.DefineSliceOfDynamicBytes(codec, &e.Transactions, 1_048_576, 1_073_741_824) // Offset (13) - Transactions  -   4 bytes
+	ssz.DefineSliceOfStaticObjects(codec, &e.Withdrawals, 16)                       // Offset (14) - Withdrawals - 4 bytes
 }
