@@ -6,9 +6,9 @@ package ssz
 
 import "github.com/holiman/uint256"
 
-// Codec is a unified SSZ encoder, decoder and size that allows simple structs
-// to define their schemas once and have that work for all three operations at
-// once (with the same speed as explicitly typing them out would, of course)
+// Codec is a unified SSZ encoder and decoder that allows simple structs to
+// define their schemas once and have that work for both operations at once
+// (with the same speed as explicitly typing them out would, of course).
 type Codec struct {
 	enc *Encoder
 	dec *Decoder

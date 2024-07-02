@@ -35,7 +35,7 @@ var subEncoderPool = sync.Pool{
 //
 //  3. The offsets for dynamic fields are tracked internally by the encoder, so
 //     the caller only needs to provide the field, the offset of which should be
-//     included at the alloted slot. The writes themselves should be done later.
+//     included at the allotted slot. The writes themselves will be done later.
 //
 //  4. The encoder does not enforce defined size limits on the dynamic fields.
 //     If the caller provided bad data to encode, it is a programming error and
@@ -77,7 +77,7 @@ func (enc *Encoder) dynamicDone() {
 	enc.offsets = enc.offsets[:len(enc.offsets)-1]
 }
 
-// EncodeUint64 serializes a uint64 as little-endian.
+// EncodeUint64 serializes a uint64.
 func EncodeUint64[T ~uint64](enc *Encoder, n T) {
 	if enc.err != nil {
 		return
@@ -86,7 +86,7 @@ func EncodeUint64[T ~uint64](enc *Encoder, n T) {
 	_, enc.err = enc.out.Write(enc.buf[:8])
 }
 
-// EncodeUint256 serializes a uint256 as little-endian.
+// EncodeUint256 serializes a uint256.
 func EncodeUint256(enc *Encoder, n *uint256.Int) {
 	if enc.err != nil {
 		return
@@ -101,7 +101,7 @@ func EncodeUint256(enc *Encoder, n *uint256.Int) {
 	_, enc.err = enc.out.Write(enc.buf[:32])
 }
 
-// EncodeStaticBytes serializes raw bytes as is.
+// EncodeStaticBytes serializes a static binary blob.
 func EncodeStaticBytes(enc *Encoder, blob []byte) {
 	if enc.err != nil {
 		return
@@ -109,12 +109,7 @@ func EncodeStaticBytes(enc *Encoder, blob []byte) {
 	_, enc.err = enc.out.Write(blob)
 }
 
-// EncodeDynamicBytes serializes the current offset as a uint32 little-endian,
-// and shifts it by the size of the blob.
-//
-// Later when all the static fields have been written out, the dynamic content
-// will also be flushed. Make sure you called Encoder.OffsetDynamics and defer-ed the
-// return lambda.
+// EncodeDynamicBytes serializes a dynamic binary blob.
 func EncodeDynamicBytes(enc *Encoder, blob []byte) {
 	if enc.err != nil {
 		return
@@ -126,7 +121,7 @@ func EncodeDynamicBytes(enc *Encoder, blob []byte) {
 	enc.pend = append(enc.pend, func() { EncodeStaticBytes(enc, blob) })
 }
 
-// EncodeStaticObject serializes the given static object into the ssz stream.
+// EncodeStaticObject serializes a static ssz object.
 func EncodeStaticObject(enc *Encoder, obj Object) {
 	if enc.err != nil {
 		return
@@ -138,7 +133,7 @@ func EncodeStaticObject(enc *Encoder, obj Object) {
 	obj.DefineSSZ(codec)
 }
 
-// EncodeDynamicObject serializes the given dynamic object into the ssz stream.
+// EncodeDynamicObject serializes a dynamic ssz object.
 func EncodeDynamicObject(enc *Encoder, obj Object) {
 	if enc.err != nil {
 		return
@@ -150,7 +145,7 @@ func EncodeDynamicObject(enc *Encoder, obj Object) {
 	enc.pend = append(enc.pend, func() { encodeDynamicObject(enc, obj) })
 }
 
-// encodeDynamicObject serializes the given dynamic object into the ssz stream.
+// encodeDynamicObject is the lazy data writer for EncodeDynamicObject.
 func encodeDynamicObject(enc *Encoder, obj Object) {
 	if enc.err != nil {
 		return
@@ -162,7 +157,7 @@ func encodeDynamicObject(enc *Encoder, obj Object) {
 	obj.DefineSSZ(codec)
 }
 
-// EncodeSliceOfUint64s serializes a dynamic slice of uint64s into the ssz stream
+// EncodeSliceOfUint64s serializes a dynamic slice of uint64s.
 func EncodeSliceOfUint64s[T ~uint64](enc *Encoder, ns []T) {
 	if enc.err != nil {
 		return
@@ -176,8 +171,7 @@ func EncodeSliceOfUint64s[T ~uint64](enc *Encoder, ns []T) {
 	enc.pend = append(enc.pend, func() { encodeSliceOfUint64s(enc, ns) })
 }
 
-// encodeSliceOfUint64s serializes a slice of static objects by simply iterating
-// the slice and serializing each individually.
+// encodeSliceOfUint64s is the lazy data writer for EncodeSliceOfUint64s.
 func encodeSliceOfUint64s[T ~uint64](enc *Encoder, ns []T) {
 	if enc.err != nil {
 		return
@@ -187,7 +181,7 @@ func encodeSliceOfUint64s[T ~uint64](enc *Encoder, ns []T) {
 	}
 }
 
-// EncodeArrayOfStaticBytes serializes a static number of static bytes.
+// EncodeArrayOfStaticBytes serializes a static array of static binary blobs.
 func EncodeArrayOfStaticBytes[T commonBinaryLengths](enc *Encoder, blobs []T) {
 	if enc.err != nil {
 		return
@@ -199,9 +193,7 @@ func EncodeArrayOfStaticBytes[T commonBinaryLengths](enc *Encoder, blobs []T) {
 	}
 }
 
-// EncodeSliceOfStaticBytes serializes the current offset as a uint32 little-endian,
-// and shifts if by the cumulative length of the static binary slices needed to
-// encode them.
+// EncodeSliceOfStaticBytes serializes a dynamic slice of static binary blobs.
 func EncodeSliceOfStaticBytes[T commonBinaryLengths](enc *Encoder, blobs []T) {
 	if enc.err != nil {
 		return
@@ -215,8 +207,7 @@ func EncodeSliceOfStaticBytes[T commonBinaryLengths](enc *Encoder, blobs []T) {
 	enc.pend = append(enc.pend, func() { encodeSliceOfStaticBytes(enc, blobs) })
 }
 
-// encodeSliceOfStaticBytes serializes a slice of static objects by simply iterating
-// the slice and serializing each individually.
+// encodeSliceOfStaticBytes is the lazy data writer for EncodeSliceOfStaticBytes.
 func encodeSliceOfStaticBytes[T commonBinaryLengths](enc *Encoder, blobs []T) {
 	if enc.err != nil {
 		return
@@ -228,13 +219,7 @@ func encodeSliceOfStaticBytes[T commonBinaryLengths](enc *Encoder, blobs []T) {
 	}
 }
 
-// EncodeSliceOfDynamicBytes serializes the current offset as a uint32 little-endian, and
-// shifts if by the cumulative length of the binary slices and the offsets
-// needed to encode them.
-//
-// Later when all the static fields have been written out, the dynamic content
-// will also be flushed. Make sure you called Encoder.OffsetDynamics and defer-ed the
-// return lambda.
+// EncodeSliceOfDynamicBytes serializes a dynamic slice of dynamic binary blobs.
 func EncodeSliceOfDynamicBytes(enc *Encoder, blobs [][]byte) {
 	if enc.err != nil {
 		return
@@ -248,8 +233,7 @@ func EncodeSliceOfDynamicBytes(enc *Encoder, blobs [][]byte) {
 	enc.pend = append(enc.pend, func() { encodeSliceOfDynamicBytes(enc, blobs) })
 }
 
-// encodeSliceOfDynamicBytes serializes a slice of dynamic blobs by first writing all
-// the individual offsets, and then writing the dynamic data itself.
+// encodeSliceOfDynamicBytes is the lazy data writer for EncodeSliceOfDynamicBytes.
 func encodeSliceOfDynamicBytes(enc *Encoder, blobs [][]byte) {
 	if enc.err != nil {
 		return
@@ -261,12 +245,7 @@ func encodeSliceOfDynamicBytes(enc *Encoder, blobs [][]byte) {
 	}
 }
 
-// EncodeSliceOfStaticObjects serializes the current offset as a uint32 little-endian, and
-// shifts if by the cumulative length of the fixed size objects.
-//
-// Later when all the static fields have been written out, the dynamic content
-// will also be flushed. Make sure you called Encoder.OffsetDynamics and defer-ed the
-// return lambda.
+// EncodeSliceOfStaticObjects serializes a dynamic slice of static ssz objects.
 func EncodeSliceOfStaticObjects[T Object](enc *Encoder, objects []T) {
 	if enc.err != nil {
 		return
@@ -280,8 +259,7 @@ func EncodeSliceOfStaticObjects[T Object](enc *Encoder, objects []T) {
 	enc.pend = append(enc.pend, func() { encodeSliceOfStaticObjects(enc, objects) })
 }
 
-// encodeSliceOfStaticObjects serializes a slice of static objects by simply iterating
-// the slice and serializing each individually.
+// encodeSliceOfStaticObjects is the lazy data writer for EncodeSliceOfStaticObjects.
 func encodeSliceOfStaticObjects[T Object](enc *Encoder, objects []T) {
 	if enc.err != nil {
 		return
@@ -295,13 +273,7 @@ func encodeSliceOfStaticObjects[T Object](enc *Encoder, objects []T) {
 	}
 }
 
-// EncodeSliceOfDynamicObjects serializes the current offset as a uint32 little-
-// endian, and shifts if by the cumulative length of the binary slices and the
-// offsets needed to encode them.
-//
-// Later when all the static fields have been written out, the dynamic content
-// will also be flushed. Make sure you called Encoder.OffsetDynamics and defer-ed
-// the return lambda.
+// EncodeSliceOfDynamicObjects serializes a dynamic slice of dynamic ssz objects.
 func EncodeSliceOfDynamicObjects[T Object](enc *Encoder, objects []T) {
 	if enc.err != nil {
 		return
@@ -315,8 +287,7 @@ func EncodeSliceOfDynamicObjects[T Object](enc *Encoder, objects []T) {
 	enc.pend = append(enc.pend, func() { encodeSliceOfDynamicObjects(enc, objects) })
 }
 
-// encodeSliceOfDynamicObjects serializes a slice of dynamic objects by first
-// writing all the individual offsets, and then writing the dynamic data itself.
+// encodeSliceOfDynamicObjects is the lazy data writer for EncodeSliceOfDynamicObjects.
 func encodeSliceOfDynamicObjects[T Object](enc *Encoder, objects []T) {
 	if enc.err != nil {
 		return
