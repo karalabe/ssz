@@ -25,7 +25,9 @@ type Object interface {
 // without hitting Go's GC constantly.
 var encoderPool = sync.Pool{
 	New: func() any {
-		return &Codec{enc: new(Encoder)}
+		codec := &Codec{enc: new(Encoder)}
+		codec.enc.codec = codec
+		return codec
 	},
 }
 
@@ -33,7 +35,9 @@ var encoderPool = sync.Pool{
 // without hitting Go's GC constantly.
 var decoderPool = sync.Pool{
 	New: func() any {
-		return &Codec{dec: new(Decoder)}
+		codec := &Codec{dec: new(Decoder)}
+		codec.dec.codec = codec
+		return codec
 	},
 }
 
@@ -42,7 +46,7 @@ func Encode(w io.Writer, obj Object) error {
 	codec := encoderPool.Get().(*Codec)
 	defer encoderPool.Put(codec)
 
-	codec.enc.out, codec.enc.err, codec.enc.dyn = w, nil, false
+	codec.enc.out, codec.enc.err = w, nil
 	obj.DefineSSZ(codec)
 	return codec.enc.err
 }
@@ -61,7 +65,7 @@ func Decode(r io.Reader, obj Object, size uint32) error {
 	codec := decoderPool.Get().(*Codec)
 	defer decoderPool.Put(codec)
 
-	codec.dec.in, codec.dec.length, codec.dec.err, codec.dec.dyn = r, size, nil, false
+	codec.dec.in, codec.dec.length, codec.dec.err = r, size, nil
 	obj.DefineSSZ(codec)
 	return codec.dec.err
 }

@@ -7,19 +7,10 @@ package ssz
 import (
 	"encoding/binary"
 	"io"
-	"sync"
 	"unsafe"
 
 	"github.com/holiman/uint256"
 )
-
-// subEncoderPool is a pool of blank SSZ codecs to use when an encoder needs to
-// descend into an object via a codec interface.
-//
-// Note, this is different from encoderPool, do not mix and match!
-var subEncoderPool = sync.Pool{
-	New: func() any { return new(Codec) },
-}
 
 // Encoder is a wrapper around an io.Writer to implement dense SSZ encoding. It
 // has the following behaviors:
@@ -43,8 +34,9 @@ var subEncoderPool = sync.Pool{
 type Encoder struct {
 	out io.Writer // Underlying output stream to write into
 	err error     // Any write error to halt future encoding calls
-	dyn bool      // Whether dynamics were found encoding
-	buf [32]byte  // Integer conversion buffer
+
+	codec *Codec   // Self-referencing to pass DefineSSZ calls through (API trick)
+	buf   [32]byte // Integer conversion buffer
 
 	offset  uint32     // Offset tracker for dynamic fields
 	offsets []uint32   // Stack of offsets from outer calls
@@ -55,8 +47,6 @@ type Encoder struct {
 // OffsetDynamics marks the item being encoded as a dynamic type, setting the starting
 // offset for the dynamic fields.
 func (enc *Encoder) OffsetDynamics(offset int) {
-	enc.dyn = true
-
 	enc.offsets = append(enc.offsets, enc.offset)
 	enc.offset = uint32(offset)
 	enc.pends = append(enc.pends, enc.pend)
@@ -124,11 +114,7 @@ func EncodeStaticObject(enc *Encoder, obj Object) {
 	if enc.err != nil {
 		return
 	}
-	codec := subEncoderPool.Get().(*Codec)
-	defer subEncoderPool.Put(codec)
-
-	codec.enc = enc
-	obj.DefineSSZ(codec)
+	obj.DefineSSZ(enc.codec)
 }
 
 // EncodeDynamicObject serializes a dynamic ssz object.
@@ -148,11 +134,7 @@ func encodeDynamicObject(enc *Encoder, obj Object) {
 	if enc.err != nil {
 		return
 	}
-	codec := subEncoderPool.Get().(*Codec)
-	defer subEncoderPool.Put(codec)
-
-	codec.enc = enc
-	obj.DefineSSZ(codec)
+	obj.DefineSSZ(enc.codec)
 }
 
 // EncodeSliceOfUint64s serializes a dynamic slice of uint64s.
@@ -263,12 +245,8 @@ func encodeSliceOfStaticObjects[T Object](enc *Encoder, objects []T) {
 	if enc.err != nil {
 		return
 	}
-	codec := subEncoderPool.Get().(*Codec)
-	defer subEncoderPool.Put(codec)
-
-	codec.enc = enc
 	for _, obj := range objects {
-		obj.DefineSSZ(codec)
+		obj.DefineSSZ(enc.codec)
 	}
 }
 

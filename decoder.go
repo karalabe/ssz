@@ -8,19 +8,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"sync"
 	"unsafe"
 
 	"github.com/holiman/uint256"
 )
-
-// subDecoderPool is a pool of blank SSZ codecs to use when a decoder needs to
-// descend into an object via a codec interface.
-//
-// Note, this is different from decoderPool, do not mix and match!
-var subDecoderPool = sync.Pool{
-	New: func() any { return new(Codec) },
-}
 
 // Decoder is a wrapper around an io.Reader to implement dense SSZ decoding. It
 // has the following behaviors:
@@ -36,8 +27,9 @@ var subDecoderPool = sync.Pool{
 type Decoder struct {
 	in  io.Reader // Underlying output stream to write into
 	err error     // Any write error to halt future encoding calls
-	dyn bool      // Whether dynamics were found encoding
-	buf [32]byte  // Integer conversion buffer
+
+	codec *Codec   // Self-referencing to pass DefineSSZ calls through (API trick)
+	buf   [32]byte // Integer conversion buffer
 
 	length   uint32     // Message length being decoded
 	lengths  []uint32   // Stack of lengths from outer calls
@@ -51,8 +43,6 @@ type Decoder struct {
 // OffsetDynamics marks the item being decoded as a dynamic type, setting the starting
 // offset for the dynamic fields.
 func (dec *Decoder) OffsetDynamics(offset int) {
-	dec.dyn = true
-
 	dec.offsetss = append(dec.offsetss, dec.offsets)
 	dec.offsets = nil
 	dec.offset = uint32(offset)
@@ -141,14 +131,10 @@ func DecodeStaticObject[T newableObject[U], U any](dec *Decoder, obj *T) {
 	if dec.err != nil {
 		return
 	}
-	codec := subDecoderPool.Get().(*Codec)
-	defer subDecoderPool.Put(codec)
-
-	codec.dec = dec
 	if *obj == nil {
 		*obj = T(new(U))
 	}
-	(*obj).DefineSSZ(codec)
+	(*obj).DefineSSZ(dec.codec)
 }
 
 // DecodeDynamicObject parses a dynamic ssz object.
@@ -175,14 +161,10 @@ func decodeDynamicObject[T newableObject[U], U any](dec *Decoder, obj *T) {
 	dec.descendIntoDynamic(size)
 	defer dec.ascendFromDynamic()
 
-	codec := subDecoderPool.Get().(*Codec)
-	defer subDecoderPool.Put(codec)
-
-	codec.dec = dec
 	if *obj == nil {
 		*obj = T(new(U))
 	}
-	(*obj).DefineSSZ(codec)
+	(*obj).DefineSSZ(dec.codec)
 }
 
 // DecodeSliceOfUint64s parses a dynamic slice of uint64s.
@@ -391,15 +373,11 @@ func decodeSliceOfStaticObjects[T newableObject[U], U any](dec *Decoder, objects
 	} else {
 		*objects = (*objects)[:itemCount]
 	}
-	codec := subDecoderPool.Get().(*Codec)
-	defer subDecoderPool.Put(codec)
-
-	codec.dec = dec
 	for i := uint32(0); i < itemCount; i++ {
 		if (*objects)[i] == nil {
 			(*objects)[i] = new(U)
 		}
-		(*objects)[i].DefineSSZ(codec)
+		(*objects)[i].DefineSSZ(dec.codec)
 	}
 }
 
