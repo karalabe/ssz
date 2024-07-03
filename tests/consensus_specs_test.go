@@ -151,7 +151,7 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 				}
 				// Encoder/decoder seems to work, check if the size reported by the
 				// encoded object actually matches the encoded stream
-				if size := obj.SizeSSZ(); size != uint32(len(inSSZ)) {
+				if size := ssz.Size(obj); size != uint32(len(inSSZ)) {
 					t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
 				}
 				// TODO(karalabe): check the root hash of the object
@@ -201,7 +201,7 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 	}
 	// Start the benchmarks for all the different operations
 	b.Run(fmt.Sprintf("%s/encode", kind), func(b *testing.B) {
-		w := bytes.NewBuffer(make([]byte, inObj.SizeSSZ())[:0])
+		w := bytes.NewBuffer(make([]byte, ssz.Size(inObj))[:0])
 
 		b.SetBytes(int64(len(inSSZ)))
 		b.ReportAllocs()

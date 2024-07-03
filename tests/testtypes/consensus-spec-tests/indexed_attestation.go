@@ -12,9 +12,11 @@ type IndexedAttestation struct {
 	Signature          [96]byte
 }
 
-func (a *IndexedAttestation) SizeSSZ() uint32 {
+func (a *IndexedAttestation) SizeSSZ(fixed bool) uint32 {
 	size := uint32(228)
-	size += ssz.SizeSliceOfUint64s(a.AttestationIndices)
+	if !fixed {
+		size += ssz.SizeSliceOfUint64s(a.AttestationIndices)
+	}
 	return size
 }
 func (a *IndexedAttestation) DefineSSZ(codec *ssz.Codec) {

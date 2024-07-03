@@ -17,13 +17,15 @@ type BeaconBlockBody struct {
 	VoluntaryExits    []*SignedVoluntaryExit `json:"voluntary_exits" ssz-max:"16"`
 }
 
-func (b *BeaconBlockBody) SizeSSZ() uint32 {
+func (b *BeaconBlockBody) SizeSSZ(fixed bool) uint32 {
 	size := uint32(220)
-	size += ssz.SizeSliceOfStaticObjects(b.ProposerSlashings)
-	size += ssz.SizeSliceOfDynamicObjects(b.AttesterSlashings)
-	size += ssz.SizeSliceOfDynamicObjects(b.Attestations)
-	size += ssz.SizeSliceOfStaticObjects(b.Deposits)
-	size += ssz.SizeSliceOfStaticObjects(b.VoluntaryExits)
+	if !fixed {
+		size += ssz.SizeSliceOfStaticObjects(b.ProposerSlashings)
+		size += ssz.SizeSliceOfDynamicObjects(b.AttesterSlashings)
+		size += ssz.SizeSliceOfDynamicObjects(b.Attestations)
+		size += ssz.SizeSliceOfStaticObjects(b.Deposits)
+		size += ssz.SizeSliceOfStaticObjects(b.VoluntaryExits)
+	}
 	return size
 }
 func (b *BeaconBlockBody) DefineSSZ(codec *ssz.Codec) {

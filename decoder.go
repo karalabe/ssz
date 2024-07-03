@@ -178,7 +178,7 @@ func decodeDynamicBytes(dec *Decoder, blob *[]byte, maxSize uint32) {
 }
 
 // DecodeStaticObject parses a static ssz object.
-func DecodeStaticObject[T newableObject[U], U any](dec *Decoder, obj *T) {
+func DecodeStaticObject[T newableStaticObject[U], U any](dec *Decoder, obj *T) {
 	if dec.err != nil {
 		return
 	}
@@ -189,7 +189,7 @@ func DecodeStaticObject[T newableObject[U], U any](dec *Decoder, obj *T) {
 }
 
 // DecodeDynamicObject parses a dynamic ssz object.
-func DecodeDynamicObject[T newableObject[U], U any](dec *Decoder, obj *T) {
+func DecodeDynamicObject[T newableDynamicObject[U], U any](dec *Decoder, obj *T) {
 	if dec.err != nil {
 		return
 	}
@@ -200,7 +200,7 @@ func DecodeDynamicObject[T newableObject[U], U any](dec *Decoder, obj *T) {
 }
 
 // decodeDynamicObject is the lazy data reader of DecodeDynamicObject.
-func decodeDynamicObject[T newableObject[U], U any](dec *Decoder, obj *T) {
+func decodeDynamicObject[T newableDynamicObject[U], U any](dec *Decoder, obj *T) {
 	if dec.err != nil {
 		return
 	}
@@ -385,7 +385,7 @@ func decodeSliceOfDynamicBytes(dec *Decoder, blobs *[][]byte, maxItems uint32, m
 }
 
 // DecodeSliceOfStaticObjects parses a dynamic slice of static ssz objects.
-func DecodeSliceOfStaticObjects[T newableObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
+func DecodeSliceOfStaticObjects[T newableStaticObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}
@@ -396,7 +396,7 @@ func DecodeSliceOfStaticObjects[T newableObject[U], U any](dec *Decoder, objects
 }
 
 // decodeSliceOfStaticObjects is the lazy data reader of DecodeSliceOfStaticObjects.
-func decodeSliceOfStaticObjects[T newableObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
+func decodeSliceOfStaticObjects[T newableStaticObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}
@@ -433,7 +433,7 @@ func decodeSliceOfStaticObjects[T newableObject[U], U any](dec *Decoder, objects
 }
 
 // DecodeSliceOfDynamicObjects parses a dynamic slice of dynamic ssz objects.
-func DecodeSliceOfDynamicObjects[T newableObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
+func DecodeSliceOfDynamicObjects[T newableDynamicObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}
@@ -444,7 +444,7 @@ func DecodeSliceOfDynamicObjects[T newableObject[U], U any](dec *Decoder, object
 }
 
 // decodeSliceOfDynamicObjects is the lazy data reader of DecodeSliceOfDynamicObjects.
-func decodeSliceOfDynamicObjects[T newableObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
+func decodeSliceOfDynamicObjects[T newableDynamicObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}

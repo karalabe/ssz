@@ -7,18 +7,43 @@ package ssz
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"sync"
 )
 
-// Object defines the methods a type needs to implement to be used as an SSZ
+// Object defines the methods a type needs to implement to be used as a ssz
 // encodable and decodable object.
 type Object interface {
-	// SizeSSZ returns the total size of an SSZ object.
-	SizeSSZ() uint32
-
 	// DefineSSZ defines how an object would be encoded/decoded.
 	DefineSSZ(codec *Codec)
+}
+
+// StaticObject defines the methods a type needs to implement to be used as a
+// ssz encodable and decodable static object.
+type StaticObject interface {
+	Object
+
+	// SizeSSZ returns the total size of the ssz object.
+	//
+	// Note, StaticObject.SizeSSZ and DynamicObject.SizeSSZ deliberately clash
+	// to allow the compiler to detect placing one or the other in reversed data
+	// slots on an SSZ containers.
+	SizeSSZ() uint32
+}
+
+// DynamicObject defines the methods a type needs to implement to be used as a
+// ssz encodable and decodable dynamic object.
+type DynamicObject interface {
+	Object
+
+	// SizeSSZ returns either the static size of the object if fixed == true, or
+	// the total size otherwise.
+	//
+	// Note, StaticObject.SizeSSZ and DynamicObject.SizeSSZ deliberately clash
+	// to allow the compiler to detect placing one or the other in reversed data
+	// slots on an SSZ containers.
+	SizeSSZ(fixed bool) uint32
 }
 
 // encoderPool is a pool of SSZ encoders to reuse some tiny internal helpers
@@ -53,7 +78,7 @@ func Encode(w io.Writer, obj Object) error {
 
 // EncodeToBytes serializes the object into a newly allocated byte buffer.
 func EncodeToBytes(obj Object) ([]byte, error) {
-	buffer := make([]byte, obj.SizeSSZ())
+	buffer := make([]byte, Size(obj))
 	if err := Encode(bytes.NewBuffer(buffer[:0]), obj); err != nil {
 		return nil, err
 	}
@@ -73,4 +98,19 @@ func Decode(r io.Reader, obj Object, size uint32) error {
 // DecodeFromBytes parses an object from the given SSZ blob.
 func DecodeFromBytes(blob []byte, obj Object) error {
 	return Decode(bytes.NewReader(blob), obj, uint32(len(blob)))
+}
+
+// Size retrieves the size of a ssz object, independent if it's a static or a
+// dynamic one.
+func Size(obj Object) uint32 {
+	var size uint32
+	switch v := obj.(type) {
+	case StaticObject:
+		size = v.SizeSSZ()
+	case DynamicObject:
+		size = v.SizeSSZ(false)
+	default:
+		panic(fmt.Sprintf("unsupported type: %T", obj))
+	}
+	return size
 }

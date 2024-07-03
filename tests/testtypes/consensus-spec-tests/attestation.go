@@ -12,9 +12,11 @@ type Attestation struct {
 	Signature       [96]byte
 }
 
-func (a *Attestation) SizeSSZ() uint32 {
+func (a *Attestation) SizeSSZ(fixed bool) uint32 {
 	size := uint32(228)
-	size += ssz.SizeDynamicBytes(a.AggregationBits)
+	if !fixed {
+		size += ssz.SizeDynamicBytes(a.AggregationBits)
+	}
 	return size
 }
 func (a *Attestation) DefineSSZ(codec *ssz.Codec) {

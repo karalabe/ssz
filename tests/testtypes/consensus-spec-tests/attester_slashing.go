@@ -11,10 +11,12 @@ type AttesterSlashing struct {
 	Attestation2 *IndexedAttestation `json:"attestation_2"`
 }
 
-func (a *AttesterSlashing) SizeSSZ() uint32 {
+func (a *AttesterSlashing) SizeSSZ(fixed bool) uint32 {
 	size := uint32(8)
-	size += ssz.SizeDynamicObject(a.Attestation1)
-	size += ssz.SizeDynamicObject(a.Attestation2)
+	if !fixed {
+		size += ssz.SizeDynamicObject(a.Attestation1)
+		size += ssz.SizeDynamicObject(a.Attestation2)
+	}
 	return size
 }
 func (a *AttesterSlashing) DefineSSZ(codec *ssz.Codec) {

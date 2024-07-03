@@ -121,7 +121,7 @@ func EncodeDynamicBytes(enc *Encoder, blob []byte) {
 }
 
 // EncodeStaticObject serializes a static ssz object.
-func EncodeStaticObject(enc *Encoder, obj Object) {
+func EncodeStaticObject(enc *Encoder, obj StaticObject) {
 	if enc.err != nil {
 		return
 	}
@@ -129,19 +129,19 @@ func EncodeStaticObject(enc *Encoder, obj Object) {
 }
 
 // EncodeDynamicObject serializes a dynamic ssz object.
-func EncodeDynamicObject(enc *Encoder, obj Object) {
+func EncodeDynamicObject(enc *Encoder, obj DynamicObject) {
 	if enc.err != nil {
 		return
 	}
 	binary.LittleEndian.PutUint32(enc.buf[:4], enc.offset)
 	_, enc.err = enc.out.Write(enc.buf[:4])
-	enc.offset += obj.SizeSSZ()
+	enc.offset += obj.SizeSSZ(false)
 
 	enc.pend = append(enc.pend, func() { encodeDynamicObject(enc, obj) })
 }
 
 // encodeDynamicObject is the lazy data writer for EncodeDynamicObject.
-func encodeDynamicObject(enc *Encoder, obj Object) {
+func encodeDynamicObject(enc *Encoder, obj DynamicObject) {
 	if enc.err != nil {
 		return
 	}
@@ -238,7 +238,7 @@ func encodeSliceOfDynamicBytes(enc *Encoder, blobs [][]byte) {
 }
 
 // EncodeSliceOfStaticObjects serializes a dynamic slice of static ssz objects.
-func EncodeSliceOfStaticObjects[T Object](enc *Encoder, objects []T) {
+func EncodeSliceOfStaticObjects[T StaticObject](enc *Encoder, objects []T) {
 	if enc.err != nil {
 		return
 	}
@@ -252,7 +252,7 @@ func EncodeSliceOfStaticObjects[T Object](enc *Encoder, objects []T) {
 }
 
 // encodeSliceOfStaticObjects is the lazy data writer for EncodeSliceOfStaticObjects.
-func encodeSliceOfStaticObjects[T Object](enc *Encoder, objects []T) {
+func encodeSliceOfStaticObjects[T StaticObject](enc *Encoder, objects []T) {
 	if enc.err != nil {
 		return
 	}
@@ -262,7 +262,7 @@ func encodeSliceOfStaticObjects[T Object](enc *Encoder, objects []T) {
 }
 
 // EncodeSliceOfDynamicObjects serializes a dynamic slice of dynamic ssz objects.
-func EncodeSliceOfDynamicObjects[T Object](enc *Encoder, objects []T) {
+func EncodeSliceOfDynamicObjects[T DynamicObject](enc *Encoder, objects []T) {
 	if enc.err != nil {
 		return
 	}
@@ -270,13 +270,13 @@ func EncodeSliceOfDynamicObjects[T Object](enc *Encoder, objects []T) {
 	_, enc.err = enc.out.Write(enc.buf[:4])
 
 	for _, obj := range objects {
-		enc.offset += 4 + obj.SizeSSZ()
+		enc.offset += 4 + obj.SizeSSZ(false)
 	}
 	enc.pend = append(enc.pend, func() { encodeSliceOfDynamicObjects(enc, objects) })
 }
 
 // encodeSliceOfDynamicObjects is the lazy data writer for EncodeSliceOfDynamicObjects.
-func encodeSliceOfDynamicObjects[T Object](enc *Encoder, objects []T) {
+func encodeSliceOfDynamicObjects[T DynamicObject](enc *Encoder, objects []T) {
 	if enc.err != nil {
 		return
 	}

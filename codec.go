@@ -92,7 +92,7 @@ func DefineDynamicBytes(c *Codec, blob *[]byte, maxSize uint32) {
 }
 
 // DefineStaticObject defines the next field as a static ssz object.
-func DefineStaticObject[T newableObject[U], U any](c *Codec, obj *T) {
+func DefineStaticObject[T newableStaticObject[U], U any](c *Codec, obj *T) {
 	if c.enc != nil {
 		EncodeStaticObject(c.enc, *obj)
 		return
@@ -101,7 +101,7 @@ func DefineStaticObject[T newableObject[U], U any](c *Codec, obj *T) {
 }
 
 // DefineDynamicObject defines the next field as a dynamic ssz object.
-func DefineDynamicObject[T newableObject[U], U any](c *Codec, obj *T) {
+func DefineDynamicObject[T newableDynamicObject[U], U any](c *Codec, obj *T) {
 	if c.enc != nil {
 		EncodeDynamicObject(c.enc, *obj)
 		return
@@ -150,7 +150,7 @@ func DefineSliceOfDynamicBytes(c *Codec, blobs *[][]byte, maxItems uint32, maxSi
 
 // DefineSliceOfStaticObjects defines the next field as a dynamic slice of static
 // ssz objects.
-func DefineSliceOfStaticObjects[T newableObject[U], U any](c *Codec, objects *[]T, maxItems uint32) {
+func DefineSliceOfStaticObjects[T newableStaticObject[U], U any](c *Codec, objects *[]T, maxItems uint32) {
 	if c.enc != nil {
 		EncodeSliceOfStaticObjects(c.enc, *objects)
 		return
@@ -160,7 +160,7 @@ func DefineSliceOfStaticObjects[T newableObject[U], U any](c *Codec, objects *[]
 
 // DefineSliceOfDynamicObjects defines the next field as a dynamic slice of dynamic
 // ssz objects.
-func DefineSliceOfDynamicObjects[T newableObject[U], U any](c *Codec, objects *[]T, maxItems uint32) {
+func DefineSliceOfDynamicObjects[T newableDynamicObject[U], U any](c *Codec, objects *[]T, maxItems uint32) {
 	if c.enc != nil {
 		EncodeSliceOfDynamicObjects(c.enc, *objects)
 		return

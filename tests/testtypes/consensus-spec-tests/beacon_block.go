@@ -10,9 +10,11 @@ type BeaconBlock struct {
 	Body          *BeaconBlockBody
 }
 
-func (b *BeaconBlock) SizeSSZ() uint32 {
+func (b *BeaconBlock) SizeSSZ(fixed bool) uint32 {
 	size := uint32(84)
-	size += ssz.SizeDynamicObject(b.Body)
+	if !fixed {
+		size += ssz.SizeDynamicObject(b.Body)
+	}
 	return size
 }
 func (b *BeaconBlock) DefineSSZ(codec *ssz.Codec) {
