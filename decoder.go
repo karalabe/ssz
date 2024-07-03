@@ -54,21 +54,36 @@ func (dec *Decoder) OffsetDynamics(offset int) {
 		dec.offsets = nil
 	}
 	dec.offset = uint32(offset)
-	dec.pends = append(dec.pends, dec.pend)
-	dec.pend = nil
+
+	// Try to reuse older pending slices to avoid allocations
+	n = len(dec.pends)
+
+	if cap(dec.pends) > n {
+		dec.pends = dec.pends[:n+1]
+		dec.pend, dec.pends[n] = dec.pends[n], dec.pend
+	} else {
+		dec.pends = append(dec.pends, dec.pend)
+		dec.pend = nil
+	}
 }
 
 // FinishDynamics marks the end of the dynamic fields, decoding anything queued up and
 // restoring any previous states for outer call continuation.
 func (dec *Decoder) FinishDynamics() {
+	// Apply any delayed ops and clear them out
 	for _, pend := range dec.pend {
 		pend()
 	}
-	dec.pend = dec.pends[len(dec.pends)-1]
-	dec.pends = dec.pends[:len(dec.pends)-1]
+	dec.pend = dec.pend[:0]
 
-	// Restore the previous state, but swap in the current slice as a future memcache
-	last := len(dec.offsetss) - 1
+	// Restore the previous pends, but swap in the current slice as a future memcache
+	last := len(dec.pends) - 1
+
+	dec.pend, dec.pends[last] = dec.pends[last], dec.pend
+	dec.pends = dec.pends[:last]
+
+	// Restore the previous offsets, but swap in the current slice as a future memcache
+	last = len(dec.offsetss) - 1
 
 	dec.offsets, dec.offsetss[last] = dec.offsetss[last], dec.offsets
 	dec.offsetss = dec.offsetss[:last]

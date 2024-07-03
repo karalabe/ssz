@@ -47,18 +47,33 @@ type Encoder struct {
 // offset for the dynamic fields.
 func (enc *Encoder) OffsetDynamics(offset int) {
 	enc.offset = uint32(offset)
-	enc.pends = append(enc.pends, enc.pend)
-	enc.pend = nil
+
+	// Try to reuse older pending slices to avoid allocations
+	n := len(enc.pends)
+
+	if cap(enc.pends) > n {
+		enc.pends = enc.pends[:n+1]
+		enc.pend, enc.pends[n] = enc.pends[n], enc.pend
+	} else {
+		enc.pends = append(enc.pends, enc.pend)
+		enc.pend = nil
+	}
 }
 
 // FinishDynamics marks the end of the dynamic fields, encoding anything queued up and
 // restoring any previous states for outer call continuation.
 func (enc *Encoder) FinishDynamics() {
+	// Apply any delayed ops and clear them out
 	for _, pend := range enc.pend {
 		pend()
 	}
-	enc.pend = enc.pends[len(enc.pends)-1]
-	enc.pends = enc.pends[:len(enc.pends)-1]
+	enc.pend = enc.pend[:0]
+
+	// Restore the previous pends, but swap in the current slice as a future memcache
+	last := len(enc.pends) - 1
+
+	enc.pend, enc.pends[last] = enc.pends[last], enc.pend
+	enc.pends = enc.pends[:last]
 }
 
 // EncodeUint64 serializes a uint64.
