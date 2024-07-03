@@ -22,5 +22,7 @@ func (b *BeaconBlock) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUint64(codec, &b.ProposerIndex)
 	ssz.DefineStaticBytes(codec, b.ParentRoot[:])
 	ssz.DefineStaticBytes(codec, b.StateRoot[:])
-	ssz.DefineDynamicObject(codec, &b.Body)
+	ssz.DefineDynamicObjectOffset(codec, &b.Body)
+
+	ssz.DefineDynamicObjectContent(codec, &b.Body)
 }

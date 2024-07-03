@@ -38,9 +38,6 @@ type Decoder struct {
 	offsets  []uint32   // Queue of offsets for dynamic size calculations
 	offsetss [][]uint32 // Stack of offsets from outer calls
 
-	pend  []func()   // Queue of dynamics pending to be decoded
-	pends [][]func() // Stack of dynamics queues from outer calls
-
 	sizes  []uint32   // Computed sizes for the dynamic objects
 	sizess [][]uint32 // Stack of computed sizes from outer calls
 }
@@ -74,19 +71,18 @@ func DecodeStaticBytes(dec *Decoder, blob []byte) {
 	_, dec.err = io.ReadFull(dec.in, blob)
 }
 
-// DecodeDynamicBytes parses a dynamic binary blob.
-func DecodeDynamicBytes(dec *Decoder, blob *[]byte, maxSize uint32) {
+// DecodeDynamicBytesOffset parses a dynamic binary blob.
+func DecodeDynamicBytesOffset(dec *Decoder, blob *[]byte, maxSize uint32) {
 	if dec.err != nil {
 		return
 	}
 	if dec.err = dec.decodeOffset(false); dec.err != nil {
 		return
 	}
-	dec.pend = append(dec.pend, func() { decodeDynamicBytes(dec, blob, maxSize) })
 }
 
-// decodeDynamicBytes is the lazy data reader of DecodeDynamicBytes.
-func decodeDynamicBytes(dec *Decoder, blob *[]byte, maxSize uint32) {
+// DecodeDynamicBytesContent is the lazy data reader of DecodeDynamicBytesOffset.
+func DecodeDynamicBytesContent(dec *Decoder, blob *[]byte, maxSize uint32) {
 	if dec.err != nil {
 		return
 	}
@@ -116,19 +112,18 @@ func DecodeStaticObject[T newableStaticObject[U], U any](dec *Decoder, obj *T) {
 	(*obj).DefineSSZ(dec.codec)
 }
 
-// DecodeDynamicObject parses a dynamic ssz object.
-func DecodeDynamicObject[T newableDynamicObject[U], U any](dec *Decoder, obj *T) {
+// DecodeDynamicObjectOffset parses a dynamic ssz object.
+func DecodeDynamicObjectOffset[T newableDynamicObject[U], U any](dec *Decoder, obj *T) {
 	if dec.err != nil {
 		return
 	}
 	if dec.err = dec.decodeOffset(false); dec.err != nil {
 		return
 	}
-	dec.pend = append(dec.pend, func() { decodeDynamicObject(dec, obj) })
 }
 
-// decodeDynamicObject is the lazy data reader of DecodeDynamicObject.
-func decodeDynamicObject[T newableDynamicObject[U], U any](dec *Decoder, obj *T) {
+// DecodeDynamicObjectContent is the lazy data reader of DecodeDynamicObjectOffset.
+func DecodeDynamicObjectContent[T newableDynamicObject[U], U any](dec *Decoder, obj *T) {
 	if dec.err != nil {
 		return
 	}
@@ -148,19 +143,18 @@ func decodeDynamicObject[T newableDynamicObject[U], U any](dec *Decoder, obj *T)
 	dec.flushDynamics()
 }
 
-// DecodeSliceOfUint64s parses a dynamic slice of uint64s.
-func DecodeSliceOfUint64s[T ~uint64](dec *Decoder, ns *[]T, maxItems uint32) {
+// DecodeSliceOfUint64sOffset parses a dynamic slice of uint64s.
+func DecodeSliceOfUint64sOffset[T ~uint64](dec *Decoder, ns *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}
 	if dec.err = dec.decodeOffset(false); dec.err != nil {
 		return
 	}
-	dec.pend = append(dec.pend, func() { decodeSliceOfUint64s(dec, ns, maxItems) })
 }
 
-// decodeSliceOfUint64s is the lazy data reader of DecodeSliceOfUint64s.
-func decodeSliceOfUint64s[T ~uint64](dec *Decoder, ns *[]T, maxItems uint32) {
+// DecodeSliceOfUint64sContent is the lazy data reader of DecodeSliceOfUint64sOffset.
+func DecodeSliceOfUint64sContent[T ~uint64](dec *Decoder, ns *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}
@@ -204,19 +198,18 @@ func DecodeArrayOfStaticBytes[T commonBinaryLengths](dec *Decoder, blobs []T) {
 	}
 }
 
-// DecodeSliceOfStaticBytes parses a dynamic slice of static binary blobs.
-func DecodeSliceOfStaticBytes[T commonBinaryLengths](dec *Decoder, blobs *[]T, maxItems uint32) {
+// DecodeSliceOfStaticBytesOffset parses a dynamic slice of static binary blobs.
+func DecodeSliceOfStaticBytesOffset[T commonBinaryLengths](dec *Decoder, blobs *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}
 	if dec.err = dec.decodeOffset(false); dec.err != nil {
 		return
 	}
-	dec.pend = append(dec.pend, func() { decodeSliceOfStaticBytes(dec, blobs, maxItems) })
 }
 
-// decodeSliceOfStaticBytes is the lazy data reader of DecodeSliceOfStaticBytes.
-func decodeSliceOfStaticBytes[T commonBinaryLengths](dec *Decoder, blobs *[]T, maxItems uint32) {
+// DecodeSliceOfStaticBytesContent is the lazy data reader of DecodeSliceOfStaticBytesOffset.
+func DecodeSliceOfStaticBytesContent[T commonBinaryLengths](dec *Decoder, blobs *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}
@@ -251,19 +244,18 @@ func decodeSliceOfStaticBytes[T commonBinaryLengths](dec *Decoder, blobs *[]T, m
 	}
 }
 
-// DecodeSliceOfDynamicBytes parses a dynamic slice of dynamic binary blobs.
-func DecodeSliceOfDynamicBytes(dec *Decoder, blobs *[][]byte, maxItems uint32, maxSize uint32) {
+// DecodeSliceOfDynamicBytesOffset parses a dynamic slice of dynamic binary blobs.
+func DecodeSliceOfDynamicBytesOffset(dec *Decoder, blobs *[][]byte, maxItems uint32, maxSize uint32) {
 	if dec.err != nil {
 		return
 	}
 	if dec.err = dec.decodeOffset(false); dec.err != nil {
 		return
 	}
-	dec.pend = append(dec.pend, func() { decodeSliceOfDynamicBytes(dec, blobs, maxItems, maxSize) })
 }
 
-// decodeSliceOfDynamicBytes is the lazy data reader of DecodeSliceOfDynamicBytes.
-func decodeSliceOfDynamicBytes(dec *Decoder, blobs *[][]byte, maxItems uint32, maxSize uint32) {
+// DecodeSliceOfDynamicBytesContent is the lazy data reader of DecodeSliceOfDynamicBytesOffset.
+func DecodeSliceOfDynamicBytesContent(dec *Decoder, blobs *[][]byte, maxItems uint32, maxSize uint32) {
 	if dec.err != nil {
 		return
 	}
@@ -304,29 +296,26 @@ func decodeSliceOfDynamicBytes(dec *Decoder, blobs *[][]byte, maxItems uint32, m
 	} else {
 		*blobs = (*blobs)[:items]
 	}
-	// We have consumed the first offset out of bounds, so schedule a dynamic
-	// retrieval explicitly for it. For all the rest, consume as individual
-	// blobs.
-	dec.pend = append(dec.pend, func() { decodeDynamicBytes(dec, &(*blobs)[0], maxSize) })
-
 	for i := uint32(1); i < items; i++ {
-		DecodeDynamicBytes(dec, &(*blobs)[i], maxSize)
+		DecodeDynamicBytesOffset(dec, &(*blobs)[i], maxSize)
+	}
+	for i := uint32(0); i < items; i++ {
+		DecodeDynamicBytesContent(dec, &(*blobs)[i], maxSize)
 	}
 }
 
-// DecodeSliceOfStaticObjects parses a dynamic slice of static ssz objects.
-func DecodeSliceOfStaticObjects[T newableStaticObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
+// DecodeSliceOfStaticObjectsOffset parses a dynamic slice of static ssz objects.
+func DecodeSliceOfStaticObjectsOffset[T newableStaticObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}
 	if dec.err = dec.decodeOffset(false); dec.err != nil {
 		return
 	}
-	dec.pend = append(dec.pend, func() { decodeSliceOfStaticObjects(dec, objects, maxItems) })
 }
 
-// decodeSliceOfStaticObjects is the lazy data reader of DecodeSliceOfStaticObjects.
-func decodeSliceOfStaticObjects[T newableStaticObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
+// DecodeSliceOfStaticObjectsContent is the lazy data reader of DecodeSliceOfStaticObjectsOffset.
+func DecodeSliceOfStaticObjectsContent[T newableStaticObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}
@@ -362,19 +351,18 @@ func decodeSliceOfStaticObjects[T newableStaticObject[U], U any](dec *Decoder, o
 	}
 }
 
-// DecodeSliceOfDynamicObjects parses a dynamic slice of dynamic ssz objects.
-func DecodeSliceOfDynamicObjects[T newableDynamicObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
+// DecodeSliceOfDynamicObjectsOffset parses a dynamic slice of dynamic ssz objects.
+func DecodeSliceOfDynamicObjectsOffset[T newableDynamicObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}
 	if dec.err = dec.decodeOffset(false); dec.err != nil {
 		return
 	}
-	dec.pend = append(dec.pend, func() { decodeSliceOfDynamicObjects(dec, objects, maxItems) })
 }
 
-// decodeSliceOfDynamicObjects is the lazy data reader of DecodeSliceOfDynamicObjects.
-func decodeSliceOfDynamicObjects[T newableDynamicObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
+// DecodeSliceOfDynamicObjectsContent is the lazy data reader of DecodeSliceOfDynamicObjectsOffset.
+func DecodeSliceOfDynamicObjectsContent[T newableDynamicObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}
@@ -415,13 +403,11 @@ func decodeSliceOfDynamicObjects[T newableDynamicObject[U], U any](dec *Decoder,
 	} else {
 		*objects = (*objects)[:items]
 	}
-	// We have consumed the first offset out of bounds, so schedule a dynamic
-	// retrieval explicitly for it. For all the rest, consume as individual
-	// blobs.
-	dec.pend = append(dec.pend, func() { decodeDynamicObject(dec, &(*objects)[0]) })
-
 	for i := uint32(1); i < items; i++ {
-		DecodeDynamicObject(dec, &(*objects)[i])
+		DecodeDynamicObjectOffset(dec, &(*objects)[i])
+	}
+	for i := uint32(0); i < items; i++ {
+		DecodeDynamicObjectContent(dec, &(*objects)[i])
 	}
 }
 
@@ -509,18 +495,8 @@ func (dec *Decoder) startDynamics(offset uint32) {
 		dec.offsetss = append(dec.offsetss, dec.offsets)
 		dec.offsets = nil
 	}
-	dec.offset = offset
+	dec.offset = uint32(offset)
 
-	// Try to reuse older pending slices to avoid allocations
-	n = len(dec.pends)
-
-	if cap(dec.pends) > n {
-		dec.pends = dec.pends[:n+1]
-		dec.pend, dec.pends[n] = dec.pends[n], dec.pend
-	} else {
-		dec.pends = append(dec.pends, dec.pend)
-		dec.pend = nil
-	}
 	// Try to reuse older computed size slices to avoid allocations
 	n = len(dec.sizess)
 
@@ -536,24 +512,12 @@ func (dec *Decoder) startDynamics(offset uint32) {
 // flushDynamics marks the end of the dynamic fields, decoding anything queued up and
 // restoring any previous states for outer call continuation.
 func (dec *Decoder) flushDynamics() {
-	// Apply any delayed ops and clear them out
-	for _, pend := range dec.pend {
-		pend()
-	}
-	dec.pend = dec.pend[:0]
-
 	// Clear out any leftovers from partial dynamic decodes
 	dec.offsets = dec.offsets[:0]
 	dec.sizes = dec.sizes[:0]
 
-	// Restore the previous pends, but swap in the current slice as a future memcache
-	last := len(dec.pends) - 1
-
-	dec.pend, dec.pends[last] = dec.pends[last], dec.pend
-	dec.pends = dec.pends[:last]
-
 	// Restore the previous state, but swap in the current slice as a future memcache
-	last = len(dec.sizess) - 1
+	last := len(dec.sizess) - 1
 
 	dec.sizes, dec.sizess[last] = dec.sizess[last], dec.sizes
 	dec.sizess = dec.sizess[:last]

@@ -63,13 +63,22 @@ func DefineStaticBytes(c *Codec, bytes []byte) {
 	DecodeStaticBytes(c.dec, bytes)
 }
 
-// DefineDynamicBytes defines the next field as dynamic binary blob.
-func DefineDynamicBytes(c *Codec, blob *[]byte, maxSize uint32) {
+// DefineDynamicBytesOffset defines the next field as dynamic binary blob.
+func DefineDynamicBytesOffset(c *Codec, blob *[]byte, maxSize uint32) {
 	if c.enc != nil {
-		EncodeDynamicBytes(c.enc, *blob)
+		EncodeDynamicBytesOffset(c.enc, *blob)
 		return
 	}
-	DecodeDynamicBytes(c.dec, blob, maxSize)
+	DecodeDynamicBytesOffset(c.dec, blob, maxSize)
+}
+
+// DefineDynamicBytesContent defines the next field as dynamic binary blob.
+func DefineDynamicBytesContent(c *Codec, blob *[]byte, maxSize uint32) {
+	if c.enc != nil {
+		EncodeDynamicBytesContent(c.enc, *blob)
+		return
+	}
+	DecodeDynamicBytesContent(c.dec, blob, maxSize)
 }
 
 // DefineStaticObject defines the next field as a static ssz object.
@@ -81,22 +90,40 @@ func DefineStaticObject[T newableStaticObject[U], U any](c *Codec, obj *T) {
 	DecodeStaticObject(c.dec, obj)
 }
 
-// DefineDynamicObject defines the next field as a dynamic ssz object.
-func DefineDynamicObject[T newableDynamicObject[U], U any](c *Codec, obj *T) {
+// DefineDynamicObjectOffset defines the next field as a dynamic ssz object.
+func DefineDynamicObjectOffset[T newableDynamicObject[U], U any](c *Codec, obj *T) {
 	if c.enc != nil {
-		EncodeDynamicObject(c.enc, *obj)
+		EncodeDynamicObjectOffset(c.enc, *obj)
 		return
 	}
-	DecodeDynamicObject(c.dec, obj)
+	DecodeDynamicObjectOffset(c.dec, obj)
 }
 
-// DefineSliceOfUint64s defines the next field as a dynamic slice of uint64s.
-func DefineSliceOfUint64s[T ~uint64](c *Codec, ns *[]T, maxItems uint32) {
+// DefineDynamicObjectContent defines the next field as a dynamic ssz object.
+func DefineDynamicObjectContent[T newableDynamicObject[U], U any](c *Codec, obj *T) {
 	if c.enc != nil {
-		EncodeSliceOfUint64s(c.enc, *ns)
+		EncodeDynamicObjectContent(c.enc, *obj)
 		return
 	}
-	DecodeSliceOfUint64s(c.dec, ns, maxItems)
+	DecodeDynamicObjectContent(c.dec, obj)
+}
+
+// DefineSliceOfUint64sOffset defines the next field as a dynamic slice of uint64s.
+func DefineSliceOfUint64sOffset[T ~uint64](c *Codec, ns *[]T, maxItems uint32) {
+	if c.enc != nil {
+		EncodeSliceOfUint64sOffset(c.enc, *ns)
+		return
+	}
+	DecodeSliceOfUint64sOffset(c.dec, ns, maxItems)
+}
+
+// DefineSliceOfUint64sContent defines the next field as a dynamic slice of uint64s.
+func DefineSliceOfUint64sContent[T ~uint64](c *Codec, ns *[]T, maxItems uint32) {
+	if c.enc != nil {
+		EncodeSliceOfUint64sContent(c.enc, *ns)
+		return
+	}
+	DecodeSliceOfUint64sContent(c.dec, ns, maxItems)
 }
 
 // DefineArrayOfStaticBytes defines the next field as a static array of static
@@ -109,42 +136,82 @@ func DefineArrayOfStaticBytes[T commonBinaryLengths](c *Codec, bytes []T) {
 	DecodeArrayOfStaticBytes(c.dec, bytes)
 }
 
-// DefineSliceOfStaticBytes defines the next field as a dynamic slice of static
+// DefineSliceOfStaticBytesOffset defines the next field as a dynamic slice of static
 // binary blobs.
-func DefineSliceOfStaticBytes[T commonBinaryLengths](c *Codec, bytes *[]T, maxItems uint32) {
+func DefineSliceOfStaticBytesOffset[T commonBinaryLengths](c *Codec, bytes *[]T, maxItems uint32) {
 	if c.enc != nil {
-		EncodeSliceOfStaticBytes(c.enc, *bytes)
+		EncodeSliceOfStaticBytesOffset(c.enc, *bytes)
 		return
 	}
-	DecodeSliceOfStaticBytes(c.dec, bytes, maxItems)
+	DecodeSliceOfStaticBytesOffset(c.dec, bytes, maxItems)
 }
 
-// DefineSliceOfDynamicBytes defines the next field as a dynamic slice of dynamic
+// DefineSliceOfStaticBytesContent defines the next field as a dynamic slice of static
 // binary blobs.
-func DefineSliceOfDynamicBytes(c *Codec, blobs *[][]byte, maxItems uint32, maxSize uint32) {
+func DefineSliceOfStaticBytesContent[T commonBinaryLengths](c *Codec, bytes *[]T, maxItems uint32) {
 	if c.enc != nil {
-		EncodeSliceOfDynamicBytes(c.enc, *blobs)
+		EncodeSliceOfStaticBytesContent(c.enc, *bytes)
 		return
 	}
-	DecodeSliceOfDynamicBytes(c.dec, blobs, maxItems, maxSize)
+	DecodeSliceOfStaticBytesContent(c.dec, bytes, maxItems)
 }
 
-// DefineSliceOfStaticObjects defines the next field as a dynamic slice of static
-// ssz objects.
-func DefineSliceOfStaticObjects[T newableStaticObject[U], U any](c *Codec, objects *[]T, maxItems uint32) {
+// DefineSliceOfDynamicBytesOffset defines the next field as a dynamic slice of dynamic
+// binary blobs.
+func DefineSliceOfDynamicBytesOffset(c *Codec, blobs *[][]byte, maxItems uint32, maxSize uint32) {
 	if c.enc != nil {
-		EncodeSliceOfStaticObjects(c.enc, *objects)
+		EncodeSliceOfDynamicBytesOffset(c.enc, *blobs)
 		return
 	}
-	DecodeSliceOfStaticObjects(c.dec, objects, maxItems)
+	DecodeSliceOfDynamicBytesOffset(c.dec, blobs, maxItems, maxSize)
 }
 
-// DefineSliceOfDynamicObjects defines the next field as a dynamic slice of dynamic
-// ssz objects.
-func DefineSliceOfDynamicObjects[T newableDynamicObject[U], U any](c *Codec, objects *[]T, maxItems uint32) {
+// DefineSliceOfDynamicBytesContent defines the next field as a dynamic slice of dynamic
+// binary blobs.
+func DefineSliceOfDynamicBytesContent(c *Codec, blobs *[][]byte, maxItems uint32, maxSize uint32) {
 	if c.enc != nil {
-		EncodeSliceOfDynamicObjects(c.enc, *objects)
+		EncodeSliceOfDynamicBytesContent(c.enc, *blobs)
 		return
 	}
-	DecodeSliceOfDynamicObjects(c.dec, objects, maxItems)
+	DecodeSliceOfDynamicBytesContent(c.dec, blobs, maxItems, maxSize)
+}
+
+// DefineSliceOfStaticObjectsOffset defines the next field as a dynamic slice of static
+// ssz objects.
+func DefineSliceOfStaticObjectsOffset[T newableStaticObject[U], U any](c *Codec, objects *[]T, maxItems uint32) {
+	if c.enc != nil {
+		EncodeSliceOfStaticObjectsOffset(c.enc, *objects)
+		return
+	}
+	DecodeSliceOfStaticObjectsOffset(c.dec, objects, maxItems)
+}
+
+// DefineSliceOfStaticObjectsContent defines the next field as a dynamic slice of static
+// ssz objects.
+func DefineSliceOfStaticObjectsContent[T newableStaticObject[U], U any](c *Codec, objects *[]T, maxItems uint32) {
+	if c.enc != nil {
+		EncodeSliceOfStaticObjectsContent(c.enc, *objects)
+		return
+	}
+	DecodeSliceOfStaticObjectsContent(c.dec, objects, maxItems)
+}
+
+// DefineSliceOfDynamicObjectsOffset defines the next field as a dynamic slice of dynamic
+// ssz objects.
+func DefineSliceOfDynamicObjectsOffset[T newableDynamicObject[U], U any](c *Codec, objects *[]T, maxItems uint32) {
+	if c.enc != nil {
+		EncodeSliceOfDynamicObjectsOffset(c.enc, *objects)
+		return
+	}
+	DecodeSliceOfDynamicObjectsOffset(c.dec, objects, maxItems)
+}
+
+// DefineSliceOfDynamicObjectsContent defines the next field as a dynamic slice of dynamic
+// ssz objects.
+func DefineSliceOfDynamicObjectsContent[T newableDynamicObject[U], U any](c *Codec, objects *[]T, maxItems uint32) {
+	if c.enc != nil {
+		EncodeSliceOfDynamicObjectsContent(c.enc, *objects)
+		return
+	}
+	DecodeSliceOfDynamicObjectsContent(c.dec, objects, maxItems)
 }

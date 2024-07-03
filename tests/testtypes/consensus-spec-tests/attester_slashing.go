@@ -20,6 +20,9 @@ func (a *AttesterSlashing) SizeSSZ(fixed bool) uint32 {
 	return size
 }
 func (a *AttesterSlashing) DefineSSZ(codec *ssz.Codec) {
-	ssz.DefineDynamicObject(codec, &a.Attestation1) // Offset (0) - Attestation1 - 4 bytes
-	ssz.DefineDynamicObject(codec, &a.Attestation2) // Offset (1) - Attestation2 - 4 bytes
+	ssz.DefineDynamicObjectOffset(codec, &a.Attestation1) // Offset (0) - Attestation1 - 4 bytes
+	ssz.DefineDynamicObjectOffset(codec, &a.Attestation2) // Offset (1) - Attestation2 - 4 bytes
+
+	ssz.DefineDynamicObjectContent(codec, &a.Attestation1) // Offset (0) - Attestation1 - 4 bytes
+	ssz.DefineDynamicObjectContent(codec, &a.Attestation2) // Offset (1) - Attestation2 - 4 bytes
 }

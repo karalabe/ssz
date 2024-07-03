@@ -38,9 +38,7 @@ type Encoder struct {
 	codec *Codec   // Self-referencing to pass DefineSSZ calls through (API trick)
 	buf   [32]byte // Integer conversion buffer
 
-	offset uint32     // Offset tracker for dynamic fields
-	pend   []func()   // Queue of dynamics pending to be encoded
-	pends  [][]func() // Stack of dynamics queues from outer calls
+	offset uint32 // Offset tracker for dynamic fields
 }
 
 // EncodeUint64 serializes a uint64.
@@ -75,16 +73,22 @@ func EncodeStaticBytes(enc *Encoder, blob []byte) {
 	_, enc.err = enc.out.Write(blob)
 }
 
-// EncodeDynamicBytes serializes a dynamic binary blob.
-func EncodeDynamicBytes(enc *Encoder, blob []byte) {
+// EncodeDynamicBytesOffset serializes a dynamic binary blob.
+func EncodeDynamicBytesOffset(enc *Encoder, blob []byte) {
 	if enc.err != nil {
 		return
 	}
 	binary.LittleEndian.PutUint32(enc.buf[:4], enc.offset)
 	_, enc.err = enc.out.Write(enc.buf[:4])
 	enc.offset += uint32(len(blob))
+}
 
-	enc.pend = append(enc.pend, func() { EncodeStaticBytes(enc, blob) })
+// EncodeDynamicBytesContent is the lazy data writer for EncodeDynamicBytesOffset.
+func EncodeDynamicBytesContent(enc *Encoder, blob []byte) {
+	if enc.err != nil {
+		return
+	}
+	_, enc.err = enc.out.Write(blob)
 }
 
 // EncodeStaticObject serializes a static ssz object.
@@ -95,20 +99,18 @@ func EncodeStaticObject(enc *Encoder, obj StaticObject) {
 	obj.DefineSSZ(enc.codec)
 }
 
-// EncodeDynamicObject serializes a dynamic ssz object.
-func EncodeDynamicObject(enc *Encoder, obj DynamicObject) {
+// EncodeDynamicObjectOffset serializes a dynamic ssz object.
+func EncodeDynamicObjectOffset(enc *Encoder, obj DynamicObject) {
 	if enc.err != nil {
 		return
 	}
 	binary.LittleEndian.PutUint32(enc.buf[:4], enc.offset)
 	_, enc.err = enc.out.Write(enc.buf[:4])
 	enc.offset += obj.SizeSSZ(false)
-
-	enc.pend = append(enc.pend, func() { encodeDynamicObject(enc, obj) })
 }
 
-// encodeDynamicObject is the lazy data writer for EncodeDynamicObject.
-func encodeDynamicObject(enc *Encoder, obj DynamicObject) {
+// EncodeDynamicObjectContent is the lazy data writer for EncodeDynamicObjectOffset.
+func EncodeDynamicObjectContent(enc *Encoder, obj DynamicObject) {
 	if enc.err != nil {
 		return
 	}
@@ -117,8 +119,8 @@ func encodeDynamicObject(enc *Encoder, obj DynamicObject) {
 	enc.flushDynamics()
 }
 
-// EncodeSliceOfUint64s serializes a dynamic slice of uint64s.
-func EncodeSliceOfUint64s[T ~uint64](enc *Encoder, ns []T) {
+// EncodeSliceOfUint64sOffset serializes a dynamic slice of uint64s.
+func EncodeSliceOfUint64sOffset[T ~uint64](enc *Encoder, ns []T) {
 	if enc.err != nil {
 		return
 	}
@@ -128,11 +130,10 @@ func EncodeSliceOfUint64s[T ~uint64](enc *Encoder, ns []T) {
 	if items := len(ns); items > 0 {
 		enc.offset += uint32(items * 8)
 	}
-	enc.pend = append(enc.pend, func() { encodeSliceOfUint64s(enc, ns) })
 }
 
-// encodeSliceOfUint64s is the lazy data writer for EncodeSliceOfUint64s.
-func encodeSliceOfUint64s[T ~uint64](enc *Encoder, ns []T) {
+// EncodeSliceOfUint64sContent is the lazy data writer for EncodeSliceOfUint64sOffset.
+func EncodeSliceOfUint64sContent[T ~uint64](enc *Encoder, ns []T) {
 	if enc.err != nil {
 		return
 	}
@@ -153,8 +154,8 @@ func EncodeArrayOfStaticBytes[T commonBinaryLengths](enc *Encoder, blobs []T) {
 	}
 }
 
-// EncodeSliceOfStaticBytes serializes a dynamic slice of static binary blobs.
-func EncodeSliceOfStaticBytes[T commonBinaryLengths](enc *Encoder, blobs []T) {
+// EncodeSliceOfStaticBytesOffset serializes a dynamic slice of static binary blobs.
+func EncodeSliceOfStaticBytesOffset[T commonBinaryLengths](enc *Encoder, blobs []T) {
 	if enc.err != nil {
 		return
 	}
@@ -164,11 +165,10 @@ func EncodeSliceOfStaticBytes[T commonBinaryLengths](enc *Encoder, blobs []T) {
 	if items := len(blobs); items > 0 {
 		enc.offset += uint32(items * len(blobs[0]))
 	}
-	enc.pend = append(enc.pend, func() { encodeSliceOfStaticBytes(enc, blobs) })
 }
 
-// encodeSliceOfStaticBytes is the lazy data writer for EncodeSliceOfStaticBytes.
-func encodeSliceOfStaticBytes[T commonBinaryLengths](enc *Encoder, blobs []T) {
+// EncodeSliceOfStaticBytesContent is the lazy data writer for EncodeSliceOfStaticBytesOffset.
+func EncodeSliceOfStaticBytesContent[T commonBinaryLengths](enc *Encoder, blobs []T) {
 	if enc.err != nil {
 		return
 	}
@@ -179,8 +179,8 @@ func encodeSliceOfStaticBytes[T commonBinaryLengths](enc *Encoder, blobs []T) {
 	}
 }
 
-// EncodeSliceOfDynamicBytes serializes a dynamic slice of dynamic binary blobs.
-func EncodeSliceOfDynamicBytes(enc *Encoder, blobs [][]byte) {
+// EncodeSliceOfDynamicBytesOffset serializes a dynamic slice of dynamic binary blobs.
+func EncodeSliceOfDynamicBytesOffset(enc *Encoder, blobs [][]byte) {
 	if enc.err != nil {
 		return
 	}
@@ -190,23 +190,25 @@ func EncodeSliceOfDynamicBytes(enc *Encoder, blobs [][]byte) {
 	for _, blob := range blobs {
 		enc.offset += uint32(4 + len(blob))
 	}
-	enc.pend = append(enc.pend, func() { encodeSliceOfDynamicBytes(enc, blobs) })
 }
 
-// encodeSliceOfDynamicBytes is the lazy data writer for EncodeSliceOfDynamicBytes.
-func encodeSliceOfDynamicBytes(enc *Encoder, blobs [][]byte) {
+// EncodeSliceOfDynamicBytesContent is the lazy data writer for EncodeSliceOfDynamicBytesOffset.
+func EncodeSliceOfDynamicBytesContent(enc *Encoder, blobs [][]byte) {
 	if enc.err != nil {
 		return
 	}
 	enc.startDynamics(uint32(4 * len(blobs)))
 	for _, blob := range blobs {
-		EncodeDynamicBytes(enc, blob)
+		EncodeDynamicBytesOffset(enc, blob)
+	}
+	for _, blob := range blobs {
+		EncodeDynamicBytesContent(enc, blob)
 	}
 	enc.flushDynamics()
 }
 
-// EncodeSliceOfStaticObjects serializes a dynamic slice of static ssz objects.
-func EncodeSliceOfStaticObjects[T StaticObject](enc *Encoder, objects []T) {
+// EncodeSliceOfStaticObjectsOffset serializes a dynamic slice of static ssz objects.
+func EncodeSliceOfStaticObjectsOffset[T StaticObject](enc *Encoder, objects []T) {
 	if enc.err != nil {
 		return
 	}
@@ -216,11 +218,10 @@ func EncodeSliceOfStaticObjects[T StaticObject](enc *Encoder, objects []T) {
 	if items := len(objects); items > 0 {
 		enc.offset += uint32(items) * objects[0].SizeSSZ()
 	}
-	enc.pend = append(enc.pend, func() { encodeSliceOfStaticObjects(enc, objects) })
 }
 
-// encodeSliceOfStaticObjects is the lazy data writer for EncodeSliceOfStaticObjects.
-func encodeSliceOfStaticObjects[T StaticObject](enc *Encoder, objects []T) {
+// EncodeSliceOfStaticObjectsContent is the lazy data writer for EncodeSliceOfStaticObjectsOffset.
+func EncodeSliceOfStaticObjectsContent[T StaticObject](enc *Encoder, objects []T) {
 	if enc.err != nil {
 		return
 	}
@@ -229,8 +230,8 @@ func encodeSliceOfStaticObjects[T StaticObject](enc *Encoder, objects []T) {
 	}
 }
 
-// EncodeSliceOfDynamicObjects serializes a dynamic slice of dynamic ssz objects.
-func EncodeSliceOfDynamicObjects[T DynamicObject](enc *Encoder, objects []T) {
+// EncodeSliceOfDynamicObjectsOffset serializes a dynamic slice of dynamic ssz objects.
+func EncodeSliceOfDynamicObjectsOffset[T DynamicObject](enc *Encoder, objects []T) {
 	if enc.err != nil {
 		return
 	}
@@ -240,17 +241,19 @@ func EncodeSliceOfDynamicObjects[T DynamicObject](enc *Encoder, objects []T) {
 	for _, obj := range objects {
 		enc.offset += 4 + obj.SizeSSZ(false)
 	}
-	enc.pend = append(enc.pend, func() { encodeSliceOfDynamicObjects(enc, objects) })
 }
 
-// encodeSliceOfDynamicObjects is the lazy data writer for EncodeSliceOfDynamicObjects.
-func encodeSliceOfDynamicObjects[T DynamicObject](enc *Encoder, objects []T) {
+// EncodeSliceOfDynamicObjectsContent is the lazy data writer for EncodeSliceOfDynamicObjectsOffset.
+func EncodeSliceOfDynamicObjectsContent[T DynamicObject](enc *Encoder, objects []T) {
 	if enc.err != nil {
 		return
 	}
 	enc.startDynamics(uint32(4 * len(objects)))
 	for _, obj := range objects {
-		EncodeDynamicObject(enc, obj)
+		EncodeDynamicObjectOffset(enc, obj)
+	}
+	for _, obj := range objects {
+		EncodeDynamicObjectContent(enc, obj)
 	}
 	enc.flushDynamics()
 }
@@ -259,31 +262,9 @@ func encodeSliceOfDynamicObjects[T DynamicObject](enc *Encoder, objects []T) {
 // offset for the dynamic fields.
 func (enc *Encoder) startDynamics(offset uint32) {
 	enc.offset = offset
-
-	// Try to reuse older pending slices to avoid allocations
-	n := len(enc.pends)
-
-	if cap(enc.pends) > n {
-		enc.pends = enc.pends[:n+1]
-		enc.pend, enc.pends[n] = enc.pends[n], enc.pend
-	} else {
-		enc.pends = append(enc.pends, enc.pend)
-		enc.pend = nil
-	}
 }
 
 // flushDynamics marks the end of the dynamic fields, encoding anything queued up and
 // restoring any previous states for outer call continuation.
 func (enc *Encoder) flushDynamics() {
-	// Apply any delayed ops and clear them out
-	for _, pend := range enc.pend {
-		pend()
-	}
-	enc.pend = enc.pend[:0]
-
-	// Restore the previous pends, but swap in the current slice as a future memcache
-	last := len(enc.pends) - 1
-
-	enc.pend, enc.pends[last] = enc.pends[last], enc.pend
-	enc.pends = enc.pends[:last]
 }
