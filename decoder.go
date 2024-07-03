@@ -31,13 +31,18 @@ type Decoder struct {
 	codec *Codec   // Self-referencing to pass DefineSSZ calls through (API trick)
 	buf   [32]byte // Integer conversion buffer
 
-	length   uint32     // Message length being decoded
-	lengths  []uint32   // Stack of lengths from outer calls
+	length  uint32   // Message length being decoded
+	lengths []uint32 // Stack of lengths from outer calls
+
 	offset   uint32     // Starting offset we expect, or last offset seen after
 	offsets  []uint32   // Queue of offsets for dynamic size calculations
 	offsetss [][]uint32 // Stack of offsets from outer calls
-	pend     []func()   // Queue of dynamics pending to be decoded
-	pends    [][]func() // Stack of dynamics queues from outer calls
+
+	pend  []func()   // Queue of dynamics pending to be decoded
+	pends [][]func() // Stack of dynamics queues from outer calls
+
+	sizes  []uint32   // Computed sizes for the dynamic objects
+	sizess [][]uint32 // Stack of computed sizes from outer calls
 }
 
 // OffsetDynamics marks the item being decoded as a dynamic type, setting the starting
@@ -65,6 +70,16 @@ func (dec *Decoder) OffsetDynamics(offset int) {
 		dec.pends = append(dec.pends, dec.pend)
 		dec.pend = nil
 	}
+	// Try to reuse older computed size slices to avoid allocations
+	n = len(dec.sizess)
+
+	if cap(dec.sizess) > n {
+		dec.sizess = dec.sizess[:n+1]
+		dec.sizes, dec.sizess[n] = dec.sizess[n], dec.sizes
+	} else {
+		dec.sizess = append(dec.sizess, dec.sizes)
+		dec.sizes = nil
+	}
 }
 
 // FinishDynamics marks the end of the dynamic fields, decoding anything queued up and
@@ -76,13 +91,23 @@ func (dec *Decoder) FinishDynamics() {
 	}
 	dec.pend = dec.pend[:0]
 
+	// Clear out any leftovers from partial dynamic decodes
+	dec.offsets = dec.offsets[:0]
+	dec.sizes = dec.sizes[:0]
+
 	// Restore the previous pends, but swap in the current slice as a future memcache
 	last := len(dec.pends) - 1
 
 	dec.pend, dec.pends[last] = dec.pends[last], dec.pend
 	dec.pends = dec.pends[:last]
 
-	// Restore the previous offsets, but swap in the current slice as a future memcache
+	// Restore the previous state, but swap in the current slice as a future memcache
+	last = len(dec.sizess) - 1
+
+	dec.sizes, dec.sizess[last] = dec.sizess[last], dec.sizes
+	dec.sizess = dec.sizess[:last]
+
+	// Restore the previous state, but swap in the current slice as a future memcache
 	last = len(dec.offsetss) - 1
 
 	dec.offsets, dec.offsetss[last] = dec.offsetss[last], dec.offsets
@@ -494,17 +519,32 @@ func (dec *Decoder) decodeOffset(list bool) error {
 // retrieveSize retrieves the length of the nest dynamic item based on the seen
 // and cached offsets.
 func (dec *Decoder) retrieveSize() uint32 {
-	var size uint32
-
-	// If we have many dynamic items, compute the size between them. Otherwise,
-	// the last item's size is based on the total message size beinf decoded.
-	if len(dec.offsets) > 1 {
-		size = dec.offsets[1] - dec.offsets[0]
-	} else {
-		size = dec.length - dec.offsets[0]
+	// If sizes aren't yet available, pre-compute them all. The reason we use a
+	// reverse order is to permit popping them off without thrashing the slice.
+	if len(dec.sizes) == 0 {
+		// Expand the sizes slice to required capacity
+		items := len(dec.offsets)
+		if cap(dec.sizes) < items {
+			dec.sizes = dec.sizes[:cap(dec.sizes)]
+			dec.sizes = append(dec.sizes, make([]uint32, items-len(dec.sizes))...)
+		} else {
+			dec.sizes = dec.sizes[:items]
+		}
+		// Compute all the sizes we'll need in reverse order (so we can pop them
+		// off like a stack without ruining the buffer pointer)
+		for i := 0; i < items; i++ {
+			if i < items-1 {
+				dec.sizes[items-1-i] = dec.offsets[i+1] - dec.offsets[i]
+			} else {
+				dec.sizes[0] = dec.length - dec.offsets[i]
+			}
+		}
+		// Nuke out the offsets to avoid leaving junk in the state
+		dec.offsets = dec.offsets[:0]
 	}
-	// Pop off the just-consumed offset and return the size
-	dec.offsets = dec.offsets[1:]
+	// Retrieve the next item's size and pop it off the size stack
+	size := dec.sizes[len(dec.sizes)-1]
+	dec.sizes = dec.sizes[:len(dec.sizes)-1]
 	return size
 }
 

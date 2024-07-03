@@ -18,7 +18,7 @@ func SizeSliceOfUint64s[T ~uint64](ns []T) uint32 {
 
 // SizeDynamicObject returns the serialized size of the dynamic part of a dynamic
 // object.
-func SizeDynamicObject(obj Object) uint32 {
+func SizeDynamicObject[T Object](obj T) uint32 {
 	return obj.SizeSSZ()
 }
 
