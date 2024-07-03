@@ -7,14 +7,14 @@ package consensus_spec_tests
 import "github.com/karalabe/ssz"
 
 type BeaconBlockBody struct {
-	RandaoReveal      [96]byte               `json:"randao_reveal" ssz-size:"96"`
-	Eth1Data          *Eth1Data              `json:"eth1_data"`
-	Graffiti          [32]byte               `json:"graffiti" ssz-size:"32"`
-	ProposerSlashings []*ProposerSlashing    `json:"proposer_slashings" ssz-max:"16"`
-	AttesterSlashings []*AttesterSlashing    `json:"attester_slashings" ssz-max:"2"`
-	Attestations      []*Attestation         `json:"attestations" ssz-max:"128"`
-	Deposits          []*Deposit             `json:"deposits" ssz-max:"16"`
-	VoluntaryExits    []*SignedVoluntaryExit `json:"voluntary_exits" ssz-max:"16"`
+	RandaoReveal      [96]byte
+	Eth1Data          *Eth1Data
+	Graffiti          [32]byte
+	ProposerSlashings []*ProposerSlashing
+	AttesterSlashings []*AttesterSlashing
+	Attestations      []*Attestation
+	Deposits          []*Deposit
+	VoluntaryExits    []*SignedVoluntaryExit
 }
 
 func (b *BeaconBlockBody) SizeSSZ(fixed bool) uint32 {

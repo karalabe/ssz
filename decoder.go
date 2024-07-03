@@ -45,78 +45,6 @@ type Decoder struct {
 	sizess [][]uint32 // Stack of computed sizes from outer calls
 }
 
-// OffsetDynamics marks the item being decoded as a dynamic type, setting the starting
-// offset for the dynamic fields.
-func (dec *Decoder) startDynamics(offset uint32) {
-	// Try to reuse older offset slices to avoid allocations
-	n := len(dec.offsetss)
-
-	if cap(dec.offsetss) > n {
-		dec.offsetss = dec.offsetss[:n+1]
-		dec.offsets, dec.offsetss[n] = dec.offsetss[n], dec.offsets
-	} else {
-		dec.offsetss = append(dec.offsetss, dec.offsets)
-		dec.offsets = nil
-	}
-	dec.offset = offset
-
-	// Try to reuse older pending slices to avoid allocations
-	n = len(dec.pends)
-
-	if cap(dec.pends) > n {
-		dec.pends = dec.pends[:n+1]
-		dec.pend, dec.pends[n] = dec.pends[n], dec.pend
-	} else {
-		dec.pends = append(dec.pends, dec.pend)
-		dec.pend = nil
-	}
-	// Try to reuse older computed size slices to avoid allocations
-	n = len(dec.sizess)
-
-	if cap(dec.sizess) > n {
-		dec.sizess = dec.sizess[:n+1]
-		dec.sizes, dec.sizess[n] = dec.sizess[n], dec.sizes
-	} else {
-		dec.sizess = append(dec.sizess, dec.sizes)
-		dec.sizes = nil
-	}
-}
-
-// FinishDynamics marks the end of the dynamic fields, decoding anything queued up and
-// restoring any previous states for outer call continuation.
-func (dec *Decoder) finishDynamics() {
-	// Apply any delayed ops and clear them out
-	for _, pend := range dec.pend {
-		pend()
-	}
-	dec.pend = dec.pend[:0]
-
-	// Clear out any leftovers from partial dynamic decodes
-	dec.offsets = dec.offsets[:0]
-	dec.sizes = dec.sizes[:0]
-
-	// Restore the previous pends, but swap in the current slice as a future memcache
-	last := len(dec.pends) - 1
-
-	dec.pend, dec.pends[last] = dec.pends[last], dec.pend
-	dec.pends = dec.pends[:last]
-
-	// Restore the previous state, but swap in the current slice as a future memcache
-	last = len(dec.sizess) - 1
-
-	dec.sizes, dec.sizess[last] = dec.sizess[last], dec.sizes
-	dec.sizess = dec.sizess[:last]
-
-	// Restore the previous state, but swap in the current slice as a future memcache
-	last = len(dec.offsetss) - 1
-
-	dec.offsets, dec.offsetss[last] = dec.offsetss[last], dec.offsets
-	dec.offsetss = dec.offsetss[:last]
-
-	// Note, no need to restore dec.offset. No more new offsets can be found when
-	// unrolling the stack and writing out the dynamic data.
-}
-
 // DecodeUint64 parses a uint64.
 func DecodeUint64[T ~uint64](dec *Decoder, n *T) {
 	if dec.err != nil {
@@ -217,7 +145,7 @@ func decodeDynamicObject[T newableDynamicObject[U], U any](dec *Decoder, obj *T)
 	}
 	dec.startDynamics((*obj).SizeSSZ(true))
 	(*obj).DefineSSZ(dec.codec)
-	dec.finishDynamics()
+	dec.flushDynamics()
 }
 
 // DecodeSliceOfUint64s parses a dynamic slice of uint64s.
@@ -562,8 +490,80 @@ func (dec *Decoder) descendIntoDynamic(length uint32) {
 // ascendFromDynamic is the counterpart of descendIntoDynamic that restores the
 // previously suspended decoding state.
 func (dec *Decoder) ascendFromDynamic() {
-	dec.finishDynamics()
+	dec.flushDynamics()
 
 	dec.length = dec.lengths[len(dec.lengths)-1]
 	dec.lengths = dec.lengths[:len(dec.lengths)-1]
+}
+
+// startDynamics marks the item being decoded as a dynamic type, setting the starting
+// offset for the dynamic fields.
+func (dec *Decoder) startDynamics(offset uint32) {
+	// Try to reuse older offset slices to avoid allocations
+	n := len(dec.offsetss)
+
+	if cap(dec.offsetss) > n {
+		dec.offsetss = dec.offsetss[:n+1]
+		dec.offsets, dec.offsetss[n] = dec.offsetss[n], dec.offsets
+	} else {
+		dec.offsetss = append(dec.offsetss, dec.offsets)
+		dec.offsets = nil
+	}
+	dec.offset = offset
+
+	// Try to reuse older pending slices to avoid allocations
+	n = len(dec.pends)
+
+	if cap(dec.pends) > n {
+		dec.pends = dec.pends[:n+1]
+		dec.pend, dec.pends[n] = dec.pends[n], dec.pend
+	} else {
+		dec.pends = append(dec.pends, dec.pend)
+		dec.pend = nil
+	}
+	// Try to reuse older computed size slices to avoid allocations
+	n = len(dec.sizess)
+
+	if cap(dec.sizess) > n {
+		dec.sizess = dec.sizess[:n+1]
+		dec.sizes, dec.sizess[n] = dec.sizess[n], dec.sizes
+	} else {
+		dec.sizess = append(dec.sizess, dec.sizes)
+		dec.sizes = nil
+	}
+}
+
+// flushDynamics marks the end of the dynamic fields, decoding anything queued up and
+// restoring any previous states for outer call continuation.
+func (dec *Decoder) flushDynamics() {
+	// Apply any delayed ops and clear them out
+	for _, pend := range dec.pend {
+		pend()
+	}
+	dec.pend = dec.pend[:0]
+
+	// Clear out any leftovers from partial dynamic decodes
+	dec.offsets = dec.offsets[:0]
+	dec.sizes = dec.sizes[:0]
+
+	// Restore the previous pends, but swap in the current slice as a future memcache
+	last := len(dec.pends) - 1
+
+	dec.pend, dec.pends[last] = dec.pends[last], dec.pend
+	dec.pends = dec.pends[:last]
+
+	// Restore the previous state, but swap in the current slice as a future memcache
+	last = len(dec.sizess) - 1
+
+	dec.sizes, dec.sizess[last] = dec.sizess[last], dec.sizes
+	dec.sizess = dec.sizess[:last]
+
+	// Restore the previous state, but swap in the current slice as a future memcache
+	last = len(dec.offsetss) - 1
+
+	dec.offsets, dec.offsetss[last] = dec.offsetss[last], dec.offsets
+	dec.offsetss = dec.offsetss[:last]
+
+	// Note, no need to restore dec.offset. No more new offsets can be found when
+	// unrolling the stack and writing out the dynamic data.
 }

@@ -32,10 +32,12 @@ type ExecutionPayload struct {
 	Withdrawals   []*Withdrawal `ssz-max:"16"`
 }
 
-func (e *ExecutionPayload) SizeSSZ() uint32 {
+func (e *ExecutionPayload) SizeSSZ(fixed bool) uint32 {
 	// Start out with the static size
 	size := uint32(512)
-
+	if fixed {
+		return size
+	}
 	// Append all the dynamic sizes
 	size += ssz.SizeDynamicBytes(e.ExtraData)           // Field (10) - ExtraData    - max 32 bytes (not enforced)
 	size += ssz.SizeSliceOfDynamicBytes(e.Transactions) // Field (13) - Transactions - max 1048576 items, 1073741824 bytes each (not enforced)
@@ -44,11 +46,6 @@ func (e *ExecutionPayload) SizeSSZ() uint32 {
 	return size
 }
 func (e *ExecutionPayload) DefineSSZ(codec *ssz.Codec) {
-	// Signal to the codec that we have dynamic fields
-	codec.OffsetDynamics(512)
-	defer codec.FinishDynamics()
-
-	// Enumerate all the fields we need to code
 	ssz.DefineStaticBytes(codec, e.ParentHash[:])                                   // Field  ( 0) - ParentHash    -  32 bytes
 	ssz.DefineStaticBytes(codec, e.FeeRecipient[:])                                 // Field  ( 1) - FeeRecipient  -  20 bytes
 	ssz.DefineStaticBytes(codec, e.StateRoot[:])                                    // Field  ( 2) - StateRoot     -  32 bytes

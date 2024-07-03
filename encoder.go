@@ -43,39 +43,6 @@ type Encoder struct {
 	pends  [][]func() // Stack of dynamics queues from outer calls
 }
 
-// OffsetDynamics marks the item being encoded as a dynamic type, setting the starting
-// offset for the dynamic fields.
-func (enc *Encoder) startDynamics(offset uint32) {
-	enc.offset = offset
-
-	// Try to reuse older pending slices to avoid allocations
-	n := len(enc.pends)
-
-	if cap(enc.pends) > n {
-		enc.pends = enc.pends[:n+1]
-		enc.pend, enc.pends[n] = enc.pends[n], enc.pend
-	} else {
-		enc.pends = append(enc.pends, enc.pend)
-		enc.pend = nil
-	}
-}
-
-// FinishDynamics marks the end of the dynamic fields, encoding anything queued up and
-// restoring any previous states for outer call continuation.
-func (enc *Encoder) finishDynamics() {
-	// Apply any delayed ops and clear them out
-	for _, pend := range enc.pend {
-		pend()
-	}
-	enc.pend = enc.pend[:0]
-
-	// Restore the previous pends, but swap in the current slice as a future memcache
-	last := len(enc.pends) - 1
-
-	enc.pend, enc.pends[last] = enc.pends[last], enc.pend
-	enc.pends = enc.pends[:last]
-}
-
 // EncodeUint64 serializes a uint64.
 func EncodeUint64[T ~uint64](enc *Encoder, n T) {
 	if enc.err != nil {
@@ -147,7 +114,7 @@ func encodeDynamicObject(enc *Encoder, obj DynamicObject) {
 	}
 	enc.startDynamics(obj.SizeSSZ(true))
 	obj.DefineSSZ(enc.codec)
-	enc.finishDynamics()
+	enc.flushDynamics()
 }
 
 // EncodeSliceOfUint64s serializes a dynamic slice of uint64s.
@@ -235,7 +202,7 @@ func encodeSliceOfDynamicBytes(enc *Encoder, blobs [][]byte) {
 	for _, blob := range blobs {
 		EncodeDynamicBytes(enc, blob)
 	}
-	enc.finishDynamics()
+	enc.flushDynamics()
 }
 
 // EncodeSliceOfStaticObjects serializes a dynamic slice of static ssz objects.
@@ -285,5 +252,38 @@ func encodeSliceOfDynamicObjects[T DynamicObject](enc *Encoder, objects []T) {
 	for _, obj := range objects {
 		EncodeDynamicObject(enc, obj)
 	}
-	enc.finishDynamics()
+	enc.flushDynamics()
+}
+
+// startDynamics marks the item being encoded as a dynamic type, setting the starting
+// offset for the dynamic fields.
+func (enc *Encoder) startDynamics(offset uint32) {
+	enc.offset = offset
+
+	// Try to reuse older pending slices to avoid allocations
+	n := len(enc.pends)
+
+	if cap(enc.pends) > n {
+		enc.pends = enc.pends[:n+1]
+		enc.pend, enc.pends[n] = enc.pends[n], enc.pend
+	} else {
+		enc.pends = append(enc.pends, enc.pend)
+		enc.pend = nil
+	}
+}
+
+// flushDynamics marks the end of the dynamic fields, encoding anything queued up and
+// restoring any previous states for outer call continuation.
+func (enc *Encoder) flushDynamics() {
+	// Apply any delayed ops and clear them out
+	for _, pend := range enc.pend {
+		pend()
+	}
+	enc.pend = enc.pend[:0]
+
+	// Restore the previous pends, but swap in the current slice as a future memcache
+	last := len(enc.pends) - 1
+
+	enc.pend, enc.pends[last] = enc.pends[last], enc.pend
+	enc.pends = enc.pends[:last]
 }

@@ -79,7 +79,7 @@ func Encode(w io.Writer, obj Object) error {
 	case DynamicObject:
 		codec.enc.startDynamics(v.SizeSSZ(true))
 		v.DefineSSZ(codec)
-		codec.enc.finishDynamics()
+		codec.enc.flushDynamics()
 	default:
 		panic(fmt.Sprintf("unsupported type: %T", obj))
 	}
@@ -107,7 +107,7 @@ func Decode(r io.Reader, obj Object, size uint32) error {
 	case DynamicObject:
 		codec.dec.startDynamics(v.SizeSSZ(true))
 		v.DefineSSZ(codec)
-		codec.dec.finishDynamics()
+		codec.dec.flushDynamics()
 	default:
 		panic(fmt.Sprintf("unsupported type: %T", obj))
 	}

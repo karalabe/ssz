@@ -52,10 +52,10 @@ type Withdrawal struct {
 }
 ```
 
-In order to encode/decode such a (standalone) object via SSZ, it needs to implement the `ssz.Object` interface:
+In order to encode/decode such a (standalone) object via SSZ, it needs to implement the `ssz.StaticObject` interface:
 
 ```go
-type Object interface {
+type StaticObject interface {
 	// SizeSSZ returns the total size of an SSZ object.
 	SizeSSZ() uint32
 
@@ -124,13 +124,28 @@ type ExecutionPayload struct {
 
 Do note, we've reused the previously defined `Address` and `Withdrawal` types. You'll need those too to make this part of the code work. The `uint256.Int` type is from the `github.com/holiman/uint256` package.
 
-As before, we need this type to implement `ssz.Object` to make an encoder/decoder, but the code will be more interesting due to the dynamic fields container within.
+In order to encode/decode such a (standalone) object via SSZ, it needs to implement the `ssz.DynamicObject` interface:
 
 ```go
-func (e *ExecutionPayload) SizeSSZ() uint32 {
+type DynamicObject interface {
+	// SizeSSZ returns either the static size of the object if fixed == true, or
+	// the total size otherwise.
+	SizeSSZ(fixed bool) uint32
+
+	// DefineSSZ defines how an object would be encoded/decoded.
+	DefineSSZ(codec *Codec)
+}
+```
+
+If you look at it more closely, you'll notice that it's almost the same as `ssz.StaticObject`, except the type of `SizeSSZ` is different, here taking an extra boolean argument. The method name/type clash is deliberate: it guarantees compile time that dynamic objects cannot end up in static ssz slots and vice versa.
+
+```go
+func (e *ExecutionPayload) SizeSSZ(fixed bool) uint32 {
 	// Start out with the static size
 	size := uint32(512)
-
+	if fixed {
+		return size
+	}
 	// Append all the dynamic sizes
 	size += ssz.SizeDynamicBytes(e.ExtraData)           // Field (10) - ExtraData    - max 32 bytes (not enforced)
 	size += ssz.SizeSliceOfDynamicBytes(e.Transactions) // Field (13) - Transactions - max 1048576 items, 1073741824 bytes each (not enforced)
@@ -143,19 +158,15 @@ func (e *ExecutionPayload) SizeSSZ() uint32 {
 Opposed to the static `Withdrawal` from the previous section, `ExecutionPayload` has both static and dynamic fields, so we can't just return a pre-computed literal number.
 
 - First up, we will still need to know the static size of the object to avoid costly runtime calculations over and over. Just for reference, that would be the size of all the static fields in the object + 4 bytes for each dynamic field (offset encoding). Feel free to verify the number `512` above.
-- Secondly, we need to iterate over all the dynamic fields and accumulate all their sizes too.
+  - If the caller requested only the static size via the `fixed` parameter, return early.
+- If the caller, however, requested the total size of the object, we need to iterate over all the dynamic fields and accumulate all their sizes too.
   - For all the usual Go suspects like slices and arrays of bytes; 2D sliced and arrays of bytes (i.e. `ExtraData` and `Transactions` above), there are helper methods available in the `ssz` package. 
-  - For types implementing `ssz.Object` (i.e. one item of `Withdrawals` above), there are again helper methods available to use them as single objects, static array of objects, of dynamic slice of objects. You need to know if the object you encode is static or dynamic though as the encoding changes!
+  - For types implementing `ssz.StaticObject / ssz.DynamicObject` (e.g. one item of `Withdrawals` above), there are again helper methods available to use them as single objects, static array of objects, of dynamic slice of objects.
 
-The codec itself is very similar to the static example before, with a few quirks:
+The codec itself is very similar to the static example before:
 
 ```go
 func (e *ExecutionPayload) DefineSSZ(codec *ssz.Codec) {
-	// Signal to the codec that we have dynamic fields
-	codec.OffsetDynamics(512)
-	defer coder.FinishDynamics()
-
-	// Enumerate all the fields we need to code
 	ssz.DefineStaticBytes(codec, e.ParentHash[:])                                   // Field  ( 0) - ParentHash    -  32 bytes
 	ssz.DefineStaticBytes(codec, e.FeeRecipient[:])                                 // Field  ( 1) - FeeRecipient  -  20 bytes
 	ssz.DefineStaticBytes(codec, e.StateRoot[:])                                    // Field  ( 2) - StateRoot     -  32 bytes
@@ -174,12 +185,9 @@ func (e *ExecutionPayload) DefineSSZ(codec *ssz.Codec) {
 }
 ```
 
-- First up, all dynamic objects must start their codec by running `codec.OffsetDynamics(size)` and `defer coder.FinishDynamics()`.
-  - What happens is that we're telling the encoder/decoder that there will be `512` bytes of fixed data, after which the dynamic content begins. Telling the codec the size heads-up is needed to allow running the encoder/decoder in a streaming way, without having to skip encoding fields and later backfilling them.
-  - The deferred part is needed because `codec.OffsetDynamics` actually starts stashing away encountered dynamic fields (they are encoded at the end of the SSZ container) and will encode them when the `defer` runs.
-- The `DefineXYZ` methods are used exactly the same as before, only we used more variations this time due to the more complex data structure. You might also note that dynamic fields also pass in size limits that the decoder can enforce.
+The `DefineXYZ` methods are used exactly the same as before, only we used more variations this time due to the more complex data structure. You might also note that dynamic fields also pass in size limits that the decoder can enforce.
 
-To encode the above `ExecutionPayload` do just as we have done with the static `Witness` object. Perhaps 
+To encode the above `ExecutionPayload` do just as we have done with the static `Witness` object. 
 
 ```go
 func main() {
@@ -255,9 +263,6 @@ Deciding one vs. the other is a design choice of performance vs. simplicity. Con
 
 ```go
 func (a *Attestation) UnifiedSSZ(codec *ssz.Codec) {
-	codec.OffsetDynamics(228)
-	defer codec.FinishDynamics()
-
 	ssz.DefineDynamicBytes(codec, &a.AggregationBits, 2048)
 	ssz.DefineStaticObject(codec, &a.Data)
 	ssz.DefineStaticBytes(codec, a.Signature[:])
@@ -266,9 +271,6 @@ func (a *Attestation) UnifiedSSZ(codec *ssz.Codec) {
 
 ```go
 func (a *Attestation) SplitSSZ(codec *ssz.Codec) {
-	codec.OffsetDynamics(228)
-	defer codec.FinishDynamics()
-
 	// Define the static parts of the SSZ container
 	ssz.DefineDynamicBytesOffset(codec, &a.AggregationBits, 2048)
 	ssz.DefineStaticObject(codec, &a.Data)
