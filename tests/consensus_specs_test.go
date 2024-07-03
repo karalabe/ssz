@@ -201,25 +201,32 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 	}
 	// Start the benchmarks for all the different operations
 	b.Run(fmt.Sprintf("%s/encode", kind), func(b *testing.B) {
-		b.ReportAllocs()
-		b.SetBytes(int64(len(inSSZ)))
+		w := bytes.NewBuffer(make([]byte, inObj.SizeSSZ())[:0])
 
-		blob := make([]byte, inObj.SizeSSZ())
+		b.SetBytes(int64(len(inSSZ)))
+		b.ReportAllocs()
+		b.ResetTimer()
+
 		for i := 0; i < b.N; i++ {
-			if err := ssz.Encode(bytes.NewBuffer(blob[:0]), inObj); err != nil {
+			if err := ssz.Encode(w, inObj); err != nil {
 				b.Fatalf("failed to re-encode SSZ stream: %v", err)
 			}
+			w.Reset()
 		}
 	})
 	b.Run(fmt.Sprintf("%s/decode", kind), func(b *testing.B) {
-		b.ReportAllocs()
-		b.SetBytes(int64(len(inSSZ)))
-
 		obj := T(new(U))
+		r := bytes.NewReader(inSSZ)
+
+		b.SetBytes(int64(len(inSSZ)))
+		b.ReportAllocs()
+		b.ResetTimer()
+
 		for i := 0; i < b.N; i++ {
-			if err := ssz.Decode(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err != nil {
+			if err := ssz.Decode(r, obj, uint32(len(inSSZ))); err != nil {
 				b.Fatalf("failed to decode SSZ stream: %v", err)
 			}
+			r.Reset(inSSZ)
 		}
 	})
 }
