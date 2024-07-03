@@ -27,11 +27,13 @@ type ExecutionPayloadCapella struct {
 	Withdrawals   []*Withdrawal
 }
 
-func (e *ExecutionPayloadCapella) SizeSSZ() uint32 {
+func (e *ExecutionPayloadCapella) SizeSSZ(fixed bool) uint32 {
 	size := uint32(512)
-	size += ssz.SizeDynamicBytes(e.ExtraData)           // Field (10) - ExtraData    - max 32 bytes (not enforced)
-	size += ssz.SizeSliceOfDynamicBytes(e.Transactions) // Field (13) - Transactions - max 1048576 items, 1073741824 bytes each (not enforced)
-	size += ssz.SizeSliceOfStaticObjects(e.Withdrawals) // Field (14) - Withdrawals  - max 16 items, 44 bytes each (not enforced)
+	if !fixed {
+		size += ssz.SizeDynamicBytes(e.ExtraData)           // Field (10) - ExtraData    - max 32 bytes (not enforced)
+		size += ssz.SizeSliceOfDynamicBytes(e.Transactions) // Field (13) - Transactions - max 1048576 items, 1073741824 bytes each (not enforced)
+		size += ssz.SizeSliceOfStaticObjects(e.Withdrawals) // Field (14) - Withdrawals  - max 16 items, 44 bytes each (not enforced)
+	}
 	return size
 }
 func (e *ExecutionPayloadCapella) DefineSSZ(codec *ssz.Codec) {

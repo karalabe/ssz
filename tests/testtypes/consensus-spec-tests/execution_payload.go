@@ -26,10 +26,12 @@ type ExecutionPayload struct {
 	Transactions  [][]byte
 }
 
-func (e *ExecutionPayload) SizeSSZ() uint32 {
+func (e *ExecutionPayload) SizeSSZ(fixed bool) uint32 {
 	size := uint32(508)
-	size += ssz.SizeDynamicBytes(e.ExtraData)           // Field (10) - ExtraData    - max 32 bytes (not enforced)
-	size += ssz.SizeSliceOfDynamicBytes(e.Transactions) // Field (13) - Transactions - max 1048576 items, 1073741824 bytes each (not enforced)
+	if !fixed {
+		size += ssz.SizeDynamicBytes(e.ExtraData)           // Field (10) - ExtraData    - max 32 bytes (not enforced)
+		size += ssz.SizeSliceOfDynamicBytes(e.Transactions) // Field (13) - Transactions - max 1048576 items, 1073741824 bytes each (not enforced)
+	}
 	return size
 }
 func (e *ExecutionPayload) DefineSSZ(codec *ssz.Codec) {
