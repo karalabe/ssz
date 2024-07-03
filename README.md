@@ -249,7 +249,7 @@ When SSZ encodes a dynamic object, it encodes it in two steps:
 Encoding libraries can take two routes to handle this scenario:
 
 - Explicitly require the user to give one command to write the object offset, followed by another command later to write the object content. This is as fast as it gets, but it also leaks out encoding detail into user code.
-- Require only one command from the user, under the hood writing the object offset immediately, and stashing the object itself away for later serialization when the dynamic area is reached. This keeps the offset notion hidden from users.
+- Require only one command from the user, under the hood writing the object offset immediately, and stashing the object itself away for later serialization when the dynamic area is reached. This keeps the offset notion hidden from users, but entails a GC hit to the encoder.
 
 Deciding one vs. the other is a design choice of performance vs. simplicity. Consider the two codes below (for a simple type containing one dynamic object):
 
