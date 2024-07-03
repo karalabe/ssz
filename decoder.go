@@ -72,7 +72,7 @@ func DecodeStaticBytes(dec *Decoder, blob []byte) {
 }
 
 // DecodeDynamicBytesOffset parses a dynamic binary blob.
-func DecodeDynamicBytesOffset(dec *Decoder, blob *[]byte, maxSize uint32) {
+func DecodeDynamicBytesOffset(dec *Decoder, blob *[]byte) {
 	if dec.err != nil {
 		return
 	}
@@ -144,7 +144,7 @@ func DecodeDynamicObjectContent[T newableDynamicObject[U], U any](dec *Decoder, 
 }
 
 // DecodeSliceOfUint64sOffset parses a dynamic slice of uint64s.
-func DecodeSliceOfUint64sOffset[T ~uint64](dec *Decoder, ns *[]T, maxItems uint32) {
+func DecodeSliceOfUint64sOffset[T ~uint64](dec *Decoder, ns *[]T) {
 	if dec.err != nil {
 		return
 	}
@@ -199,7 +199,7 @@ func DecodeArrayOfStaticBytes[T commonBinaryLengths](dec *Decoder, blobs []T) {
 }
 
 // DecodeSliceOfStaticBytesOffset parses a dynamic slice of static binary blobs.
-func DecodeSliceOfStaticBytesOffset[T commonBinaryLengths](dec *Decoder, blobs *[]T, maxItems uint32) {
+func DecodeSliceOfStaticBytesOffset[T commonBinaryLengths](dec *Decoder, blobs *[]T) {
 	if dec.err != nil {
 		return
 	}
@@ -245,7 +245,7 @@ func DecodeSliceOfStaticBytesContent[T commonBinaryLengths](dec *Decoder, blobs 
 }
 
 // DecodeSliceOfDynamicBytesOffset parses a dynamic slice of dynamic binary blobs.
-func DecodeSliceOfDynamicBytesOffset(dec *Decoder, blobs *[][]byte, maxItems uint32, maxSize uint32) {
+func DecodeSliceOfDynamicBytesOffset(dec *Decoder, blobs *[][]byte) {
 	if dec.err != nil {
 		return
 	}
@@ -297,7 +297,7 @@ func DecodeSliceOfDynamicBytesContent(dec *Decoder, blobs *[][]byte, maxItems ui
 		*blobs = (*blobs)[:items]
 	}
 	for i := uint32(1); i < items; i++ {
-		DecodeDynamicBytesOffset(dec, &(*blobs)[i], maxSize)
+		DecodeDynamicBytesOffset(dec, &(*blobs)[i])
 	}
 	for i := uint32(0); i < items; i++ {
 		DecodeDynamicBytesContent(dec, &(*blobs)[i], maxSize)
@@ -305,7 +305,7 @@ func DecodeSliceOfDynamicBytesContent(dec *Decoder, blobs *[][]byte, maxItems ui
 }
 
 // DecodeSliceOfStaticObjectsOffset parses a dynamic slice of static ssz objects.
-func DecodeSliceOfStaticObjectsOffset[T newableStaticObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
+func DecodeSliceOfStaticObjectsOffset[T newableStaticObject[U], U any](dec *Decoder, objects *[]T) {
 	if dec.err != nil {
 		return
 	}
@@ -352,7 +352,7 @@ func DecodeSliceOfStaticObjectsContent[T newableStaticObject[U], U any](dec *Dec
 }
 
 // DecodeSliceOfDynamicObjectsOffset parses a dynamic slice of dynamic ssz objects.
-func DecodeSliceOfDynamicObjectsOffset[T newableDynamicObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
+func DecodeSliceOfDynamicObjectsOffset[T newableDynamicObject[U], U any](dec *Decoder, objects *[]T) {
 	if dec.err != nil {
 		return
 	}
