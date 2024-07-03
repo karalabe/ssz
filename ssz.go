@@ -77,9 +77,8 @@ func Encode(w io.Writer, obj Object) error {
 	case StaticObject:
 		v.DefineSSZ(codec)
 	case DynamicObject:
-		codec.enc.startDynamics(v.SizeSSZ(true))
+		codec.enc.offsetDynamics(v.SizeSSZ(true))
 		v.DefineSSZ(codec)
-		codec.enc.flushDynamics()
 	default:
 		panic(fmt.Sprintf("unsupported type: %T", obj))
 	}
