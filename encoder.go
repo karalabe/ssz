@@ -38,16 +38,14 @@ type Encoder struct {
 	codec *Codec   // Self-referencing to pass DefineSSZ calls through (API trick)
 	buf   [32]byte // Integer conversion buffer
 
-	offset  uint32     // Offset tracker for dynamic fields
-	offsets []uint32   // Stack of offsets from outer calls
-	pend    []func()   // Queue of dynamics pending to be encoded
-	pends   [][]func() // Stack of dynamics queues from outer calls
+	offset uint32     // Offset tracker for dynamic fields
+	pend   []func()   // Queue of dynamics pending to be encoded
+	pends  [][]func() // Stack of dynamics queues from outer calls
 }
 
 // OffsetDynamics marks the item being encoded as a dynamic type, setting the starting
 // offset for the dynamic fields.
 func (enc *Encoder) OffsetDynamics(offset int) {
-	enc.offsets = append(enc.offsets, enc.offset)
 	enc.offset = uint32(offset)
 	enc.pends = append(enc.pends, enc.pend)
 	enc.pend = nil
@@ -61,8 +59,6 @@ func (enc *Encoder) FinishDynamics() {
 	}
 	enc.pend = enc.pends[len(enc.pends)-1]
 	enc.pends = enc.pends[:len(enc.pends)-1]
-	enc.offset = enc.offsets[len(enc.offsets)-1]
-	enc.offsets = enc.offsets[:len(enc.offsets)-1]
 }
 
 // EncodeUint64 serializes a uint64.

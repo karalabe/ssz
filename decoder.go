@@ -43,8 +43,16 @@ type Decoder struct {
 // OffsetDynamics marks the item being decoded as a dynamic type, setting the starting
 // offset for the dynamic fields.
 func (dec *Decoder) OffsetDynamics(offset int) {
-	dec.offsetss = append(dec.offsetss, dec.offsets)
-	dec.offsets = nil
+	// Try to reuse older offset slices to avoid allocations
+	n := len(dec.offsetss)
+
+	if cap(dec.offsetss) > n {
+		dec.offsetss = dec.offsetss[:n+1]
+		dec.offsets, dec.offsetss[n] = dec.offsetss[n], dec.offsets
+	} else {
+		dec.offsetss = append(dec.offsetss, dec.offsets)
+		dec.offsets = nil
+	}
 	dec.offset = uint32(offset)
 	dec.pends = append(dec.pends, dec.pend)
 	dec.pend = nil
@@ -59,8 +67,11 @@ func (dec *Decoder) FinishDynamics() {
 	dec.pend = dec.pends[len(dec.pends)-1]
 	dec.pends = dec.pends[:len(dec.pends)-1]
 
-	dec.offsets = dec.offsetss[len(dec.offsetss)-1]
-	dec.offsetss = dec.offsetss[:len(dec.offsetss)-1]
+	// Restore the previous state, but swap in the current slice as a future memcache
+	last := len(dec.offsetss) - 1
+
+	dec.offsets, dec.offsetss[last] = dec.offsetss[last], dec.offsets
+	dec.offsetss = dec.offsetss[:last]
 
 	// Note, no need to restore dec.offset. No more new offsets can be found when
 	// unrolling the stack and writing out the dynamic data.
