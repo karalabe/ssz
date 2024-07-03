@@ -45,8 +45,8 @@ type Encoder struct {
 
 // OffsetDynamics marks the item being encoded as a dynamic type, setting the starting
 // offset for the dynamic fields.
-func (enc *Encoder) OffsetDynamics(offset int) {
-	enc.offset = uint32(offset)
+func (enc *Encoder) startDynamics(offset uint32) {
+	enc.offset = offset
 
 	// Try to reuse older pending slices to avoid allocations
 	n := len(enc.pends)
@@ -62,7 +62,7 @@ func (enc *Encoder) OffsetDynamics(offset int) {
 
 // FinishDynamics marks the end of the dynamic fields, encoding anything queued up and
 // restoring any previous states for outer call continuation.
-func (enc *Encoder) FinishDynamics() {
+func (enc *Encoder) finishDynamics() {
 	// Apply any delayed ops and clear them out
 	for _, pend := range enc.pend {
 		pend()
@@ -145,7 +145,9 @@ func encodeDynamicObject(enc *Encoder, obj DynamicObject) {
 	if enc.err != nil {
 		return
 	}
+	enc.startDynamics(obj.SizeSSZ(true))
 	obj.DefineSSZ(enc.codec)
+	enc.finishDynamics()
 }
 
 // EncodeSliceOfUint64s serializes a dynamic slice of uint64s.
@@ -229,12 +231,11 @@ func encodeSliceOfDynamicBytes(enc *Encoder, blobs [][]byte) {
 	if enc.err != nil {
 		return
 	}
-	enc.OffsetDynamics(4 * len(blobs))
-	defer enc.FinishDynamics()
-
+	enc.startDynamics(uint32(4 * len(blobs)))
 	for _, blob := range blobs {
 		EncodeDynamicBytes(enc, blob)
 	}
+	enc.finishDynamics()
 }
 
 // EncodeSliceOfStaticObjects serializes a dynamic slice of static ssz objects.
@@ -280,10 +281,9 @@ func encodeSliceOfDynamicObjects[T DynamicObject](enc *Encoder, objects []T) {
 	if enc.err != nil {
 		return
 	}
-	enc.OffsetDynamics(4 * len(objects))
-	defer enc.FinishDynamics()
-
+	enc.startDynamics(uint32(4 * len(objects)))
 	for _, obj := range objects {
 		EncodeDynamicObject(enc, obj)
 	}
+	enc.finishDynamics()
 }

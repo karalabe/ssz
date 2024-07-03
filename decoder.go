@@ -47,7 +47,7 @@ type Decoder struct {
 
 // OffsetDynamics marks the item being decoded as a dynamic type, setting the starting
 // offset for the dynamic fields.
-func (dec *Decoder) OffsetDynamics(offset int) {
+func (dec *Decoder) startDynamics(offset uint32) {
 	// Try to reuse older offset slices to avoid allocations
 	n := len(dec.offsetss)
 
@@ -58,7 +58,7 @@ func (dec *Decoder) OffsetDynamics(offset int) {
 		dec.offsetss = append(dec.offsetss, dec.offsets)
 		dec.offsets = nil
 	}
-	dec.offset = uint32(offset)
+	dec.offset = offset
 
 	// Try to reuse older pending slices to avoid allocations
 	n = len(dec.pends)
@@ -84,7 +84,7 @@ func (dec *Decoder) OffsetDynamics(offset int) {
 
 // FinishDynamics marks the end of the dynamic fields, decoding anything queued up and
 // restoring any previous states for outer call continuation.
-func (dec *Decoder) FinishDynamics() {
+func (dec *Decoder) finishDynamics() {
 	// Apply any delayed ops and clear them out
 	for _, pend := range dec.pend {
 		pend()
@@ -215,7 +215,9 @@ func decodeDynamicObject[T newableDynamicObject[U], U any](dec *Decoder, obj *T)
 	if *obj == nil {
 		*obj = T(new(U))
 	}
+	dec.startDynamics((*obj).SizeSSZ(true))
 	(*obj).DefineSSZ(dec.codec)
+	dec.finishDynamics()
 }
 
 // DecodeSliceOfUint64s parses a dynamic slice of uint64s.
@@ -554,13 +556,13 @@ func (dec *Decoder) descendIntoDynamic(length uint32) {
 	dec.lengths = append(dec.lengths, dec.length)
 	dec.length = length
 
-	dec.OffsetDynamics(0) // random offset, will be ignored
+	dec.startDynamics(0) // random offset, will be ignored
 }
 
 // ascendFromDynamic is the counterpart of descendIntoDynamic that restores the
 // previously suspended decoding state.
 func (dec *Decoder) ascendFromDynamic() {
-	dec.FinishDynamics()
+	dec.finishDynamics()
 
 	dec.length = dec.lengths[len(dec.lengths)-1]
 	dec.lengths = dec.lengths[:len(dec.lengths)-1]

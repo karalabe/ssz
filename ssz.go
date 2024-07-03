@@ -72,7 +72,17 @@ func Encode(w io.Writer, obj Object) error {
 	defer encoderPool.Put(codec)
 
 	codec.enc.out, codec.enc.err = w, nil
-	obj.DefineSSZ(codec)
+
+	switch v := obj.(type) {
+	case StaticObject:
+		v.DefineSSZ(codec)
+	case DynamicObject:
+		codec.enc.startDynamics(v.SizeSSZ(true))
+		v.DefineSSZ(codec)
+		codec.enc.finishDynamics()
+	default:
+		panic(fmt.Sprintf("unsupported type: %T", obj))
+	}
 	return codec.enc.err
 }
 
@@ -91,7 +101,16 @@ func Decode(r io.Reader, obj Object, size uint32) error {
 	defer decoderPool.Put(codec)
 
 	codec.dec.in, codec.dec.length, codec.dec.err = r, size, nil
-	obj.DefineSSZ(codec)
+	switch v := obj.(type) {
+	case StaticObject:
+		v.DefineSSZ(codec)
+	case DynamicObject:
+		codec.dec.startDynamics(v.SizeSSZ(true))
+		v.DefineSSZ(codec)
+		codec.dec.finishDynamics()
+	default:
+		panic(fmt.Sprintf("unsupported type: %T", obj))
+	}
 	return codec.dec.err
 }
 
