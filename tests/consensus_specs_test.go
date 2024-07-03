@@ -7,6 +7,7 @@ package tests
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -200,18 +201,26 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 		b.Fatalf("failed to decode SSZ stream: %v", err)
 	}
 	// Start the benchmarks for all the different operations
-	b.Run(fmt.Sprintf("%s/encode", kind), func(b *testing.B) {
-		w := bytes.NewBuffer(make([]byte, ssz.Size(inObj))[:0])
-
+	b.Run(fmt.Sprintf("%s/encode-stream", kind), func(b *testing.B) {
 		b.SetBytes(int64(len(inSSZ)))
 		b.ReportAllocs()
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			if err := ssz.Encode(w, inObj); err != nil {
+			if err := ssz.Encode(io.Discard, inObj); err != nil {
 				b.Fatalf("failed to re-encode SSZ stream: %v", err)
 			}
-			w.Reset()
+		}
+	})
+	b.Run(fmt.Sprintf("%s/encode-bytes", kind), func(b *testing.B) {
+		b.SetBytes(int64(len(inSSZ)))
+		b.ReportAllocs()
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			if _, err := ssz.EncodeToBytes(inObj); err != nil {
+				b.Fatalf("failed to re-encode SSZ stream: %v", err)
+			}
 		}
 	})
 	b.Run(fmt.Sprintf("%s/decode", kind), func(b *testing.B) {
