@@ -238,3 +238,58 @@ TODO
 The goal of this package is to be close in performance to low level generated encoders, without sacrificing maintainability. It should, however, be significantly faster than runtime reflection encoders.
 
 There are some benchmarks that you can run via `go test ./tests --run=NONE --bench=.`, but no extensive measurement effort was made yet until the APIs are finalized, nor has the package been compared to anything other implementation.
+
+### Tradeoff: Unified vs. split dynamic object API
+
+When SSZ encodes a dynamic object, it encodes it in two steps:
+
+- A 4-byte offset pointing to the dynamic data is written into the static SSZ area.
+- The dynamic object's actual encoding are written into the dynamic SSZ area.
+
+Encoding libraries can take two routes to handle this scenario:
+
+- Explicitly require the user to give one command to write the object offset, followed by another command later to write the object content. This is as fast as it gets, but it also leaks out encoding detail into user code.
+- Require only one command from the user, under the hood writing the object offset immediately, and stashing the object itself away for later serialization when the dynamic area is reached. This keeps the offset notion hidden from users.
+
+Deciding one vs. the other is a design choice of performance vs. simplicity. Consider the two codes below (for a simple type containing one dynamic object):
+
+```go
+func (a *Attestation) UnifiedSSZ(codec *ssz.Codec) {
+	codec.OffsetDynamics(228)
+	defer codec.FinishDynamics()
+
+	ssz.DefineDynamicBytes(codec, &a.AggregationBits, 2048)
+	ssz.DefineStaticObject(codec, &a.Data)
+	ssz.DefineStaticBytes(codec, a.Signature[:])
+}
+```
+
+```go
+func (a *Attestation) SplitSSZ(codec *ssz.Codec) {
+	codec.OffsetDynamics(228)
+	defer codec.FinishDynamics()
+
+	// Define the static parts of the SSZ container
+	ssz.DefineDynamicBytesOffset(codec, &a.AggregationBits, 2048)
+	ssz.DefineStaticObject(codec, &a.Data)
+	ssz.DefineStaticBytes(codec, a.Signature[:])
+
+	// Define the dynamic parts of the SSZ container
+	ssz.DefineDynamicBytesContent(codec, &a.AggregationBits, 2048)
+}
+```
+
+This package went down the route of a unified API to try and keep the code more maintainable, but we did implement the split API in an experiment too. You can find the code in the [`split-offset-content-codec`](https://github.com/karalabe/ssz/tree/split-offset-content-codec) branch, and comparisons benchmarks in [this GitHub gist](https://gist.github.com/karalabe/94c3f04a59bef37e57711245a5eb7471).
+
+There is a definite, non-negligible performance difference between the two. For the simple type mentioned above:
+
+|                   | Unified API |  Split API  |
+|:-----------------:|:-----------:|:-----------:|
+|    Encode Time    | 88.72 ns/op | 64.27 ns/op |
+|    Decode Time    | 127.2 ns/op | 103.6 ns/op |
+| Encode Throughput | 2.404 GB/s  | 3.319 GB/s  |
+| Decode Throughput | 1.676 GB/s  | 2.059 GB/s  |
+|   Encode Allocs   |   48 B/op   |   0 B/op    |
+|   Decode Allocs   |   32 B/op   |   0 B/op    |
+
+It's hard to argue against a 30-50% speed improvement by itself, but in the context of a serialization library where you have to *do* something with the data afterwards, saving tens of nanoseconds seems like a drop in the bucket in the grand scheme of things. We may revisit this decision, of course.
