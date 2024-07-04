@@ -191,16 +191,15 @@ func (e *ExecutionPayload) DefineSSZ(codec *ssz.Codec) {
 }
 ```
 
-Most of the `DefineXYZ` methods are similar as before, only we used more variations this time due to the more complex data structure. However, you might spot two distinct sets of method calls, `DefineXYZOffset` and `DefineXYZContent`. You'll need to use these for dynamic fields:
+Most of the `DefineXYZ` methods are similar as before. However, you might spot two distinct sets of method calls, `DefineXYZOffset` and `DefineXYZContent`. You'll need to use these for dynamic fields:
   - When SSZ encodes a dynamic object, it encodes it in two steps.
     - A 4-byte offset pointing to the dynamic data is written into the static SSZ area.
     - The dynamic object's actual encoding are written into the dynamic SSZ area.
   - Encoding libraries can take two routes to handle this scenario:
-    - Explicitly require the user to give one command to write the object offset, followed by another command later to write the object content. This is as fast as it gets, but it also leaks out encoding detail into user code.
+    - Explicitly require the user to give one command to write the object offset, followed by another command later to write the object content. This is fast, but leaks out encoding detail into user code.
     - Require only one command from the user, under the hood writing the object offset immediately, and stashing the object itself away for later serialization when the dynamic area is reached. This keeps the offset notion hidden from users, but entails a GC hit to the encoder.
-  - This package was decided to be allocation free, thus the user is forced to explicitly be aware that they need to define the dynamic offset first and the dynamic content later. It's a tradeoff to achieve 50-100% speed increase. 
-
-You might also note that dynamic fields also pass in size limits that the decoder can enforce.
+  - This package was decided to be allocation free, thus the user is needs to be aware that they need to define the dynamic offset first and the dynamic content later. It's a tradeoff to achieve 50-100% speed increase.
+  - You might also note that dynamic fields also pass in size limits that the decoder can enforce.
 
 To encode the above `ExecutionPayload` do just as we have done with the static `Witness` object.
 
