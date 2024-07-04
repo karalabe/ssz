@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"unsafe"
 )
 
 // Object defines the methods a type needs to implement to be used as a ssz
@@ -152,6 +153,7 @@ func DecodeFromBytes(blob []byte, obj Object) error {
 	defer decoderPool.Put(codec)
 
 	codec.dec.inBuffer = blob
+	codec.dec.inBufEnd = uintptr(unsafe.Pointer(&blob[0])) + uintptr(len(blob))
 
 	// Start a decoding round with length enforcement in place
 	codec.dec.descendIntoSlot(uint32(len(blob)))
@@ -171,6 +173,7 @@ func DecodeFromBytes(blob []byte, obj Object) error {
 	// Retrieve any errors, zero out the source and return
 	err := codec.dec.err
 
+	codec.dec.inBufEnd = 0
 	codec.dec.inBuffer = nil
 	codec.dec.err = nil
 

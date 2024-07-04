@@ -26,17 +26,21 @@ import (
 //     halt all future input operations.
 type Decoder struct {
 	inReader io.Reader // Underlying input stream to read from (streaming mode)
-	inBuffer []byte    // Underlying input stream to read from (buffered mode)
-	err      error     // Any write error to halt future encoding calls
+	inRead   uint32    // Bytes already consumed from the reader (streaming mode)
+	inReads  []uint32  // Stack of consumed bytes from outer calls (streaming mode)
+
+	inBuffer  []byte    // Underlying input buffer to read from (buffered mode)
+	inBufPtr  uintptr   // Starting pointer in the input buffer (buffered mode)
+	inBufPtrs []uintptr // Stack of starting pointers from outer calls (buffered mode)
+	inBufEnd  uintptr   // Ending pointer in the input buffer (buffered mode)
+
+	err error // Any write error to halt future encoding calls
 
 	codec *Codec   // Self-referencing to pass DefineSSZ calls through (API trick)
 	buf   [32]byte // Integer conversion buffer
 
 	length  uint32   // Message length being decoded
 	lengths []uint32 // Stack of lengths from outer calls
-
-	read  uint32   // Message length already consumed
-	reads []uint32 // Stack of lengths from outer calls
 
 	offset  uint32   // Starting offset we expect, or last offset seen after
 	offsets []uint32 // Queue of offsets for dynamic size calculations
@@ -53,11 +57,11 @@ func DecodeUint64[T ~uint64](dec *Decoder, n *T) {
 	if dec.inReader != nil {
 		_, dec.err = io.ReadFull(dec.inReader, dec.buf[:8])
 		*n = T(binary.LittleEndian.Uint64(dec.buf[:8]))
+		dec.inRead += 8
 	} else {
 		*n = T(binary.LittleEndian.Uint64(dec.inBuffer))
 		dec.inBuffer = dec.inBuffer[8:]
 	}
-	dec.read += 8
 }
 
 // DecodeUint256 parses a uint256.
@@ -70,6 +74,8 @@ func DecodeUint256(dec *Decoder, n **uint256.Int) {
 		if dec.err != nil {
 			return
 		}
+		dec.inRead += 32
+
 		if *n == nil {
 			*n = new(uint256.Int)
 		}
@@ -81,7 +87,6 @@ func DecodeUint256(dec *Decoder, n **uint256.Int) {
 		(*n).UnmarshalSSZ(dec.inBuffer[:32])
 		dec.inBuffer = dec.inBuffer[32:]
 	}
-	dec.read += 32
 }
 
 // DecodeStaticBytes parses a static binary blob.
@@ -91,11 +96,11 @@ func DecodeStaticBytes(dec *Decoder, blob []byte) {
 	}
 	if dec.inReader != nil {
 		_, dec.err = io.ReadFull(dec.inReader, blob)
+		dec.inRead += uint32(len(blob))
 	} else {
 		copy(blob, dec.inBuffer)
 		dec.inBuffer = dec.inBuffer[len(blob):]
 	}
-	dec.read += uint32(len(blob))
 }
 
 // DecodeDynamicBytesOffset parses a dynamic binary blob.
@@ -125,11 +130,11 @@ func DecodeDynamicBytesContent(dec *Decoder, blob *[]byte, maxSize uint32) {
 	// DecodeStaticBytes(dec, *(blob))
 	if dec.inReader != nil {
 		_, dec.err = io.ReadFull(dec.inReader, *blob)
+		dec.inRead += size
 	} else {
 		copy(*blob, dec.inBuffer)
 		dec.inBuffer = dec.inBuffer[size:]
 	}
-	dec.read += size
 }
 
 // DecodeStaticObject parses a static ssz object.
@@ -199,19 +204,21 @@ func DecodeSliceOfUint64sContent[T ~uint64](dec *Decoder, ns *[]T, maxItems uint
 	} else {
 		*ns = (*ns)[:itemCount]
 	}
-	for i := uint32(0); i < itemCount; i++ {
-		if dec.inReader != nil {
+	if dec.inReader != nil {
+		for i := uint32(0); i < itemCount; i++ {
 			_, dec.err = io.ReadFull(dec.inReader, dec.buf[:8])
 			if dec.err != nil {
 				return
 			}
 			(*ns)[i] = T(binary.LittleEndian.Uint64(dec.buf[:8]))
-		} else {
+		}
+		dec.inRead += 8 * itemCount
+	} else {
+		for i := uint32(0); i < itemCount; i++ {
 			(*ns)[i] = T(binary.LittleEndian.Uint64(dec.inBuffer))
 			dec.inBuffer = dec.inBuffer[8:]
 		}
 	}
-	dec.read += 8 * itemCount
 }
 
 // DecodeArrayOfStaticBytes parses a static array of static binary blobs.
@@ -229,7 +236,7 @@ func DecodeArrayOfStaticBytes[T commonBinaryLengths](dec *Decoder, blobs []T) {
 			if dec.err != nil {
 				return
 			}
-			dec.read += uint32(len(blobs[i]))
+			dec.inRead += uint32(len(blobs[i]))
 		}
 	} else {
 		for i := 0; i < len(blobs); i++ {
@@ -237,8 +244,6 @@ func DecodeArrayOfStaticBytes[T commonBinaryLengths](dec *Decoder, blobs []T) {
 			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 			copy(unsafe.Slice(&blobs[i][0], len(blobs[i])), dec.inBuffer)
 			dec.inBuffer = dec.inBuffer[len(blobs[i]):]
-
-			dec.read += uint32(len(blobs[i]))
 		}
 	}
 }
@@ -289,7 +294,7 @@ func DecodeSliceOfStaticBytesContent[T commonBinaryLengths](dec *Decoder, blobs 
 			if dec.err != nil {
 				return
 			}
-			dec.read += uint32(len((*blobs)[i]))
+			dec.inRead += uint32(len((*blobs)[i]))
 		}
 	} else {
 		for i := uint32(0); i < itemCount; i++ {
@@ -297,8 +302,6 @@ func DecodeSliceOfStaticBytesContent[T commonBinaryLengths](dec *Decoder, blobs 
 			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 			copy(unsafe.Slice(&(*blobs)[i][0], len((*blobs)[i])), dec.inBuffer)
 			dec.inBuffer = dec.inBuffer[len((*blobs)[i]):]
-
-			dec.read += uint32(len((*blobs)[i]))
 		}
 	}
 }
@@ -472,12 +475,11 @@ func (dec *Decoder) decodeOffset(list bool) {
 			return
 		}
 		offset = binary.LittleEndian.Uint32(dec.buf[:4])
+		dec.inRead += 4
 	} else {
 		offset = binary.LittleEndian.Uint32(dec.inBuffer)
 		dec.inBuffer = dec.inBuffer[4:]
 	}
-	dec.read += 4
-
 	if offset > dec.length {
 		dec.err = fmt.Errorf("%w: decoded %d, message length %d", ErrOffsetBeyondCapacity, offset, dec.length)
 		return
@@ -533,9 +535,13 @@ func (dec *Decoder) descendIntoSlot(length uint32) {
 	dec.lengths = append(dec.lengths, dec.length)
 	dec.length = length
 
-	dec.reads = append(dec.reads, dec.read)
-	dec.read = 0
-
+	if dec.inReader != nil {
+		dec.inReads = append(dec.inReads, dec.inRead)
+		dec.inRead = 0
+	} else {
+		dec.inBufPtrs = append(dec.inBufPtrs, dec.inBufPtr)
+		dec.inBufPtr = uintptr(unsafe.Pointer(&dec.inBuffer[0]))
+	}
 	dec.startDynamics(0) // random offset, will be ignored
 }
 
@@ -548,14 +554,29 @@ func (dec *Decoder) ascendFromSlot() {
 	// to the data they should have read. Whilst this does not apply to dynamic
 	// objects in the current SSZ spec (they will always read all or error with
 	// a different issue), there's no reason not to check them for future cases.
-	if dec.read != dec.length {
-		if dec.err == nil {
-			dec.err = fmt.Errorf("%w: data size %d, object consumed %d", ErrObjectSlotSizeMismatch, dec.length, dec.read)
+	if dec.inReader != nil {
+		if dec.inRead != dec.length {
+			if dec.err == nil {
+				dec.err = fmt.Errorf("%w: data size %d, object consumed %d", ErrObjectSlotSizeMismatch, dec.length, dec.inRead)
+			}
 		}
+		dec.inRead += dec.inReads[len(dec.inReads)-1] // track the sub-reads, don't discard!
+		dec.inReads = dec.inReads[:len(dec.inReads)-1]
+	} else {
+		var read uint32
+		if len(dec.inBuffer) > 0 {
+			read = uint32(uintptr(unsafe.Pointer(&dec.inBuffer[0])) - dec.inBufPtr)
+		} else {
+			read = uint32(dec.inBufEnd - dec.inBufPtr)
+		}
+		if read != dec.length {
+			if dec.err == nil {
+				dec.err = fmt.Errorf("%w: data size %d, object consumed %d", ErrObjectSlotSizeMismatch, dec.length, read)
+			}
+		}
+		dec.inBufPtr = dec.inBufPtrs[len(dec.inBufPtrs)-1]
+		dec.inBufPtrs = dec.inBufPtrs[:len(dec.inBufPtrs)-1]
 	}
-	// Aggregate the total reads and restore the outer length
-	dec.read += dec.reads[len(dec.reads)-1] // track the sub-reads, don't discard!
-	dec.reads = dec.reads[:len(dec.reads)-1]
 
 	dec.length = dec.lengths[len(dec.lengths)-1]
 	dec.lengths = dec.lengths[:len(dec.lengths)-1]
