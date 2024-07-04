@@ -4,21 +4,31 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
+	"io"
 	"testing"
 
 	"github.com/karalabe/ssz"
 	types "github.com/karalabe/ssz/tests/testtypes/consensus-spec-tests"
 )
 
-// Tests that decoding less data than requested will result in a failure.
-func TestDecodeUndersized(t *testing.T) {
-	sobj := new(testDecodeUndersizedType)
-	blob := make([]byte, sobj.SizeSSZ()+1)
-	if err := ssz.DecodeFromBytes(blob, sobj); !errors.Is(err, ssz.ErrObjectSlotSizeMismatch) {
+// Tests that decoding less or more data than requested will result in a failure.
+func TestDecodeMissized(t *testing.T) {
+	obj := new(testDecodeUndersizedType)
+
+	blob := make([]byte, obj.SizeSSZ()+1)
+	if err := ssz.DecodeFromBytes(blob, obj); !errors.Is(err, ssz.ErrObjectSlotSizeMismatch) {
 		t.Errorf("decode from bytes error mismatch: have %v, want %v", err, ssz.ErrObjectSlotSizeMismatch)
 	}
-	if err := ssz.DecodeFromStream(bytes.NewReader(blob), sobj, uint32(len(blob))); !errors.Is(err, ssz.ErrObjectSlotSizeMismatch) {
+	if err := ssz.DecodeFromStream(bytes.NewReader(blob), obj, uint32(len(blob))); !errors.Is(err, ssz.ErrObjectSlotSizeMismatch) {
 		t.Errorf("decode from stream error mismatch: have %v, want %v", err, ssz.ErrObjectSlotSizeMismatch)
+	}
+
+	blob = make([]byte, obj.SizeSSZ()-1)
+	if err := ssz.DecodeFromBytes(blob, obj); !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Errorf("decode from bytes error mismatch: have %v, want %v", err, io.ErrUnexpectedEOF)
+	}
+	if err := ssz.DecodeFromStream(bytes.NewReader(blob), obj, uint32(len(blob))); !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Errorf("decode from stream error mismatch: have %v, want %v", err, io.ErrUnexpectedEOF)
 	}
 }
 

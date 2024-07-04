@@ -59,6 +59,10 @@ func DecodeUint64[T ~uint64](dec *Decoder, n *T) {
 		*n = T(binary.LittleEndian.Uint64(dec.buf[:8]))
 		dec.inRead += 8
 	} else {
+		if len(dec.inBuffer) < 8 {
+			dec.err = io.ErrUnexpectedEOF
+			return
+		}
 		*n = T(binary.LittleEndian.Uint64(dec.inBuffer))
 		dec.inBuffer = dec.inBuffer[8:]
 	}
@@ -81,6 +85,10 @@ func DecodeUint256(dec *Decoder, n **uint256.Int) {
 		}
 		(*n).UnmarshalSSZ(dec.buf[:32])
 	} else {
+		if len(dec.inBuffer) < 32 {
+			dec.err = io.ErrUnexpectedEOF
+			return
+		}
 		if *n == nil {
 			*n = new(uint256.Int)
 		}
@@ -98,6 +106,10 @@ func DecodeStaticBytes(dec *Decoder, blob []byte) {
 		_, dec.err = io.ReadFull(dec.inReader, blob)
 		dec.inRead += uint32(len(blob))
 	} else {
+		if len(dec.inBuffer) < len(blob) {
+			dec.err = io.ErrUnexpectedEOF
+			return
+		}
 		copy(blob, dec.inBuffer)
 		dec.inBuffer = dec.inBuffer[len(blob):]
 	}
@@ -132,6 +144,10 @@ func DecodeDynamicBytesContent(dec *Decoder, blob *[]byte, maxSize uint32) {
 		_, dec.err = io.ReadFull(dec.inReader, *blob)
 		dec.inRead += size
 	} else {
+		if uint32(len(dec.inBuffer)) < size {
+			dec.err = io.ErrUnexpectedEOF
+			return
+		}
 		copy(*blob, dec.inBuffer)
 		dec.inBuffer = dec.inBuffer[size:]
 	}
@@ -215,6 +231,10 @@ func DecodeSliceOfUint64sContent[T ~uint64](dec *Decoder, ns *[]T, maxItems uint
 		dec.inRead += 8 * itemCount
 	} else {
 		for i := uint32(0); i < itemCount; i++ {
+			if len(dec.inBuffer) < 8 {
+				dec.err = io.ErrUnexpectedEOF
+				return
+			}
 			(*ns)[i] = T(binary.LittleEndian.Uint64(dec.inBuffer))
 			dec.inBuffer = dec.inBuffer[8:]
 		}
@@ -240,6 +260,10 @@ func DecodeArrayOfStaticBytes[T commonBinaryLengths](dec *Decoder, blobs []T) {
 		}
 	} else {
 		for i := 0; i < len(blobs); i++ {
+			if len(dec.inBuffer) < len(blobs[i]) {
+				dec.err = io.ErrUnexpectedEOF
+				return
+			}
 			// The code below should have used `blobs[i][:]`, alas Go's generics compiler
 			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 			copy(unsafe.Slice(&blobs[i][0], len(blobs[i])), dec.inBuffer)
@@ -298,6 +322,10 @@ func DecodeSliceOfStaticBytesContent[T commonBinaryLengths](dec *Decoder, blobs 
 		}
 	} else {
 		for i := uint32(0); i < itemCount; i++ {
+			if len(dec.inBuffer) < len((*blobs)[i]) {
+				dec.err = io.ErrUnexpectedEOF
+				return
+			}
 			// The code below should have used `blobs[i][:]`, alas Go's generics compiler
 			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 			copy(unsafe.Slice(&(*blobs)[i][0], len((*blobs)[i])), dec.inBuffer)
@@ -485,6 +513,10 @@ func (dec *Decoder) decodeOffset(list bool) {
 		offset = binary.LittleEndian.Uint32(dec.buf[:4])
 		dec.inRead += 4
 	} else {
+		if len(dec.inBuffer) < 4 {
+			dec.err = io.ErrUnexpectedEOF
+			return
+		}
 		offset = binary.LittleEndian.Uint32(dec.inBuffer)
 		dec.inBuffer = dec.inBuffer[4:]
 	}
@@ -548,7 +580,11 @@ func (dec *Decoder) descendIntoSlot(length uint32) {
 		dec.inRead = 0
 	} else {
 		dec.inBufPtrs = append(dec.inBufPtrs, dec.inBufPtr)
-		dec.inBufPtr = uintptr(unsafe.Pointer(&dec.inBuffer[0]))
+		if len(dec.inBuffer) > 0 {
+			dec.inBufPtr = uintptr(unsafe.Pointer(&dec.inBuffer[0]))
+		} else {
+			dec.inBufPtr = dec.inBufEnd // can only happen for bad input
+		}
 	}
 	dec.startDynamics(0) // random offset, will be ignored
 }

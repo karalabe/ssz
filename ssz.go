@@ -148,6 +148,10 @@ func DecodeFromStream(r io.Reader, obj Object, size uint32) error {
 // would double the memory use for the temporary buffer. For that use case, use
 // DecodeFromStream instead.
 func DecodeFromBytes(blob []byte, obj Object) error {
+	// Reject decoding from an empty slice
+	if len(blob) == 0 {
+		return io.ErrUnexpectedEOF
+	}
 	// Retrieve a new decoder codec and set its data source
 	codec := decoderPool.Get().(*Codec)
 	defer decoderPool.Put(codec)

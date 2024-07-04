@@ -384,32 +384,47 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string,
 	}
 	// Run the fuzzer
 	f.Fuzz(func(t *testing.T, inSSZ []byte) {
+		// Try the stream encoder/decoder
 		obj := T(new(U))
-		if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err != nil {
-			return
+		if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err == nil {
+			// Stream decoder succeeded, make sure it re-encodes correctly and
+			// that the buffer decoder also succeeds parsing
+			blob := new(bytes.Buffer)
+			if err := ssz.EncodeToStream(blob, obj); err != nil {
+				t.Fatalf("failed to re-encode stream: %v", err)
+			}
+			if !bytes.Equal(blob.Bytes(), inSSZ) {
+				prefix := commonPrefix(blob.Bytes(), inSSZ)
+				t.Fatalf("re-encoded stream mismatch: have %x, want %x, common prefix %d, have left %x, want left %x",
+					blob, inSSZ, len(prefix), blob.Bytes()[len(prefix):], inSSZ[len(prefix):])
+			}
+			if err := ssz.DecodeFromBytes(inSSZ, obj); err != nil {
+				t.Fatalf("failed to decode buffer: %v", err)
+			}
+			if size := ssz.Size(obj); size != uint32(len(inSSZ)) {
+				t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
+			}
 		}
-		blob := new(bytes.Buffer)
-		if err := ssz.EncodeToStream(blob, obj); err != nil {
-			t.Fatalf("failed to re-encode SSZ stream: %v", err)
-		}
-		if !bytes.Equal(blob.Bytes(), inSSZ) {
-			prefix := commonPrefix(blob.Bytes(), inSSZ)
-			t.Fatalf("re-encoded stream mismatch: have %x, want %x, common prefix %d, have left %x, want left %x",
-				blob, inSSZ, len(prefix), blob.Bytes()[len(prefix):], inSSZ[len(prefix):])
-		}
+		// Try the buffer encoder/decoder
 		obj = T(new(U))
-		if err := ssz.DecodeFromBytes(inSSZ, obj); err != nil {
-			t.Fatalf("failed to decode SSZ buffer: %v", err)
-		}
-		bin := make([]byte, ssz.Size(obj))
-		if err := ssz.EncodeToBytes(bin, obj); err != nil {
-			t.Fatalf("failed to re-encode SSZ buffer: %v", err)
-		}
-		if !bytes.Equal(bin, inSSZ) {
-			t.Fatalf("re-encoded bytes mismatch: have %x, want %x", bin, inSSZ)
-		}
-		if size := ssz.Size(obj); size != uint32(len(inSSZ)) {
-			t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
+		if err := ssz.DecodeFromBytes(inSSZ, obj); err == nil {
+			// Buffer decoder succeeded, make sure it re-encodes correctly and
+			// that the stream decoder also succeeds parsing
+			bin := make([]byte, ssz.Size(obj))
+			if err := ssz.EncodeToBytes(bin, obj); err != nil {
+				t.Fatalf("failed to re-encode buffer: %v", err)
+			}
+			if !bytes.Equal(bin, inSSZ) {
+				prefix := commonPrefix(bin, inSSZ)
+				t.Fatalf("re-encoded buffer mismatch: have %x, want %x, common prefix %d, have left %x, want left %x",
+					bin, inSSZ, len(prefix), bin[len(prefix):], inSSZ[len(prefix):])
+			}
+			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err != nil {
+				t.Fatalf("failed to decode stream: %v", err)
+			}
+			if size := ssz.Size(obj); size != uint32(len(inSSZ)) {
+				t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
+			}
 		}
 	})
 }
