@@ -52,9 +52,6 @@ func DecodeUint64[T ~uint64](dec *Decoder, n *T) {
 	}
 	if dec.inReader != nil {
 		_, dec.err = io.ReadFull(dec.inReader, dec.buf[:8])
-		if dec.err != nil {
-			return
-		}
 		*n = T(binary.LittleEndian.Uint64(dec.buf[:8]))
 	} else {
 		*n = T(binary.LittleEndian.Uint64(dec.inBuffer))
@@ -94,9 +91,6 @@ func DecodeStaticBytes(dec *Decoder, blob []byte) {
 	}
 	if dec.inReader != nil {
 		_, dec.err = io.ReadFull(dec.inReader, blob)
-		if dec.err != nil {
-			return
-		}
 	} else {
 		copy(blob, dec.inBuffer)
 		dec.inBuffer = dec.inBuffer[len(blob):]
@@ -131,9 +125,6 @@ func DecodeDynamicBytesContent(dec *Decoder, blob *[]byte, maxSize uint32) {
 	// DecodeStaticBytes(dec, *(blob))
 	if dec.inReader != nil {
 		_, dec.err = io.ReadFull(dec.inReader, *blob)
-		if dec.err != nil {
-			return
-		}
 	} else {
 		copy(*blob, dec.inBuffer)
 		dec.inBuffer = dec.inBuffer[size:]
@@ -219,8 +210,8 @@ func DecodeSliceOfUint64sContent[T ~uint64](dec *Decoder, ns *[]T, maxItems uint
 			(*ns)[i] = T(binary.LittleEndian.Uint64(dec.inBuffer))
 			dec.inBuffer = dec.inBuffer[8:]
 		}
-		dec.read += 8
 	}
+	dec.read += 8 * itemCount
 }
 
 // DecodeArrayOfStaticBytes parses a static array of static binary blobs.
