@@ -6,7 +6,6 @@
 package ssz
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"sync"
@@ -66,13 +65,14 @@ var decoderPool = sync.Pool{
 	},
 }
 
-// Encode serializes the object into an SSZ stream.
-func Encode(w io.Writer, obj Object) error {
+// EncodeToStream serializes the object into a data stream. Do not use this
+// method with a bytes.Buffer to write into a []byte slice, as that will do
+// double the byte copying. For that use case, use EncodeToBytes instead.
+func EncodeToStream(w io.Writer, obj Object) error {
 	codec := encoderPool.Get().(*Codec)
 	defer encoderPool.Put(codec)
 
-	codec.enc.out, codec.enc.err = w, nil
-
+	codec.enc.outWriter, codec.enc.err = w, nil
 	switch v := obj.(type) {
 	case StaticObject:
 		v.DefineSSZ(codec)
@@ -82,24 +82,40 @@ func Encode(w io.Writer, obj Object) error {
 	default:
 		panic(fmt.Sprintf("unsupported type: %T", obj))
 	}
+	codec.enc.outWriter = nil
 	return codec.enc.err
 }
 
-// EncodeToBytes serializes the object into a newly allocated byte buffer.
-func EncodeToBytes(obj Object) ([]byte, error) {
-	buffer := make([]byte, Size(obj))
-	if err := Encode(bytes.NewBuffer(buffer[:0]), obj); err != nil {
-		return nil, err
+// EncodeToBytes serializes the object into a byte buffer. Don't use this method
+// if you want to then write the buffer into a stream via some writer, as that
+// would double the memory use for the temporary buffer. For that use case, use
+// EncodeToStream instead.
+func EncodeToBytes(buf []byte, obj Object) error {
+	codec := encoderPool.Get().(*Codec)
+	defer encoderPool.Put(codec)
+
+	codec.enc.outBuffer, codec.enc.err = buf, nil
+	switch v := obj.(type) {
+	case StaticObject:
+		v.DefineSSZ(codec)
+	case DynamicObject:
+		codec.enc.offsetDynamics(v.SizeSSZ(true))
+		v.DefineSSZ(codec)
+	default:
+		panic(fmt.Sprintf("unsupported type: %T", obj))
 	}
-	return buffer, nil
+	codec.enc.outBuffer = nil
+	return codec.enc.err
 }
 
-// Decode parses an object with the given size out of an SSZ stream.
-func Decode(r io.Reader, obj Object, size uint32) error {
+// DecodeFromStream parses an object with the given size out of a stream. Do not
+// use this method with a bytes.Buffer to read from a []byte slice, as that will
+// double the byte copying. For that use case, use DecodeFromBytes instead.
+func DecodeFromStream(r io.Reader, obj Object, size uint32) error {
 	codec := decoderPool.Get().(*Codec)
 	defer decoderPool.Put(codec)
 
-	codec.dec.in, codec.dec.length, codec.dec.err = r, size, nil
+	codec.dec.inReader, codec.dec.length, codec.dec.err = r, size, nil
 	switch v := obj.(type) {
 	case StaticObject:
 		v.DefineSSZ(codec)
@@ -110,12 +126,31 @@ func Decode(r io.Reader, obj Object, size uint32) error {
 	default:
 		panic(fmt.Sprintf("unsupported type: %T", obj))
 	}
+	codec.dec.inReader = nil
 	return codec.dec.err
 }
 
-// DecodeFromBytes parses an object from the given SSZ blob.
+// DecodeFromBytes parses an object from a byte buffer. Do not use this method
+// if you want to first read the buffer from a stream via some reader, as that
+// would double the memory use for the temporary buffer. For that use case, use
+// DecodeFromStream instead.
 func DecodeFromBytes(blob []byte, obj Object) error {
-	return Decode(bytes.NewReader(blob), obj, uint32(len(blob)))
+	codec := decoderPool.Get().(*Codec)
+	defer decoderPool.Put(codec)
+
+	codec.dec.inBuffer, codec.dec.length, codec.dec.err = blob, uint32(len(blob)), nil
+	switch v := obj.(type) {
+	case StaticObject:
+		v.DefineSSZ(codec)
+	case DynamicObject:
+		codec.dec.startDynamics(v.SizeSSZ(true))
+		v.DefineSSZ(codec)
+		codec.dec.flushDynamics()
+	default:
+		panic(fmt.Sprintf("unsupported type: %T", obj))
+	}
+	codec.dec.inBuffer = nil
+	return codec.dec.err
 }
 
 // Size retrieves the size of a ssz object, independent if it's a static or a
