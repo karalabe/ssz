@@ -337,6 +337,10 @@ func DecodeSliceOfDynamicBytesContent(dec *Decoder, blobs *[][]byte, maxItems ui
 	if dec.err != nil {
 		return
 	}
+	if dec.offset == 0 {
+		dec.err = ErrZeroCounterOffset
+		return
+	}
 	if dec.offset&3 != 0 {
 		dec.err = fmt.Errorf("%w: %d bytes", ErrBadCounterOffset, dec.offsets)
 		return
@@ -439,6 +443,10 @@ func DecodeSliceOfDynamicObjectsContent[T newableDynamicObject[U], U any](dec *D
 	// the list (x4 bytes for offsets being uint32).
 	dec.decodeOffset(true)
 	if dec.err != nil {
+		return
+	}
+	if dec.offset == 0 {
+		dec.err = ErrZeroCounterOffset
 		return
 	}
 	if dec.offset&3 != 0 {

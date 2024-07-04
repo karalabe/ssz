@@ -29,6 +29,19 @@ var (
 	consensusSpecTestsLock sync.Mutex
 )
 
+// commonPrefix returns the common prefix in two byte slices.
+func commonPrefix(a []byte, b []byte) []byte {
+	var prefix []byte
+
+	for len(a) > 0 && len(b) > 0 {
+		if a[0] == b[0] {
+			prefix = append(prefix, a[0])
+		}
+		a, b = a[1:], b[1:]
+	}
+	return prefix
+}
+
 // TestConsensusSpecs iterates over all the (supported) consensus SSZ types and
 // runs the encoding/decoding/hashing round.
 func TestConsensusSpecs(t *testing.T) {
@@ -380,7 +393,9 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string,
 			t.Fatalf("failed to re-encode SSZ stream: %v", err)
 		}
 		if !bytes.Equal(blob.Bytes(), inSSZ) {
-			t.Fatalf("re-encoded stream mismatch: have %x, want %x", blob, inSSZ)
+			prefix := commonPrefix(blob.Bytes(), inSSZ)
+			t.Fatalf("re-encoded stream mismatch: have %x, want %x, common prefix %d, have left %x, want left %x",
+				blob, inSSZ, len(prefix), blob.Bytes()[len(prefix):], inSSZ[len(prefix):])
 		}
 		obj = T(new(U))
 		if err := ssz.DecodeFromBytes(inSSZ, obj); err != nil {

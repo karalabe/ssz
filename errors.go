@@ -31,6 +31,10 @@ var ErrMaxItemsExceeded = errors.New("ssz: maximum item count exceeded")
 // but there are fewer bytes available on the stream.
 var ErrShortCounterOffset = errors.New("ssz: insufficient data for 4-byte counter offset")
 
+// ErrZeroCounterOffset is returned when a list of offsets are consumed and the
+// first offset is zero, which means the list should not have existed.
+var ErrZeroCounterOffset = errors.New("ssz: counter offset zero")
+
 // ErrBadCounterOffset is returned when a list of offsets are consumed and the
 // first offset is not a multiple of 4-bytes.
 var ErrBadCounterOffset = errors.New("ssz: counter offset not multiple of 4-bytes")
