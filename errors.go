@@ -38,3 +38,7 @@ var ErrBadCounterOffset = errors.New("ssz: counter offset not multiple of 4-byte
 // ErrDynamicStaticsIndivisible is returned when a list of static objects is to
 // be decoded, but the list's total length is not divisible by the item size.
 var ErrDynamicStaticsIndivisible = errors.New("ssz: list of fixed objects not divisible")
+
+// ErrObjectSlotSizeMismatch is returned from decoding if an object's slot in the
+// ssz stream contains more data than the object cares to consume.
+var ErrObjectSlotSizeMismatch = errors.New("ssz: object didn't consume all designated data")

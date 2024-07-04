@@ -35,6 +35,9 @@ type Decoder struct {
 	length  uint32   // Message length being decoded
 	lengths []uint32 // Stack of lengths from outer calls
 
+	read  uint32   // Message length already consumed
+	reads []uint32 // Stack of lengths from outer calls
+
 	offset  uint32   // Starting offset we expect, or last offset seen after
 	offsets []uint32 // Queue of offsets for dynamic size calculations
 
@@ -49,11 +52,15 @@ func DecodeUint64[T ~uint64](dec *Decoder, n *T) {
 	}
 	if dec.inReader != nil {
 		_, dec.err = io.ReadFull(dec.inReader, dec.buf[:8])
+		if dec.err != nil {
+			return
+		}
 		*n = T(binary.LittleEndian.Uint64(dec.buf[:8]))
 	} else {
 		*n = T(binary.LittleEndian.Uint64(dec.inBuffer))
 		dec.inBuffer = dec.inBuffer[8:]
 	}
+	dec.read += 8
 }
 
 // DecodeUint256 parses a uint256.
@@ -74,9 +81,10 @@ func DecodeUint256(dec *Decoder, n **uint256.Int) {
 		if *n == nil {
 			*n = new(uint256.Int)
 		}
-		(*n).UnmarshalSSZ(dec.inBuffer)
+		(*n).UnmarshalSSZ(dec.inBuffer[:32])
 		dec.inBuffer = dec.inBuffer[32:]
 	}
+	dec.read += 32
 }
 
 // DecodeStaticBytes parses a static binary blob.
@@ -86,10 +94,14 @@ func DecodeStaticBytes(dec *Decoder, blob []byte) {
 	}
 	if dec.inReader != nil {
 		_, dec.err = io.ReadFull(dec.inReader, blob)
+		if dec.err != nil {
+			return
+		}
 	} else {
 		copy(blob, dec.inBuffer)
 		dec.inBuffer = dec.inBuffer[len(blob):]
 	}
+	dec.read += uint32(len(blob))
 }
 
 // DecodeDynamicBytesOffset parses a dynamic binary blob.
@@ -119,10 +131,14 @@ func DecodeDynamicBytesContent(dec *Decoder, blob *[]byte, maxSize uint32) {
 	// DecodeStaticBytes(dec, *(blob))
 	if dec.inReader != nil {
 		_, dec.err = io.ReadFull(dec.inReader, *blob)
+		if dec.err != nil {
+			return
+		}
 	} else {
 		copy(*blob, dec.inBuffer)
 		dec.inBuffer = dec.inBuffer[size:]
 	}
+	dec.read += size
 }
 
 // DecodeStaticObject parses a static ssz object.
@@ -149,10 +165,9 @@ func DecodeDynamicObjectContent[T newableDynamicObject[U], U any](dec *Decoder, 
 	// Compute the length of the object based on the seen offsets
 	size := dec.retrieveSize()
 
-	// Descend into a new dynamic list type to track a new sub-length and work
-	// with a fresh set of dynamic offsets
-	dec.descendIntoDynamic(size)
-	defer dec.ascendFromDynamic()
+	// Descend into a new data slot to track/verify a new sub-length
+	dec.descendIntoSlot(size)
+	defer dec.ascendFromSlot()
 
 	if *obj == nil {
 		*obj = T(new(U))
@@ -204,6 +219,7 @@ func DecodeSliceOfUint64sContent[T ~uint64](dec *Decoder, ns *[]T, maxItems uint
 			(*ns)[i] = T(binary.LittleEndian.Uint64(dec.inBuffer))
 			dec.inBuffer = dec.inBuffer[8:]
 		}
+		dec.read += 8
 	}
 }
 
@@ -222,6 +238,7 @@ func DecodeArrayOfStaticBytes[T commonBinaryLengths](dec *Decoder, blobs []T) {
 			if dec.err != nil {
 				return
 			}
+			dec.read += uint32(len(blobs[i]))
 		}
 	} else {
 		for i := 0; i < len(blobs); i++ {
@@ -229,6 +246,8 @@ func DecodeArrayOfStaticBytes[T commonBinaryLengths](dec *Decoder, blobs []T) {
 			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 			copy(unsafe.Slice(&blobs[i][0], len(blobs[i])), dec.inBuffer)
 			dec.inBuffer = dec.inBuffer[len(blobs[i]):]
+
+			dec.read += uint32(len(blobs[i]))
 		}
 	}
 }
@@ -267,6 +286,10 @@ func DecodeSliceOfStaticBytesContent[T commonBinaryLengths](dec *Decoder, blobs 
 	} else {
 		*blobs = (*blobs)[:itemCount]
 	}
+	// Descend into a new data slot to track/verify a new sub-length
+	dec.descendIntoSlot(size)
+	defer dec.ascendFromSlot()
+
 	if dec.inReader != nil {
 		for i := uint32(0); i < itemCount; i++ {
 			// The code below should have used `blobs[i][:]`, alas Go's generics compiler
@@ -275,6 +298,7 @@ func DecodeSliceOfStaticBytesContent[T commonBinaryLengths](dec *Decoder, blobs 
 			if dec.err != nil {
 				return
 			}
+			dec.read += uint32(len((*blobs)[i]))
 		}
 	} else {
 		for i := uint32(0); i < itemCount; i++ {
@@ -282,6 +306,8 @@ func DecodeSliceOfStaticBytesContent[T commonBinaryLengths](dec *Decoder, blobs 
 			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 			copy(unsafe.Slice(&(*blobs)[i][0], len((*blobs)[i])), dec.inBuffer)
 			dec.inBuffer = dec.inBuffer[len((*blobs)[i]):]
+
+			dec.read += uint32(len((*blobs)[i]))
 		}
 	}
 }
@@ -306,10 +332,9 @@ func DecodeSliceOfDynamicBytesContent(dec *Decoder, blobs *[][]byte, maxItems ui
 		dec.err = fmt.Errorf("%w: %d bytes available", ErrShortCounterOffset, size)
 		return
 	}
-	// Descend into a new dynamic list type to track a new sub-length and work
-	// with a fresh set of dynamic offsets
-	dec.descendIntoDynamic(size)
-	defer dec.ascendFromDynamic()
+	// Descend into a new data slot to track/verify a new sub-length
+	dec.descendIntoSlot(size)
+	defer dec.ascendFromSlot()
 
 	// Since we're decoding a dynamic slice of dynamic objects (blobs here), the
 	// first offset will also act as a counter at to how many items there are in
@@ -375,6 +400,10 @@ func DecodeSliceOfStaticObjectsContent[T newableStaticObject[U], U any](dec *Dec
 	} else {
 		*objects = (*objects)[:itemCount]
 	}
+	// Descend into a new data slot to track/verify a new sub-length
+	dec.descendIntoSlot(size)
+	defer dec.ascendFromSlot()
+
 	for i := uint32(0); i < itemCount; i++ {
 		if (*objects)[i] == nil {
 			(*objects)[i] = new(U)
@@ -408,8 +437,8 @@ func DecodeSliceOfDynamicObjectsContent[T newableDynamicObject[U], U any](dec *D
 	}
 	// Descend into a new dynamic list type to track a new sub-length and work
 	// with a fresh set of dynamic offsets
-	dec.descendIntoDynamic(size)
-	defer dec.ascendFromDynamic()
+	dec.descendIntoSlot(size)
+	defer dec.ascendFromSlot()
 
 	// Since we're decoding a dynamic slice of dynamic objects (blobs here), the
 	// first offset will also act as a counter at to how many items there are in
@@ -456,6 +485,8 @@ func (dec *Decoder) decodeOffset(list bool) {
 		offset = binary.LittleEndian.Uint32(dec.inBuffer)
 		dec.inBuffer = dec.inBuffer[4:]
 	}
+	dec.read += 4
+
 	if offset > dec.length {
 		dec.err = fmt.Errorf("%w: decoded %d, message length %d", ErrOffsetBeyondCapacity, offset, dec.length)
 		return
@@ -504,19 +535,36 @@ func (dec *Decoder) retrieveSize() uint32 {
 	return size
 }
 
-// descendIntoDynamic is used to trigger the decoding of a new dynamic field with
-// a new data length cap.
-func (dec *Decoder) descendIntoDynamic(length uint32) {
+// descendIntoSlot starts the decoding of a data slot with a new length. For the
+// static objects, the length is used to enforce that all data is consumed. For
+// the dynamic objects, the length is used to decode the last dynamic item.
+func (dec *Decoder) descendIntoSlot(length uint32) {
 	dec.lengths = append(dec.lengths, dec.length)
 	dec.length = length
+
+	dec.reads = append(dec.reads, dec.read)
+	dec.read = 0
 
 	dec.startDynamics(0) // random offset, will be ignored
 }
 
-// ascendFromDynamic is the counterpart of descendIntoDynamic that restores the
-// previously suspended decoding state.
-func (dec *Decoder) ascendFromDynamic() {
+// ascendFromSlot is the counterpart of descendIntoSlot that enforces the read
+// bytes and restores the previously suspended decoding state.
+func (dec *Decoder) ascendFromSlot() {
 	dec.flushDynamics()
+
+	// For static objects, enforce that the data they read actually corresponds
+	// to the data they should have read. Whilst this does not apply to dynamic
+	// objects in the current SSZ spec (they will always read all or error with
+	// a different issue), there's no reason not to check them for future cases.
+	if dec.read != dec.length {
+		if dec.err == nil {
+			dec.err = fmt.Errorf("%w: data size %d, object consumed %d", ErrObjectSlotSizeMismatch, dec.length, dec.read)
+		}
+	}
+	// Aggregate the total reads and restore the outer length
+	dec.read += dec.reads[len(dec.reads)-1] // track the sub-reads, don't discard!
+	dec.reads = dec.reads[:len(dec.reads)-1]
 
 	dec.length = dec.lengths[len(dec.lengths)-1]
 	dec.lengths = dec.lengths[:len(dec.lengths)-1]

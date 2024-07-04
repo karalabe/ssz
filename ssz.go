@@ -112,10 +112,15 @@ func EncodeToBytes(buf []byte, obj Object) error {
 // use this method with a bytes.Buffer to read from a []byte slice, as that will
 // double the byte copying. For that use case, use DecodeFromBytes instead.
 func DecodeFromStream(r io.Reader, obj Object, size uint32) error {
+	// Retrieve a new decoder codec and set its data source
 	codec := decoderPool.Get().(*Codec)
 	defer decoderPool.Put(codec)
 
-	codec.dec.inReader, codec.dec.length, codec.dec.err = r, size, nil
+	codec.dec.inReader = r
+
+	// Start a decoding round with length enforcement in place
+	codec.dec.descendIntoSlot(size)
+
 	switch v := obj.(type) {
 	case StaticObject:
 		v.DefineSSZ(codec)
@@ -126,8 +131,15 @@ func DecodeFromStream(r io.Reader, obj Object, size uint32) error {
 	default:
 		panic(fmt.Sprintf("unsupported type: %T", obj))
 	}
+	codec.dec.ascendFromSlot()
+
+	// Retrieve any errors, zero out the source and return
+	err := codec.dec.err
+
 	codec.dec.inReader = nil
-	return codec.dec.err
+	codec.dec.err = nil
+
+	return err
 }
 
 // DecodeFromBytes parses an object from a byte buffer. Do not use this method
@@ -135,10 +147,15 @@ func DecodeFromStream(r io.Reader, obj Object, size uint32) error {
 // would double the memory use for the temporary buffer. For that use case, use
 // DecodeFromStream instead.
 func DecodeFromBytes(blob []byte, obj Object) error {
+	// Retrieve a new decoder codec and set its data source
 	codec := decoderPool.Get().(*Codec)
 	defer decoderPool.Put(codec)
 
-	codec.dec.inBuffer, codec.dec.length, codec.dec.err = blob, uint32(len(blob)), nil
+	codec.dec.inBuffer = blob
+
+	// Start a decoding round with length enforcement in place
+	codec.dec.descendIntoSlot(uint32(len(blob)))
+
 	switch v := obj.(type) {
 	case StaticObject:
 		v.DefineSSZ(codec)
@@ -149,8 +166,15 @@ func DecodeFromBytes(blob []byte, obj Object) error {
 	default:
 		panic(fmt.Sprintf("unsupported type: %T", obj))
 	}
+	codec.dec.ascendFromSlot()
+
+	// Retrieve any errors, zero out the source and return
+	err := codec.dec.err
+
 	codec.dec.inBuffer = nil
-	return codec.dec.err
+	codec.dec.err = nil
+
+	return err
 }
 
 // Size retrieves the size of a ssz object, independent if it's a static or a
