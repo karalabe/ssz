@@ -172,7 +172,7 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 	}
 }
 
-// TestConsensusSpecs iterates over all the (supported) consensus SSZ types and
+// BenchmarkConsensusSpecs iterates over all the (supported) consensus SSZ types and
 // runs the encoding/decoding/hashing benchmark round.
 func BenchmarkConsensusSpecs(b *testing.B) {
 	benchmarkConsensusSpecType[*types.Attestation](b, "deneb", "Attestation")
@@ -262,6 +262,139 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 			if err := ssz.DecodeFromBytes(inSSZ, obj); err != nil {
 				b.Fatalf("failed to decode SSZ stream: %v", err)
 			}
+		}
+	})
+}
+
+// Various fuzz targets can be found below, one for each consensus spec type. The
+// methods will start by feeding all the consensus spec test data and then will do
+// infinite decoding runs. Anything that succeeds will get re-encoded, re-decoded,
+// etc. to test different functions.
+
+func FuzzConsensusSpecsAttestation(f *testing.F) {
+	fuzzConsensusSpecType[*types.Attestation](f, "Attestation", "altair", "bellatrix", "capella", "deneb", "eip7594", "phase0", "whisk")
+}
+func FuzzConsensusSpecsAttestationData(f *testing.F) {
+	fuzzConsensusSpecType[*types.AttestationData](f, "AttestationData")
+}
+func FuzzConsensusSpecsAttesterSlashing(f *testing.F) {
+	fuzzConsensusSpecType[*types.AttesterSlashing](f, "AttesterSlashing")
+}
+func FuzzConsensusSpecsBeaconBlock(f *testing.F) {
+	fuzzConsensusSpecType[*types.BeaconBlock](f, "BeaconBlock", "phase0")
+}
+func FuzzConsensusSpecsBeaconBlockBody(f *testing.F) {
+	fuzzConsensusSpecType[*types.BeaconBlockBody](f, "BeaconBlockBody", "phase0")
+}
+func FuzzConsensusSpecsBeaconBlockHeader(f *testing.F) {
+	fuzzConsensusSpecType[*types.BeaconBlockHeader](f, "BeaconBlockHeader")
+}
+func FuzzConsensusSpecsCheckpoint(f *testing.F) {
+	fuzzConsensusSpecType[*types.Checkpoint](f, "Checkpoint")
+}
+func FuzzConsensusSpecsDeposit(f *testing.F) {
+	fuzzConsensusSpecType[*types.Deposit](f, "Deposit")
+}
+func FuzzConsensusSpecsDepositData(f *testing.F) {
+	fuzzConsensusSpecType[*types.DepositData](f, "DepositData")
+}
+func FuzzConsensusSpecsEth1Data(f *testing.F) {
+	fuzzConsensusSpecType[*types.Eth1Data](f, "Eth1Data")
+}
+func FuzzConsensusSpecsExecutionPayload(f *testing.F) {
+	fuzzConsensusSpecType[*types.ExecutionPayload](f, "ExecutionPayload", "bellatrix")
+}
+func FuzzConsensusSpecsExecutionPayloadCapella(f *testing.F) {
+	fuzzConsensusSpecType[*types.ExecutionPayloadCapella](f, "ExecutionPayload", "capella")
+}
+func FuzzConsensusSpecsHistoricalBatch(f *testing.F) {
+	fuzzConsensusSpecType[*types.HistoricalBatch](f, "HistoricalBatch")
+}
+func FuzzConsensusSpecsIndexedAttestation(f *testing.F) {
+	fuzzConsensusSpecType[*types.IndexedAttestation](f, "IndexedAttestation")
+}
+func FuzzConsensusSpecsProposerSlashing(f *testing.F) {
+	fuzzConsensusSpecType[*types.ProposerSlashing](f, "ProposerSlashing")
+}
+func FuzzConsensusSpecsSignedBeaconBlockHeader(f *testing.F) {
+	fuzzConsensusSpecType[*types.SignedBeaconBlockHeader](f, "SignedBeaconBlockHeader")
+}
+func FuzzConsensusSpecsSignedVoluntaryExit(f *testing.F) {
+	fuzzConsensusSpecType[*types.SignedVoluntaryExit](f, "SignedVoluntaryExit")
+}
+func FuzzConsensusSpecsVoluntaryExit(f *testing.F) {
+	fuzzConsensusSpecType[*types.VoluntaryExit](f, "VoluntaryExit")
+}
+func FuzzConsensusSpecsWithdrawal(f *testing.F) {
+	fuzzConsensusSpecType[*types.Withdrawal](f, "Withdrawal")
+}
+
+func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string, forks ...string) {
+	// If no fork was specified, iterate over all of them and use the same type
+	if len(forks) == 0 {
+		forks, err := os.ReadDir(consensusSpecTestsRoot)
+		if err != nil {
+			f.Errorf("failed to walk spec collection %v: %v", consensusSpecTestsRoot, err)
+			return
+		}
+		names := make([]string, 0, len(forks))
+		for _, fork := range forks {
+			if _, err := os.Stat(filepath.Join(consensusSpecTestsRoot, fork.Name(), "ssz_static", kind, "ssz_random")); err == nil {
+				names = append(names, fork.Name())
+			}
+		}
+		fuzzConsensusSpecType[T, U](f, kind, names...)
+		return
+	}
+	// Some specific forks were requested, look those up explicitly
+	for _, fork := range forks {
+		path := filepath.Join(consensusSpecTestsRoot, fork, "ssz_static", kind, "ssz_random")
+
+		tests, err := os.ReadDir(path)
+		if err != nil {
+			f.Errorf("failed to walk test collection %v: %v", path, err)
+			return
+		}
+		// Feed all the test data into the fuzzer
+		for _, test := range tests {
+			// Parse the input SSZ data and the expected root for the test
+			inSnappy, err := os.ReadFile(filepath.Join(path, test.Name(), "serialized.ssz_snappy"))
+			if err != nil {
+				f.Fatalf("failed to load snapy ssz binary: %v", err)
+			}
+			inSSZ, err := snappy.Decode(nil, inSnappy)
+			if err != nil {
+				f.Fatalf("failed to parse snappy ssz binary: %v", err)
+			}
+			f.Add(inSSZ)
+		}
+	}
+	// Run the fuzzer
+	f.Fuzz(func(t *testing.T, inSSZ []byte) {
+		obj := T(new(U))
+		if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err != nil {
+			return
+		}
+		blob := new(bytes.Buffer)
+		if err := ssz.EncodeToStream(blob, obj); err != nil {
+			t.Fatalf("failed to re-encode SSZ stream: %v", err)
+		}
+		if !bytes.Equal(blob.Bytes(), inSSZ) {
+			t.Fatalf("re-encoded stream mismatch: have %x, want %x", blob, inSSZ)
+		}
+		obj = T(new(U))
+		if err := ssz.DecodeFromBytes(inSSZ, obj); err != nil {
+			t.Fatalf("failed to decode SSZ buffer: %v", err)
+		}
+		bin := make([]byte, ssz.Size(obj))
+		if err := ssz.EncodeToBytes(bin, obj); err != nil {
+			t.Fatalf("failed to re-encode SSZ buffer: %v", err)
+		}
+		if !bytes.Equal(bin, inSSZ) {
+			t.Fatalf("re-encoded bytes mismatch: have %x, want %x", bin, inSSZ)
+		}
+		if size := ssz.Size(obj); size != uint32(len(inSSZ)) {
+			t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
 		}
 	})
 }
