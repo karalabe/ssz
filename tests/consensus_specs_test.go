@@ -53,7 +53,7 @@ func TestConsensusSpecs(t *testing.T) {
 	testConsensusSpecType[*types.Withdrawal](t, "Withdrawal")
 
 	// Iterate over all the untouched tests and report them
-	/*forks, err := os.ReadDir(consensusSpecTestsRoot)
+	forks, err := os.ReadDir(consensusSpecTestsRoot)
 	if err != nil {
 		t.Fatalf("failed to walk fork collection: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestConsensusSpecs(t *testing.T) {
 				t.Errorf("no tests ran for %v/%v", fork.Name(), kind.Name())
 			}
 		}
-	}*/
+	}
 }
 
 // newableObject is a generic type whose purpose is to enforce that ssz.Object

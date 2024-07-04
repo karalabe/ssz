@@ -5,6 +5,7 @@
 package ssz_test
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/karalabe/ssz"
@@ -29,11 +30,11 @@ func (w *Withdrawal) DefineSSZ(codec *ssz.Codec) {
 }
 
 func ExampleEncodeStaticObject() {
-	blob, err := ssz.EncodeToBytes(new(Withdrawal))
-	if err != nil {
+	out := new(bytes.Buffer)
+	if err := ssz.EncodeToStream(out, new(Withdrawal)); err != nil {
 		panic(err)
 	}
-	fmt.Printf("ssz: %#x\n", blob)
+	fmt.Printf("ssz: %#x\n", out)
 	// Output:
 	// ssz: 0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 }

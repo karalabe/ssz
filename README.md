@@ -2,7 +2,7 @@
 
 # ssz [![API Reference](https://pkg.go.dev/badge/github.com/karalabe/ssz)](https://pkg.go.dev/github.com/karalabe/ssz?tab=doc)
 
-Package `ssz` provides an opinionated toolkit for working with Ethereum's [Simple Serialize (SSZ)](https://github.com/ethereum/consensus-specs/blob/dev/ssz/simple-serialize.md) format through Go. The primary focus is on code maintainability, only secondarily striving towards raw performance.
+Package `ssz` provides a zero-allocation, opinionated toolkit for working with Ethereum's [Simple Serialize (SSZ)](https://github.com/ethereum/consensus-specs/blob/dev/ssz/simple-serialize.md) format through Go. The primary focus is on code maintainability, only secondarily striving towards raw performance.
 
 ***Please note, this repository is a work in progress. The API is unstable and breaking changes will regularly be made. Hashing is not yet implemented. Do not depend on this in publicly available modules.***
 
@@ -11,7 +11,7 @@ Package `ssz` provides an opinionated toolkit for working with Ethereum's [Simpl
 - **Elegant API surface:** Binary protocols are low level constructs and writing encoders/decoders entails boilerplate and fumbling with details. Code generators can do a good job in achieving performance, but with a too low level API, the generated code becomes impossible to humanly maintain. That isn't an issue, until you throw something at the generator it cannot understand (e.g. multiplexed types), at which point you'll be in deep pain. By defining an API that is elegant from a dev perspective, we can create maintainable code for the special snowflake types, yet still generate it for the rest of boring types.
 - **Reduced redundancies:** The API aims to make the common case easy and the less common case possible. Redundancies in user encoding/decoding code are deliberately avoided to remove subtle bugs (even at a slight hit on performance). If the user's types require some asymmetry, explicit encoding and decoding code paths are still supported.
 - **Support existing types:** Serialization libraries often assume the user is going to define a completely new, isolated type-set for all the things they want to encode. That is simply not the case, and to introduce a new encoding library into a pre-existing codebase, it must play nicely with the existing types. That means common Go typing and aliasing patterns should be supported without annotating everything with new methods.
-- **Performant, as meaningful:** Encoding/decoding code should be performant, even if we're giving up some of it to cater for the above goals. Language constructs that are known to be slow (e.g. reflection) should be avoided, and code should have performance similar to low level generated ones. That said, a meaningful application of the library will *do* something with the encoded data, which will almost certainly take more time than generating/parsing a binary blob.
+- **Performant, as meaningful:** Encoding/decoding code should be performant, even if we're giving up some of it to cater for the above goals. Language constructs that are known to be slow (e.g. reflection) should be avoided, and code should have performance similar to low level generated ones, including 0 needing allocations. That said, a meaningful application of the library will *do* something with the encoded data, which will almost certainly take more time than generating/parsing a binary blob.
 
 ## Expectations
 
@@ -81,19 +81,19 @@ func (w *Withdrawal) DefineSSZ(codec *ssz.Codec) {
 - The `DefineXYZ` methods should feel self-explanatory. They spill out what fields to encode in what order and into what types. The interesting tidbit is the addressing of the fields. Since this code is used for *both* encoding and decoding, it needs to be able to instantiate any `nil` fields during decoding, so pointers are needed.
 - Another interesting part is that we haven't defined an encoder/decoder for `Address`, rather just sliced it into `[]byte`. It is common in Go world that byte slices or arrays are aliased into various types, so instead of requiring the user to annotate all those tiny utility types, they can just use them directly.
 
-To encode the above `Witness` into an SSZ stream, use either `ssz.Encode` or `ssz.EncodeToBytes`. The former will write into a stream directly (use this in prod), whilst the latter will allocate a new output byte slice (will thrash the GC).
+To encode the above `Witness` into an SSZ stream, use either `ssz.EncodeToStream` or `ssz.EncodeToBytes`. The former will write into a stream directly, whilst the latter will write into a bytes buffer directly. In both cases you need to supply the output location to avoid GC allocations in the library.
 
 ```go
 func main() {
-	blob, err := ssz.EncodeToBytes(new(Withdrawal))
-	if err != nil {
+	out := new(bytes.Buffer)
+	if err := ssz.EncodeToStream(out, new(Withdrawal)); err != nil {
 		panic(err)
 	}
 	fmt.Printf("ssz: %#x\n", blob)
 }
 ```
 
-To decode an SSZ blob, use `ssz.Decode` and `ssz.DecodeFromBytes` with the same disclaimers about allocations. Note, decoding requires knowing the *size* of the SSZ blob in advance. Unfortunately, this is a limitation of the SSZ format.
+To decode an SSZ blob, use `ssz.DecodeFromStream` and `ssz.DecodeFromBytes` with the same disclaimers about allocations. Note, decoding requires knowing the *size* of the SSZ blob in advance. Unfortunately, this is a limitation of the SSZ format.
 
 ### Dynamic types
 
@@ -167,37 +167,42 @@ The codec itself is very similar to the static example before:
 
 ```go
 func (e *ExecutionPayload) DefineSSZ(codec *ssz.Codec) {
-	ssz.DefineStaticBytes(codec, e.ParentHash[:])                                   // Field  ( 0) - ParentHash    -  32 bytes
-	ssz.DefineStaticBytes(codec, e.FeeRecipient[:])                                 // Field  ( 1) - FeeRecipient  -  20 bytes
-	ssz.DefineStaticBytes(codec, e.StateRoot[:])                                    // Field  ( 2) - StateRoot     -  32 bytes
-	ssz.DefineStaticBytes(codec, e.ReceiptsRoot[:])                                 // Field  ( 3) - ReceiptsRoot  -  32 bytes
-	ssz.DefineStaticBytes(codec, e.LogsBloom[:])                                    // Field  ( 4) - LogsBloom     - 256 bytes
-	ssz.DefineStaticBytes(codec, e.PrevRandao[:])                                   // Field  ( 5) - PrevRandao    -  32 bytes
-	ssz.DefineUint64(codec, &e.BlockNumber)                                         // Field  ( 6) - BlockNumber   -   8 bytes
-	ssz.DefineUint64(codec, &e.GasLimit)                                            // Field  ( 7) - GasLimit      -   8 bytes
-	ssz.DefineUint64(codec, &e.GasUsed)                                             // Field  ( 8) - GasUsed       -   8 bytes
-	ssz.DefineUint64(codec, &e.Timestamp)                                           // Field  ( 9) - Timestamp     -   8 bytes
-	ssz.DefineDynamicBytes(codec, &e.ExtraData, 32)                                 // Offset (10) - ExtraData     -   4 bytes
-	ssz.DefineUint256(codec, &e.BaseFeePerGas)                                      // Field  (11) - BaseFeePerGas -  32 bytes
-	ssz.DefineStaticBytes(codec, e.BlockHash[:])                                    // Field  (12) - BlockHash     -  32 bytes
-	ssz.DefineSliceOfDynamicBytes(codec, &e.Transactions, 1_048_576, 1_073_741_824) // Offset (13) - Transactions  -   4 bytes
-	ssz.DefineSliceOfStaticObjects(codec, &e.Withdrawals, 16)                       // Offset (14) - Withdrawals   -   4 bytes
+	// Define the static data (fields and dynamic offsets)
+	ssz.DefineStaticBytes(codec, e.ParentHash[:])               // Field  ( 0) - ParentHash    -  32 bytes
+	ssz.DefineStaticBytes(codec, e.FeeRecipient[:])             // Field  ( 1) - FeeRecipient  -  20 bytes
+	ssz.DefineStaticBytes(codec, e.StateRoot[:])                // Field  ( 2) - StateRoot     -  32 bytes
+	ssz.DefineStaticBytes(codec, e.ReceiptsRoot[:])             // Field  ( 3) - ReceiptsRoot  -  32 bytes
+	ssz.DefineStaticBytes(codec, e.LogsBloom[:])                // Field  ( 4) - LogsBloom     - 256 bytes
+	ssz.DefineStaticBytes(codec, e.PrevRandao[:])               // Field  ( 5) - PrevRandao    -  32 bytes
+	ssz.DefineUint64(codec, &e.BlockNumber)                     // Field  ( 6) - BlockNumber   -   8 bytes
+	ssz.DefineUint64(codec, &e.GasLimit)                        // Field  ( 7) - GasLimit      -   8 bytes
+	ssz.DefineUint64(codec, &e.GasUsed)                         // Field  ( 8) - GasUsed       -   8 bytes
+	ssz.DefineUint64(codec, &e.Timestamp)                       // Field  ( 9) - Timestamp     -   8 bytes
+	ssz.DefineDynamicBytesOffset(codec, &e.ExtraData)           // Offset (10) - ExtraData     -   4 bytes
+	ssz.DefineUint256(codec, &e.BaseFeePerGas)                  // Field  (11) - BaseFeePerGas -  32 bytes
+	ssz.DefineStaticBytes(codec, e.BlockHash[:])                // Field  (12) - BlockHash     -  32 bytes
+	ssz.DefineSliceOfDynamicBytesOffset(codec, &e.Transactions) // Offset (13) - Transactions  -   4 bytes
+	ssz.DefineSliceOfStaticObjectsOffset(codec, &e.Withdrawals) // Offset (14) - Withdrawals   -   4 bytes
+
+	// Define the dynamic data (fields)
+	ssz.DefineDynamicBytesContent(codec, &e.ExtraData, 32)                                 // Field (10) - ExtraData
+	ssz.DefineSliceOfDynamicBytesContent(codec, &e.Transactions, 1_048_576, 1_073_741_824) // Field (13) - Transactions
+	ssz.DefineSliceOfStaticObjectsContent(codec, &e.Withdrawals, 16)                       // Field (14) - Withdrawals
 }
 ```
 
-The `DefineXYZ` methods are used exactly the same as before, only we used more variations this time due to the more complex data structure. You might also note that dynamic fields also pass in size limits that the decoder can enforce.
+Most of the `DefineXYZ` methods are similar as before, only we used more variations this time due to the more complex data structure. However, you might spot two distinct sets of method calls, `DefineXYZOffset` and `DefineXYZContent`. You'll need to use these for dynamic fields:
+  - When SSZ encodes a dynamic object, it encodes it in two steps.
+    - A 4-byte offset pointing to the dynamic data is written into the static SSZ area.
+    - The dynamic object's actual encoding are written into the dynamic SSZ area.
+  - Encoding libraries can take two routes to handle this scenario:
+    - Explicitly require the user to give one command to write the object offset, followed by another command later to write the object content. This is as fast as it gets, but it also leaks out encoding detail into user code.
+    - Require only one command from the user, under the hood writing the object offset immediately, and stashing the object itself away for later serialization when the dynamic area is reached. This keeps the offset notion hidden from users, but entails a GC hit to the encoder.
+  - This package was decided to be allocation free, thus the user is forced to explicitly be aware that they need to define the dynamic offset first and the dynamic content later. It's a tradeoff to achieve 50-100% speed increase. 
 
-To encode the above `ExecutionPayload` do just as we have done with the static `Witness` object. 
+You might also note that dynamic fields also pass in size limits that the decoder can enforce.
 
-```go
-func main() {
-	blob, err := ssz.EncodeToBytes(new(ExecutionPayload))
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("ssz: %#x\n", blob)
-}
-```
+To encode the above `ExecutionPayload` do just as we have done with the static `Witness` object.
 
 ### Asymmetric types
 
@@ -245,53 +250,4 @@ TODO
 
 The goal of this package is to be close in performance to low level generated encoders, without sacrificing maintainability. It should, however, be significantly faster than runtime reflection encoders.
 
-There are some benchmarks that you can run via `go test ./tests --run=NONE --bench=.`, but no extensive measurement effort was made yet until the APIs are finalized, nor has the package been compared to anything other implementation.
-
-### Tradeoff: Unified vs. split dynamic object API
-
-When SSZ encodes a dynamic object, it encodes it in two steps:
-
-- A 4-byte offset pointing to the dynamic data is written into the static SSZ area.
-- The dynamic object's actual encoding are written into the dynamic SSZ area.
-
-Encoding libraries can take two routes to handle this scenario:
-
-- Explicitly require the user to give one command to write the object offset, followed by another command later to write the object content. This is as fast as it gets, but it also leaks out encoding detail into user code.
-- Require only one command from the user, under the hood writing the object offset immediately, and stashing the object itself away for later serialization when the dynamic area is reached. This keeps the offset notion hidden from users, but entails a GC hit to the encoder.
-
-Deciding one vs. the other is a design choice of performance vs. simplicity. Consider the two codes below (for a simple type containing one dynamic object):
-
-```go
-func (a *Attestation) UnifiedSSZ(codec *ssz.Codec) {
-	ssz.DefineDynamicBytes(codec, &a.AggregationBits, 2048)
-	ssz.DefineStaticObject(codec, &a.Data)
-	ssz.DefineStaticBytes(codec, a.Signature[:])
-}
-```
-
-```go
-func (a *Attestation) SplitSSZ(codec *ssz.Codec) {
-	// Define the static parts of the SSZ container
-	ssz.DefineDynamicBytesOffset(codec, &a.AggregationBits, 2048)
-	ssz.DefineStaticObject(codec, &a.Data)
-	ssz.DefineStaticBytes(codec, a.Signature[:])
-
-	// Define the dynamic parts of the SSZ container
-	ssz.DefineDynamicBytesContent(codec, &a.AggregationBits, 2048)
-}
-```
-
-This package went down the route of a unified API to try and keep the code more maintainable, but we did implement the split API in an experiment too. You can find the code in the [`split-offset-content-codec`](https://github.com/karalabe/ssz/tree/split-offset-content-codec) branch, and comparisons benchmarks in [this GitHub gist](https://gist.github.com/karalabe/94c3f04a59bef37e57711245a5eb7471).
-
-There is a definite, non-negligible performance difference between the two. For the simple type mentioned above:
-
-|                   | Unified API |  Split API  |
-|:-----------------:|:-----------:|:-----------:|
-|    Encode Time    | 88.72 ns/op | 64.27 ns/op |
-|    Decode Time    | 127.2 ns/op | 103.6 ns/op |
-| Encode Throughput | 2.404 GB/s  | 3.319 GB/s  |
-| Decode Throughput | 1.676 GB/s  | 2.059 GB/s  |
-|   Encode Allocs   |   48 B/op   |   0 B/op    |
-|   Decode Allocs   |   32 B/op   |   0 B/op    |
-
-It's hard to argue against a 30-50% speed improvement by itself, but in the context of a serialization library where you have to *do* something with the data afterwards, saving tens of nanoseconds seems like a drop in the bucket in the grand scheme of things. We may revisit this decision, of course.
+There are some benchmarks that you can run via `go test ./tests --run=NONE --bench=.`, but no extensive measurement effort was made yet until the APIs are finalized, nor has the package been compared to any other implementation.

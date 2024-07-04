@@ -35,8 +35,8 @@ func (w *WithdrawalAsym) DefineSSZ(codec *ssz.Codec) {
 }
 
 func ExampleEncodeAsymmetricObject() {
-	blob, err := ssz.EncodeToBytes(new(WithdrawalAsym))
-	if err != nil {
+	blob := make([]byte, (*WithdrawalAsym)(nil).SizeSSZ())
+	if err := ssz.EncodeToBytes(blob, new(WithdrawalAsym)); err != nil {
 		panic(err)
 	}
 	fmt.Printf("ssz: %#x\n", blob)
