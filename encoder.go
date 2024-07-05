@@ -147,8 +147,8 @@ func EncodeStaticBytes[T commonBinaryLengths](enc *Encoder, blob *T) {
 	}
 }
 
-// EncodeStaticBytesChecked serializes a static binary blob.
-func EncodeStaticBytesChecked(enc *Encoder, blob []byte) {
+// EncodeCheckedStaticBytes serializes a static binary blob.
+func EncodeCheckedStaticBytes(enc *Encoder, blob []byte) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return

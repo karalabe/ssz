@@ -155,8 +155,8 @@ func DecodeStaticBytes[T commonBinaryLengths](dec *Decoder, blob *T) {
 	}
 }
 
-// DecodeStaticBytesChecked parses a static binary blob.
-func DecodeStaticBytesChecked(dec *Decoder, blob *[]byte, size uint32) {
+// DecodeCheckedStaticBytes parses a static binary blob.
+func DecodeCheckedStaticBytes(dec *Decoder, blob *[]byte, size uint32) {
 	if dec.err != nil {
 		return
 	}

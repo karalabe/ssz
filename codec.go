@@ -73,15 +73,15 @@ func DefineStaticBytes[T commonBinaryLengths](c *Codec, blob *T) {
 	DecodeStaticBytes(c.dec, blob)
 }
 
-// DefineStaticBytesChecked defines the next field as static binary blob. This
+// DefineCheckedStaticBytes defines the next field as static binary blob. This
 // method can be used for plain byte slices, which is more expensive , since it
 // needs runtime size validation.
-func DefineStaticBytesChecked(c *Codec, blob *[]byte, size uint32) {
+func DefineCheckedStaticBytes(c *Codec, blob *[]byte, size uint32) {
 	if c.enc != nil {
-		EncodeStaticBytesChecked(c.enc, *blob)
+		EncodeCheckedStaticBytes(c.enc, *blob)
 		return
 	}
-	DecodeStaticBytesChecked(c.dec, blob, size)
+	DecodeCheckedStaticBytes(c.dec, blob, size)
 }
 
 // DefineDynamicBytesOffset defines the next field as dynamic binary blob.
