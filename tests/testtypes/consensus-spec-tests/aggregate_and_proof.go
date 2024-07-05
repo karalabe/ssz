@@ -22,7 +22,7 @@ func (a *AggregateAndProof) SizeSSZ(fixed bool) uint32 {
 func (a *AggregateAndProof) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUint64(codec, &a.Index)
 	ssz.DefineDynamicObjectOffset(codec, &a.Aggregate)
-	ssz.DefineStaticBytes(codec, &a.SelectionProof)
+	ssz.DefineStaticBytes(codec, a.SelectionProof[:])
 
 	ssz.DefineDynamicObjectContent(codec, &a.Aggregate)
 }

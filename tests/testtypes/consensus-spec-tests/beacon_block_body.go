@@ -29,9 +29,9 @@ func (b *BeaconBlockBody) SizeSSZ(fixed bool) uint32 {
 	return size
 }
 func (b *BeaconBlockBody) DefineSSZ(codec *ssz.Codec) {
-	ssz.DefineStaticBytes(codec, &b.RandaoReveal)
+	ssz.DefineStaticBytes(codec, b.RandaoReveal[:])
 	ssz.DefineStaticObject(codec, &b.Eth1Data)
-	ssz.DefineStaticBytes(codec, &b.Graffiti)
+	ssz.DefineStaticBytes(codec, b.Graffiti[:])
 	ssz.DefineSliceOfStaticObjectsOffset(codec, &b.ProposerSlashings)
 	ssz.DefineSliceOfDynamicObjectsOffset(codec, &b.AttesterSlashings)
 	ssz.DefineSliceOfDynamicObjectsOffset(codec, &b.Attestations)

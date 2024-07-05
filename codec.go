@@ -65,7 +65,7 @@ func DefineUint256(c *Codec, n **uint256.Int) {
 
 // DefineStaticBytes defines the next field as static binary blob. This method
 // can be used for byte arrays.
-func DefineStaticBytes[T commonBinaryLengths](c *Codec, blob *T) {
+func DefineStaticBytes(c *Codec, blob []byte) {
 	if c.enc != nil {
 		EncodeStaticBytes(c.enc, blob)
 		return
@@ -149,7 +149,7 @@ func DefineSliceOfUint64sContent[T ~uint64](c *Codec, ns *[]T, maxItems uint32) 
 
 // DefineArrayOfStaticBytes defines the next field as a static array of static
 // binary blobs.
-func DefineArrayOfStaticBytes[T commonBinaryLengths](c *Codec, blobs []T) {
+func DefineArrayOfStaticBytes[T commonBytesLengths](c *Codec, blobs []T) {
 	if c.enc != nil {
 		EncodeArrayOfStaticBytes(c.enc, blobs)
 		return
@@ -157,9 +157,20 @@ func DefineArrayOfStaticBytes[T commonBinaryLengths](c *Codec, blobs []T) {
 	DecodeArrayOfStaticBytes(c.dec, blobs)
 }
 
+// DefineCheckedArrayOfStaticBytes defines the next field as a static array of
+// static binary blobs. This method can be used for plain slices of byte arrays,
+// which is more expensive  since it needs runtime size validation.
+func DefineCheckedArrayOfStaticBytes[T commonBytesLengths](c *Codec, blobs *[]T, size uint32) {
+	if c.enc != nil {
+		EncodeCheckedArrayOfStaticBytes(c.enc, *blobs)
+		return
+	}
+	DecodeCheckedArrayOfStaticBytes(c.dec, blobs, size)
+}
+
 // DefineSliceOfStaticBytesOffset defines the next field as a dynamic slice of static
 // binary blobs.
-func DefineSliceOfStaticBytesOffset[T commonBinaryLengths](c *Codec, bytes *[]T) {
+func DefineSliceOfStaticBytesOffset[T commonBytesLengths](c *Codec, bytes *[]T) {
 	if c.enc != nil {
 		EncodeSliceOfStaticBytesOffset(c.enc, *bytes)
 		return
@@ -169,7 +180,7 @@ func DefineSliceOfStaticBytesOffset[T commonBinaryLengths](c *Codec, bytes *[]T)
 
 // DefineSliceOfStaticBytesContent defines the next field as a dynamic slice of static
 // binary blobs.
-func DefineSliceOfStaticBytesContent[T commonBinaryLengths](c *Codec, blobs *[]T, maxItems uint32) {
+func DefineSliceOfStaticBytesContent[T commonBytesLengths](c *Codec, blobs *[]T, maxItems uint32) {
 	if c.enc != nil {
 		EncodeSliceOfStaticBytesContent(c.enc, *blobs)
 		return

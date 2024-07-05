@@ -22,7 +22,7 @@ func (a *IndexedAttestation) SizeSSZ(fixed bool) uint32 {
 func (a *IndexedAttestation) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineSliceOfUint64sOffset(codec, &a.AttestationIndices) // Offset (0) - AttestationIndices - 4 bytes
 	ssz.DefineStaticObject(codec, &a.Data)                       // Field (1) - Data      - 128 bytes
-	ssz.DefineStaticBytes(codec, &a.Signature)                   // Field (2) - Signature - 96 bytes
+	ssz.DefineStaticBytes(codec, a.Signature[:])                 // Field (2) - Signature - 96 bytes
 
 	ssz.DefineSliceOfUint64sContent(codec, &a.AttestationIndices, 2048) // Offset (0) - AttestationIndices - 4 bytes
 }

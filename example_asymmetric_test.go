@@ -21,16 +21,16 @@ func (w *WithdrawalAsym) SizeSSZ() uint32 { return 44 }
 
 func (w *WithdrawalAsym) DefineSSZ(codec *ssz.Codec) {
 	codec.DefineEncoder(func(enc *ssz.Encoder) {
-		ssz.EncodeUint64(enc, w.Index)         // Field (0) - Index          -  8 bytes
-		ssz.EncodeUint64(enc, w.Validator)     // Field (1) - ValidatorIndex -  8 bytes
-		ssz.EncodeStaticBytes(enc, &w.Address) // Field (2) - Address        - 20 bytes
-		ssz.EncodeUint64(enc, w.Amount)        // Field (3) - Amount         -  8 bytes
+		ssz.EncodeUint64(enc, w.Index)           // Field (0) - Index          -  8 bytes
+		ssz.EncodeUint64(enc, w.Validator)       // Field (1) - ValidatorIndex -  8 bytes
+		ssz.EncodeStaticBytes(enc, w.Address[:]) // Field (2) - Address        - 20 bytes
+		ssz.EncodeUint64(enc, w.Amount)          // Field (3) - Amount         -  8 bytes
 	})
 	codec.DefineDecoder(func(dec *ssz.Decoder) {
-		ssz.DecodeUint64(dec, &w.Index)        // Field (0) - Index          -  8 bytes
-		ssz.DecodeUint64(dec, &w.Validator)    // Field (1) - ValidatorIndex -  8 bytes
-		ssz.DecodeStaticBytes(dec, &w.Address) // Field (2) - Address        - 20 bytes
-		ssz.DecodeUint64(dec, &w.Amount)       // Field (3) - Amount         -  8 bytes
+		ssz.DecodeUint64(dec, &w.Index)          // Field (0) - Index          -  8 bytes
+		ssz.DecodeUint64(dec, &w.Validator)      // Field (1) - ValidatorIndex -  8 bytes
+		ssz.DecodeStaticBytes(dec, w.Address[:]) // Field (2) - Address        - 20 bytes
+		ssz.DecodeUint64(dec, &w.Amount)         // Field (3) - Amount         -  8 bytes
 	})
 }
 

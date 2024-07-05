@@ -13,6 +13,6 @@ type SignedBeaconBlockHeader struct {
 
 func (s *SignedBeaconBlockHeader) SizeSSZ() uint32 { return 208 }
 func (s *SignedBeaconBlockHeader) DefineSSZ(codec *ssz.Codec) {
-	ssz.DefineStaticObject(codec, &s.Header)   // Field (0) - Header    - 112 bytes
-	ssz.DefineStaticBytes(codec, &s.Signature) // Field (1) - Signature -  96 bytes
+	ssz.DefineStaticObject(codec, &s.Header)     // Field (0) - Header    - 112 bytes
+	ssz.DefineStaticBytes(codec, s.Signature[:]) // Field (1) - Signature -  96 bytes
 }

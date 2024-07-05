@@ -127,23 +127,15 @@ func EncodeUint256(enc *Encoder, n *uint256.Int) {
 }
 
 // EncodeStaticBytes serializes a static binary blob.
-//
-// The reason the blob is passed by pointer and not by value is to prevent it
-// from escaping to the heap (and incurring an allocation) when passing it to
-// the output stream.
-func EncodeStaticBytes[T commonBinaryLengths](enc *Encoder, blob *T) {
+func EncodeStaticBytes(enc *Encoder, blob []byte) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
 		}
-		// The code below should have used `*blob[:]`, alas Go's generics compiler
-		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-		_, enc.err = enc.outWriter.Write(unsafe.Slice(&(*blob)[0], len(*blob)))
+		_, enc.err = enc.outWriter.Write(blob)
 	} else {
-		// The code below should have used `*blob[:]`, alas Go's generics compiler
-		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-		copy(enc.outBuffer, unsafe.Slice(&(*blob)[0], len(*blob)))
-		enc.outBuffer = enc.outBuffer[len(*blob):]
+		copy(enc.outBuffer, blob)
+		enc.outBuffer = enc.outBuffer[len(blob):]
 	}
 }
 
@@ -255,8 +247,38 @@ func EncodeSliceOfUint64sContent[T ~uint64](enc *Encoder, ns []T) {
 	}
 }
 
-// EncodeArrayOfStaticBytes serializes a static array of static binary blobs.
-func EncodeArrayOfStaticBytes[T commonBinaryLengths](enc *Encoder, blobs []T) {
+// EncodeArrayOfStaticBytes serializes a static array of static binary
+// blobs.
+//
+// The reason the blobs is passed by pointer and not by value is to prevent it
+// from escaping to the heap (and incurring an allocation) when passing it to
+// the output stream.
+func EncodeArrayOfStaticBytes[T commonBytesLengths](enc *Encoder, blobs []T) {
+	// Internally this method is essentially calling EncodeStaticBytes on all
+	// the blobs in a loop. Practically, we've inlined that call to make things
+	// a *lot* faster.
+	if enc.outWriter != nil {
+		for i := 0; i < len(blobs); i++ { // don't range loop, T might be an array, copy is expensive
+			if enc.err != nil {
+				return
+			}
+			// The code below should have used `blobs[i][:]`, alas Go's generics compiler
+			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+			_, enc.err = enc.outWriter.Write(unsafe.Slice(&blobs[i][0], len(blobs[i])))
+		}
+	} else {
+		for i := 0; i < len(blobs); i++ { // don't range loop, T might be an array, copy is expensive
+			// The code below should have used `blobs[i][:]`, alas Go's generics compiler
+			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+			copy(enc.outBuffer, unsafe.Slice(&blobs[i][0], len(blobs[i])))
+			enc.outBuffer = enc.outBuffer[len(blobs[i]):]
+		}
+	}
+}
+
+// EncodeCheckedArrayOfStaticBytes serializes a static array of static binary
+// blobs.
+func EncodeCheckedArrayOfStaticBytes[T commonBytesLengths](enc *Encoder, blobs []T) {
 	// Internally this method is essentially calling EncodeStaticBytes on all
 	// the blobs in a loop. Practically, we've inlined that call to make things
 	// a *lot* faster.
@@ -280,7 +302,7 @@ func EncodeArrayOfStaticBytes[T commonBinaryLengths](enc *Encoder, blobs []T) {
 }
 
 // EncodeSliceOfStaticBytesOffset serializes a dynamic slice of static binary blobs.
-func EncodeSliceOfStaticBytesOffset[T commonBinaryLengths](enc *Encoder, blobs []T) {
+func EncodeSliceOfStaticBytesOffset[T commonBytesLengths](enc *Encoder, blobs []T) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -297,7 +319,7 @@ func EncodeSliceOfStaticBytesOffset[T commonBinaryLengths](enc *Encoder, blobs [
 }
 
 // EncodeSliceOfStaticBytesContent is the lazy data writer for EncodeSliceOfStaticBytesOffset.
-func EncodeSliceOfStaticBytesContent[T commonBinaryLengths](enc *Encoder, blobs []T) {
+func EncodeSliceOfStaticBytesContent[T commonBytesLengths](enc *Encoder, blobs []T) {
 	// Internally this method is essentially calling EncodeStaticBytes on all
 	// the blobs in a loop. Practically, we've inlined that call to make things
 	// a *lot* faster.

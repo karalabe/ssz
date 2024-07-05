@@ -13,6 +13,6 @@ type SignedVoluntaryExit struct {
 
 func (v *SignedVoluntaryExit) SizeSSZ() uint32 { return 112 }
 func (v *SignedVoluntaryExit) DefineSSZ(codec *ssz.Codec) {
-	ssz.DefineStaticObject(codec, &v.Exit)     // Field (0) - Exit          - 16 bytes
-	ssz.DefineStaticBytes(codec, &v.Signature) // Field (1) - Signature - 96 bytes
+	ssz.DefineStaticObject(codec, &v.Exit)       // Field (0) - Exit          - 16 bytes
+	ssz.DefineStaticBytes(codec, v.Signature[:]) // Field (1) - Signature - 96 bytes
 }

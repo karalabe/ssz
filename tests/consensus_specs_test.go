@@ -67,6 +67,10 @@ func TestConsensusSpecs(t *testing.T) {
 	testConsensusSpecType[*types.VoluntaryExit](t, "VoluntaryExit")
 	testConsensusSpecType[*types.Withdrawal](t, "Withdrawal")
 
+	// Add some API variations to test different codec implementations
+	testConsensusSpecType[*types.HistoricalBatchVariation](t, "HistoricalBatch")
+	testConsensusSpecType[*types.WithdrawalVariation](t, "Withdrawal")
+
 	// Iterate over all the untouched tests and report them
 	// 	forks, err := os.ReadDir(consensusSpecTestsRoot)
 	//	if err != nil {
@@ -203,6 +207,7 @@ func BenchmarkConsensusSpecs(b *testing.B) {
 	benchmarkConsensusSpecType[*types.Eth1Data](b, "deneb", "Eth1Data")
 	benchmarkConsensusSpecType[*types.ExecutionPayloadCapella](b, "capella", "ExecutionPayload")
 	benchmarkConsensusSpecType[*types.HistoricalBatch](b, "deneb", "HistoricalBatch")
+	benchmarkConsensusSpecType[*types.HistoricalBatchVariation](b, "deneb", "HistoricalBatch")
 	benchmarkConsensusSpecType[*types.IndexedAttestation](b, "deneb", "IndexedAttestation")
 	benchmarkConsensusSpecType[*types.ProposerSlashing](b, "deneb", "ProposerSlashing")
 	benchmarkConsensusSpecType[*types.SignedBeaconBlockHeader](b, "deneb", "SignedBeaconBlockHeader")
@@ -329,6 +334,9 @@ func FuzzConsensusSpecsExecutionPayloadCapella(f *testing.F) {
 }
 func FuzzConsensusSpecsHistoricalBatch(f *testing.F) {
 	fuzzConsensusSpecType[*types.HistoricalBatch](f, "HistoricalBatch")
+}
+func FuzzConsensusSpecsHistoricalBatchVariation(f *testing.F) {
+	fuzzConsensusSpecType[*types.HistoricalBatchVariation](f, "HistoricalBatch")
 }
 func FuzzConsensusSpecsIndexedAttestation(f *testing.F) {
 	fuzzConsensusSpecType[*types.IndexedAttestation](f, "IndexedAttestation")

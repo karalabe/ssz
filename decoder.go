@@ -134,24 +134,20 @@ func DecodeUint256(dec *Decoder, n **uint256.Int) {
 }
 
 // DecodeStaticBytes parses a static binary blob.
-func DecodeStaticBytes[T commonBinaryLengths](dec *Decoder, blob *T) {
+func DecodeStaticBytes(dec *Decoder, blob []byte) {
 	if dec.err != nil {
 		return
 	}
-	// The code below should have used `*blob[:]`, alas Go's generics compiler
-	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-	slice := unsafe.Slice(&(*blob)[0], len(*blob))
-
 	if dec.inReader != nil {
-		_, dec.err = io.ReadFull(dec.inReader, slice)
-		dec.inRead += uint32(len(slice))
+		_, dec.err = io.ReadFull(dec.inReader, blob)
+		dec.inRead += uint32(len(blob))
 	} else {
-		if len(dec.inBuffer) < len(slice) {
+		if len(dec.inBuffer) < len(blob) {
 			dec.err = io.ErrUnexpectedEOF
 			return
 		}
-		copy(slice, dec.inBuffer)
-		dec.inBuffer = dec.inBuffer[len(slice):]
+		copy(blob, dec.inBuffer)
+		dec.inBuffer = dec.inBuffer[len(blob):]
 	}
 }
 
@@ -306,43 +302,76 @@ func DecodeSliceOfUint64sContent[T ~uint64](dec *Decoder, ns *[]T, maxItems uint
 }
 
 // DecodeArrayOfStaticBytes parses a static array of static binary blobs.
-//
-// Note, the input slice is assumed to be pre-allocated.
-func DecodeArrayOfStaticBytes[T commonBinaryLengths](dec *Decoder, blobs []T) {
+func DecodeArrayOfStaticBytes[T commonBytesLengths](dec *Decoder, blobs []T) {
 	if dec.err != nil {
 		return
 	}
 	if dec.inReader != nil {
 		for i := 0; i < len(blobs); i++ {
-			// The code below should have used `blobs[i][:]`, alas Go's generics compiler
+			// The code below should have used `(*blobs)[i][:]`, alas Go's generics compiler
 			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-			_, dec.err = io.ReadFull(dec.inReader, unsafe.Slice(&blobs[i][0], len(blobs[i])))
+			_, dec.err = io.ReadFull(dec.inReader, unsafe.Slice(&(blobs)[i][0], len((blobs)[i])))
 			if dec.err != nil {
 				return
 			}
-			dec.inRead += uint32(len(blobs[i]))
+			dec.inRead += uint32(len((blobs)[i]))
 		}
 	} else {
 		for i := 0; i < len(blobs); i++ {
-			if len(dec.inBuffer) < len(blobs[i]) {
+			if len(dec.inBuffer) < len((blobs)[i]) {
 				dec.err = io.ErrUnexpectedEOF
 				return
 			}
 			// The code below should have used `blobs[i][:]`, alas Go's generics compiler
 			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-			copy(unsafe.Slice(&blobs[i][0], len(blobs[i])), dec.inBuffer)
-			dec.inBuffer = dec.inBuffer[len(blobs[i]):]
+			copy(unsafe.Slice(&(blobs)[i][0], len((blobs)[i])), dec.inBuffer)
+			dec.inBuffer = dec.inBuffer[len((blobs)[i]):]
+		}
+	}
+}
+
+// DecodeCheckedArrayOfStaticBytes parses a static array of static binary blobs.
+func DecodeCheckedArrayOfStaticBytes[T commonBytesLengths](dec *Decoder, blobs *[]T, size uint32) {
+	if dec.err != nil {
+		return
+	}
+	// Expand the byte-array slice if needed and fill it with the data
+	if uint32(cap(*blobs)) < size {
+		*blobs = make([]T, size)
+	} else {
+		*blobs = (*blobs)[:size]
+	}
+	if dec.inReader != nil {
+		for i := 0; i < len(*blobs); i++ {
+			// The code below should have used `(*blobs)[i][:]`, alas Go's generics compiler
+			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+			_, dec.err = io.ReadFull(dec.inReader, unsafe.Slice(&(*blobs)[i][0], len((*blobs)[i])))
+			if dec.err != nil {
+				return
+			}
+			dec.inRead += uint32(len((*blobs)[i]))
+		}
+	} else {
+		for i := 0; i < len(*blobs); i++ {
+			if len(dec.inBuffer) < len((*blobs)[i]) {
+				dec.err = io.ErrUnexpectedEOF
+				return
+			}
+			// The code below should have used `blobs[i][:]`, alas Go's generics compiler
+			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+			copy(unsafe.Slice(&(*blobs)[i][0], len((*blobs)[i])), dec.inBuffer)
+			dec.inBuffer = dec.inBuffer[len((*blobs)[i]):]
 		}
 	}
 }
 
 // DecodeSliceOfStaticBytesOffset parses a dynamic slice of static binary blobs.
-func DecodeSliceOfStaticBytesOffset[T commonBinaryLengths](dec *Decoder, blobs *[]T) {
+func DecodeSliceOfStaticBytesOffset[T commonBytesLengths](dec *Decoder, blobs *[]T) {
 	dec.decodeOffset(false)
 }
 
 // DecodeSliceOfStaticBytesContent is the lazy data reader of DecodeSliceOfStaticBytesOffset.
-func DecodeSliceOfStaticBytesContent[T commonBinaryLengths](dec *Decoder, blobs *[]T, maxItems uint32) {
+func DecodeSliceOfStaticBytesContent[T commonBytesLengths](dec *Decoder, blobs *[]T, maxItems uint32) {
 	if dec.err != nil {
 		return
 	}

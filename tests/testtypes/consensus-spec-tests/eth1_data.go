@@ -14,7 +14,7 @@ type Eth1Data struct {
 
 func (d *Eth1Data) SizeSSZ() uint32 { return 72 }
 func (d *Eth1Data) DefineSSZ(codec *ssz.Codec) {
-	ssz.DefineStaticBytes(codec, &d.DepositRoot) // Field (0) - DepositRoot  - 32 bytes
-	ssz.DefineUint64(codec, &d.DepositCount)     // Field (1) - DepositCount -  8 bytes
-	ssz.DefineStaticBytes(codec, &d.BlockHash)   // Field (0) - BlockHash    - 32 bytes
+	ssz.DefineStaticBytes(codec, d.DepositRoot[:]) // Field (0) - DepositRoot  - 32 bytes
+	ssz.DefineUint64(codec, &d.DepositCount)       // Field (1) - DepositCount -  8 bytes
+	ssz.DefineStaticBytes(codec, d.BlockHash[:])   // Field (0) - BlockHash    - 32 bytes
 }

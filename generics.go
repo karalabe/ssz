@@ -20,13 +20,24 @@ type newableDynamicObject[U any] interface {
 	*U
 }
 
-// commonBinaryLengths is a generic type whose purpose is to permit that lists
+// commonBytesLengths is a generic type whose purpose is to permit that lists
 // of different fixed-sized binary blobs can be passed to methods.
 //
 // You can add any size to this list really, it's just a limitation of the Go
 // generics compiler that it cannot represent arrays of arbitrary sizes with
 // one shorthand notation.
-type commonBinaryLengths interface {
-	// address | hash | pubkey | signature | bloom
-	~[20]byte | ~[32]byte | ~[48]byte | ~[96]byte | ~[256]byte
+type commonBytesLengths interface {
+	// address | verkle-stem | hash | pubkey | signature | bloom
+	~[20]byte | ~[31]byte | ~[32]byte | ~[48]byte | ~[96]byte | ~[256]byte
+}
+
+// commonBytesArrayLengths is a generic type whose purpose is to permit that
+// lists of different fixed-sized binary blob arrays can be passed to methods.
+//
+// You can add any size to this list really, it's just a limitation of the Go
+// generics compiler that it cannot represent arrays of arbitrary sizes with
+// one shorthand notation.
+type commonBytesArrayLengths[U commonBytesLengths] interface {
+	// proof | history | randao
+	~[33]U | ~[8192]U | ~[65536]U
 }
