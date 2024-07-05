@@ -13,7 +13,7 @@ import (
 
 // Tests that decoding less or more data than requested will result in a failure.
 func TestDecodeMissized(t *testing.T) {
-	obj := new(testDecodeUndersizedType)
+	obj := new(testMissizedType)
 
 	blob := make([]byte, obj.SizeSSZ()+1)
 	if err := ssz.DecodeFromBytes(blob, obj); !errors.Is(err, ssz.ErrObjectSlotSizeMismatch) {
@@ -32,14 +32,46 @@ func TestDecodeMissized(t *testing.T) {
 	}
 }
 
-type testDecodeUndersizedType struct {
+type testMissizedType struct {
 	A, B uint64
 }
 
-func (t *testDecodeUndersizedType) SizeSSZ() uint32 { return 16 }
-func (t *testDecodeUndersizedType) DefineSSZ(codec *ssz.Codec) {
+func (t *testMissizedType) SizeSSZ() uint32 { return 16 }
+func (t *testMissizedType) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUint64(codec, &t.A)
 	ssz.DefineUint64(codec, &t.B)
+}
+
+// Tests that encoding more data than available space will result in a failure.
+func TestEncodeOversized(t *testing.T) {
+	obj := new(testMissizedType)
+
+	blob := make([]byte, obj.SizeSSZ()-1)
+	if err := ssz.EncodeToBytes(blob, obj); !errors.Is(err, ssz.ErrBufferTooSmall) {
+		t.Errorf("encode to bytes error mismatch: have %v, want %v", err, ssz.ErrBufferTooSmall)
+	}
+	if err := ssz.EncodeToStream(&testEncodeOversizedStream{blob}, obj); err == nil {
+		t.Errorf("encode to stream error mismatch: have nil, want stream full") // wonky, but should be fine
+	}
+}
+
+type testEncodeOversizedStream struct {
+	sink []byte
+}
+
+func (s *testEncodeOversizedStream) Write(p []byte) (n int, err error) {
+	// Keep writing until space runs out, then reject it
+	copy(s.sink, p)
+
+	n = len(p)
+	if len(s.sink) < len(p) {
+		n = len(s.sink)
+	}
+	s.sink = s.sink[n:]
+	if n < len(p) {
+		err = errors.New("stream full")
+	}
+	return n, err
 }
 
 // Tests that decoding an empty dynamic list via a non-empty container with an

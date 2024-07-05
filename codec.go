@@ -36,6 +36,15 @@ func (c *Codec) DefineDecoder(impl func(dec *Decoder)) {
 	}
 }
 
+// DefineBool defines the next field as a 1 byte boolean.
+func DefineBool[T ~bool](c *Codec, v *T) {
+	if c.enc != nil {
+		EncodeBool(c.enc, *v)
+		return
+	}
+	DecodeBool(c.dec, v)
+}
+
 // DefineUint64 defines the next field as a uint64.
 func DefineUint64[T ~uint64](c *Codec, n *T) {
 	if c.enc != nil {

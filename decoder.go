@@ -49,6 +49,42 @@ type Decoder struct {
 	sizess [][]uint32 // Stack of computed sizes from outer calls
 }
 
+// DecodeBool parses a boolean.
+func DecodeBool[T ~bool](dec *Decoder, v *T) {
+	if dec.err != nil {
+		return
+	}
+	if dec.inReader != nil {
+		_, dec.err = io.ReadFull(dec.inReader, dec.buf[:1])
+		if dec.err != nil {
+			return
+		}
+		switch dec.buf[0] {
+		case 0:
+			*v = false
+		case 1:
+			*v = true
+		default:
+			dec.err = fmt.Errorf("%w: found %#x", ErrInvalidBoolean, dec.buf[0])
+		}
+		dec.inRead += 1
+	} else {
+		if len(dec.inBuffer) < 1 {
+			dec.err = io.ErrUnexpectedEOF
+			return
+		}
+		switch dec.inBuffer[0] {
+		case 0:
+			*v = false
+		case 1:
+			*v = true
+		default:
+			dec.err = fmt.Errorf("%w: found %#x", ErrInvalidBoolean, dec.inBuffer[0])
+		}
+		dec.inBuffer = dec.inBuffer[1:]
+	}
+}
+
 // DecodeUint64 parses a uint64.
 func DecodeUint64[T ~uint64](dec *Decoder, n *T) {
 	if dec.err != nil {

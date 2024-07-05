@@ -6,6 +6,10 @@ package ssz
 
 import "errors"
 
+// ErrBufferTooSmall is returned from encoding if the provided output byte buffer
+// is too small to hold the encoding of the object.
+var ErrBufferTooSmall = errors.New("ssz: output buffer too small")
+
 // ErrFirstOffsetMismatch is returned when parsing dynamic types and the first
 // offset (which is supposed to signal the start of the dynamic area) does not
 // match with the computed fixed area size.
@@ -46,3 +50,7 @@ var ErrDynamicStaticsIndivisible = errors.New("ssz: list of fixed objects not di
 // ErrObjectSlotSizeMismatch is returned from decoding if an object's slot in the
 // ssz stream contains more data than the object cares to consume.
 var ErrObjectSlotSizeMismatch = errors.New("ssz: object didn't consume all designated data")
+
+// ErrInvalidBoolean is returned from decoding if a boolean slot contains some
+// other byte than 0x00 or 0x01.
+var ErrInvalidBoolean = errors.New("ssz: invalid boolean")

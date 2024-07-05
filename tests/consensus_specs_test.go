@@ -45,6 +45,7 @@ func commonPrefix(a []byte, b []byte) []byte {
 // TestConsensusSpecs iterates over all the (supported) consensus SSZ types and
 // runs the encoding/decoding/hashing round.
 func TestConsensusSpecs(t *testing.T) {
+	testConsensusSpecType[*types.AggregateAndProof](t, "AggregateAndProof", "altair", "bellatrix", "capella", "deneb", "eip7594", "phase0", "whisk")
 	testConsensusSpecType[*types.Attestation](t, "Attestation", "altair", "bellatrix", "capella", "deneb", "eip7594", "phase0", "whisk")
 	testConsensusSpecType[*types.AttestationData](t, "AttestationData")
 	testConsensusSpecType[*types.AttesterSlashing](t, "AttesterSlashing")
@@ -62,29 +63,30 @@ func TestConsensusSpecs(t *testing.T) {
 	testConsensusSpecType[*types.ProposerSlashing](t, "ProposerSlashing")
 	testConsensusSpecType[*types.SignedBeaconBlockHeader](t, "SignedBeaconBlockHeader")
 	testConsensusSpecType[*types.SignedVoluntaryExit](t, "SignedVoluntaryExit")
+	testConsensusSpecType[*types.Validator](t, "Validator")
 	testConsensusSpecType[*types.VoluntaryExit](t, "VoluntaryExit")
 	testConsensusSpecType[*types.Withdrawal](t, "Withdrawal")
 
 	// Iterate over all the untouched tests and report them
-	// 	forks, err := os.ReadDir(consensusSpecTestsRoot)
-	//	if err != nil {
-	//		t.Fatalf("failed to walk fork collection: %v", err)
-	//	}
-	//	for _, fork := range forks {
-	//		if _, ok := consensusSpecTestsDone[fork.Name()]; !ok {
-	//			t.Errorf("no tests ran for %v", fork.Name())
-	//			continue
-	//		}
-	//		types, err := os.ReadDir(filepath.Join(consensusSpecTestsRoot, fork.Name(), "ssz_static"))
-	//		if err != nil {
-	//			t.Fatalf("failed to walk type collection of %v: %v", fork, err)
-	//		}
-	//		for _, kind := range types {
-	//			if _, ok := consensusSpecTestsDone[fork.Name()][kind.Name()]; !ok {
-	//				t.Errorf("no tests ran for %v/%v", fork.Name(), kind.Name())
-	//			}
-	//		}
-	//	}
+	forks, err := os.ReadDir(consensusSpecTestsRoot)
+	if err != nil {
+		t.Fatalf("failed to walk fork collection: %v", err)
+	}
+	for _, fork := range forks {
+		if _, ok := consensusSpecTestsDone[fork.Name()]; !ok {
+			t.Errorf("no tests ran for %v", fork.Name())
+			continue
+		}
+		types, err := os.ReadDir(filepath.Join(consensusSpecTestsRoot, fork.Name(), "ssz_static"))
+		if err != nil {
+			t.Fatalf("failed to walk type collection of %v: %v", fork, err)
+		}
+		for _, kind := range types {
+			if _, ok := consensusSpecTestsDone[fork.Name()][kind.Name()]; !ok {
+				t.Errorf("no tests ran for %v/%v", fork.Name(), kind.Name())
+			}
+		}
+	}
 }
 
 // newableObject is a generic type whose purpose is to enforce that ssz.Object
@@ -188,6 +190,7 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 // BenchmarkConsensusSpecs iterates over all the (supported) consensus SSZ types and
 // runs the encoding/decoding/hashing benchmark round.
 func BenchmarkConsensusSpecs(b *testing.B) {
+	benchmarkConsensusSpecType[*types.AggregateAndProof](b, "deneb", "AggregateAndProof")
 	benchmarkConsensusSpecType[*types.Attestation](b, "deneb", "Attestation")
 	benchmarkConsensusSpecType[*types.AttestationData](b, "deneb", "AttestationData")
 	benchmarkConsensusSpecType[*types.AttesterSlashing](b, "deneb", "AttesterSlashing")
@@ -204,6 +207,7 @@ func BenchmarkConsensusSpecs(b *testing.B) {
 	benchmarkConsensusSpecType[*types.ProposerSlashing](b, "deneb", "ProposerSlashing")
 	benchmarkConsensusSpecType[*types.SignedBeaconBlockHeader](b, "deneb", "SignedBeaconBlockHeader")
 	benchmarkConsensusSpecType[*types.SignedVoluntaryExit](b, "deneb", "SignedVoluntaryExit")
+	benchmarkConsensusSpecType[*types.Validator](b, "deneb", "Validator")
 	benchmarkConsensusSpecType[*types.VoluntaryExit](b, "deneb", "VoluntaryExit")
 	benchmarkConsensusSpecType[*types.Withdrawal](b, "deneb", "Withdrawal")
 }
@@ -284,8 +288,11 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 // infinite decoding runs. Anything that succeeds will get re-encoded, re-decoded,
 // etc. to test different functions.
 
+func FuzzConsensusSpecsAggregateAndProof(f *testing.F) {
+	fuzzConsensusSpecType[*types.AggregateAndProof](f, "AggregateAndProof")
+}
 func FuzzConsensusSpecsAttestation(f *testing.F) {
-	fuzzConsensusSpecType[*types.Attestation](f, "Attestation", "altair", "bellatrix", "capella", "deneb", "eip7594", "phase0", "whisk")
+	fuzzConsensusSpecType[*types.Attestation](f, "Attestation")
 }
 func FuzzConsensusSpecsAttestationData(f *testing.F) {
 	fuzzConsensusSpecType[*types.AttestationData](f, "AttestationData")
@@ -294,10 +301,10 @@ func FuzzConsensusSpecsAttesterSlashing(f *testing.F) {
 	fuzzConsensusSpecType[*types.AttesterSlashing](f, "AttesterSlashing")
 }
 func FuzzConsensusSpecsBeaconBlock(f *testing.F) {
-	fuzzConsensusSpecType[*types.BeaconBlock](f, "BeaconBlock", "phase0")
+	fuzzConsensusSpecType[*types.BeaconBlock](f, "BeaconBlock")
 }
 func FuzzConsensusSpecsBeaconBlockBody(f *testing.F) {
-	fuzzConsensusSpecType[*types.BeaconBlockBody](f, "BeaconBlockBody", "phase0")
+	fuzzConsensusSpecType[*types.BeaconBlockBody](f, "BeaconBlockBody")
 }
 func FuzzConsensusSpecsBeaconBlockHeader(f *testing.F) {
 	fuzzConsensusSpecType[*types.BeaconBlockHeader](f, "BeaconBlockHeader")
@@ -315,10 +322,10 @@ func FuzzConsensusSpecsEth1Data(f *testing.F) {
 	fuzzConsensusSpecType[*types.Eth1Data](f, "Eth1Data")
 }
 func FuzzConsensusSpecsExecutionPayload(f *testing.F) {
-	fuzzConsensusSpecType[*types.ExecutionPayload](f, "ExecutionPayload", "bellatrix")
+	fuzzConsensusSpecType[*types.ExecutionPayload](f, "ExecutionPayload")
 }
 func FuzzConsensusSpecsExecutionPayloadCapella(f *testing.F) {
-	fuzzConsensusSpecType[*types.ExecutionPayloadCapella](f, "ExecutionPayload", "capella")
+	fuzzConsensusSpecType[*types.ExecutionPayloadCapella](f, "ExecutionPayload")
 }
 func FuzzConsensusSpecsHistoricalBatch(f *testing.F) {
 	fuzzConsensusSpecType[*types.HistoricalBatch](f, "HistoricalBatch")
@@ -338,31 +345,28 @@ func FuzzConsensusSpecsSignedVoluntaryExit(f *testing.F) {
 func FuzzConsensusSpecsVoluntaryExit(f *testing.F) {
 	fuzzConsensusSpecType[*types.VoluntaryExit](f, "VoluntaryExit")
 }
+func FuzzConsensusSpecsValidator(f *testing.F) {
+	fuzzConsensusSpecType[*types.Validator](f, "Validator")
+}
 func FuzzConsensusSpecsWithdrawal(f *testing.F) {
 	fuzzConsensusSpecType[*types.Withdrawal](f, "Withdrawal")
 }
 
-func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string, forks ...string) {
-	// If no fork was specified, iterate over all of them and use the same type
-	if len(forks) == 0 {
-		forks, err := os.ReadDir(consensusSpecTestsRoot)
-		if err != nil {
-			f.Errorf("failed to walk spec collection %v: %v", consensusSpecTestsRoot, err)
-			return
-		}
-		names := make([]string, 0, len(forks))
-		for _, fork := range forks {
-			if _, err := os.Stat(filepath.Join(consensusSpecTestsRoot, fork.Name(), "ssz_static", kind, "ssz_random")); err == nil {
-				names = append(names, fork.Name())
-			}
-		}
-		fuzzConsensusSpecType[T, U](f, kind, names...)
+func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string) {
+	// Iterate over all the forks and collect all the sample data. It's fine to
+	// have mismatching type version and test data, it's just going to skip on
+	// the first parse as bad data.
+	forks, err := os.ReadDir(consensusSpecTestsRoot)
+	if err != nil {
+		f.Errorf("failed to walk spec collection %v: %v", consensusSpecTestsRoot, err)
 		return
 	}
-	// Some specific forks were requested, look those up explicitly
 	for _, fork := range forks {
-		path := filepath.Join(consensusSpecTestsRoot, fork, "ssz_static", kind, "ssz_random")
-
+		// Skip test cases for types introduced in later forks
+		path := filepath.Join(consensusSpecTestsRoot, fork.Name(), "ssz_static", kind, "ssz_random")
+		if _, err := os.Stat(path); err != nil {
+			continue
+		}
 		tests, err := os.ReadDir(path)
 		if err != nil {
 			f.Errorf("failed to walk test collection %v: %v", path, err)
@@ -370,7 +374,6 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string,
 		}
 		// Feed all the test data into the fuzzer
 		for _, test := range tests {
-			// Parse the input SSZ data and the expected root for the test
 			inSnappy, err := os.ReadFile(filepath.Join(path, test.Name(), "serialized.ssz_snappy"))
 			if err != nil {
 				f.Fatalf("failed to load snapy ssz binary: %v", err)

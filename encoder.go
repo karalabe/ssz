@@ -67,6 +67,27 @@ type Encoder struct {
 	offset uint32 // Offset tracker for dynamic fields
 }
 
+// EncodeBool serializes a boolean.
+func EncodeBool[T ~bool](enc *Encoder, v T) {
+	if enc.outWriter != nil {
+		if enc.err != nil {
+			return
+		}
+		if !v {
+			_, enc.err = enc.outWriter.Write([]byte{0x00})
+		} else {
+			_, enc.err = enc.outWriter.Write([]byte{0x01})
+		}
+	} else {
+		if !v {
+			enc.outBuffer[0] = 0x00
+		} else {
+			enc.outBuffer[0] = 0x01
+		}
+		enc.outBuffer = enc.outBuffer[1:]
+	}
+}
+
 // EncodeUint64 serializes a uint64.
 func EncodeUint64[T ~uint64](enc *Encoder, n T) {
 	if enc.outWriter != nil {

@@ -92,6 +92,10 @@ func EncodeToStream(w io.Writer, obj Object) error {
 // would double the memory use for the temporary buffer. For that use case, use
 // EncodeToStream instead.
 func EncodeToBytes(buf []byte, obj Object) error {
+	// Sanity check that we have enough space to serialize into
+	if size := Size(obj); int(size) > len(buf) {
+		return fmt.Errorf("%w: buffer %d bytes, object %d bytes", ErrBufferTooSmall, len(buf), size)
+	}
 	codec := encoderPool.Get().(*Codec)
 	defer encoderPool.Put(codec)
 
