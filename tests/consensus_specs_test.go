@@ -153,7 +153,7 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 					Root string `yaml:"root"`
 				}{}
 				if err = yaml.Unmarshal(inYAML, &inRoot); err != nil {
-					t.Log(inYAML)
+					t.Log(string(inYAML))
 					t.Fatalf("failed to parse yaml root: %v", err)
 				}
 				// Do a decode/encode round. Would be nicer to parse out the value
