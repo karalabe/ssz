@@ -245,6 +245,26 @@ Encoding the above `Witness` into an SSZ stream, you use the same thing as befor
 
 TODO
 
+## Quick reference
+
+The table below is a summary of the methods available for `DefineSSZ`.
+
+|         Type          |                            Symmetric API                             |                         Asymmetric Encoding                          |                         Asymmetric Decoding                          |
+|:---------------------:|:--------------------------------------------------------------------:|:--------------------------------------------------------------------:|:--------------------------------------------------------------------:|
+|        `bool`         |                              DefineBool                              |                              EncodeBool                              |                              DecodeBool                              |
+|       `uint64`        |                             DefineUint64                             |                             EncodeUint64                             |                             DecodeUint64                             |
+|      `[]uint64`       |        DefineSliceOfUint64sOffset DefineSliceOfUint64sContent        |        EncodeSliceOfUint64sOffset EncodeSliceOfUint64sContent        |        DecodeSliceOfUint64sOffset DecodeSliceOfUint64sContent        |
+|    `*uint256.Int`     |                            DefineUint256                             |                            EncodeUint256                             |                            DecodeUint256                             |
+|       `[N]byte`       |                          DefineStaticBytes                           |                          EncodeStaticBytes                           |                          DecodeStaticBytes                           |
+|       `[]byte`        |          DefineDynamicBytesOffset DefineDynamicBytesContent          |          EncodeDynamicBytesOffset EncodeDynamicBytesContent          |          DecodeDynamicBytesOffset DecodeDynamicBytesContent          |
+|     `[M][N]byte`      |                       DefineArrayOfStaticBytes                       |                       EncodeArrayOfStaticBytes                       |                       DecodeArrayOfStaticBytes                       |
+|      `[][N]byte`      |    DefineSliceOfStaticBytesOffset DefineSliceOfStaticBytesContent    |    EncodeSliceOfStaticBytesOffset EncodeSliceOfStaticBytesContent    |    DecodeSliceOfStaticBytesOffset DecodeSliceOfStaticBytesContent    |
+|      `[][]byte`       |   DefineSliceOfDynamicBytesOffset DefineSliceOfDynamicBytesContent   |   EncodeSliceOfDynamicBytesOffset EncodeSliceOfDynamicBytesContent   |   DecodeSliceOfDynamicBytesOffset DecodeSliceOfDynamicBytesContent   |
+|  `ssz.StaticObject`   |                          DefineStaticObject                          |                          EncodeStaticObject                          |                          DecodeStaticObject                          |
+| `[]ssz.StaticObject`  |  DefineSliceOfStaticObjectsOffset DefineSliceOfStaticObjectsContent  |  EncodeSliceOfStaticObjectsOffset EncodeSliceOfStaticObjectsContent  |  DecodeSliceOfStaticObjectsOffset DecodeSliceOfStaticObjectsContent  |
+|  `ssz.DynamicObject`  |          DefineDynamicBytesOffset DefineDynamicBytesContent          |          EncodeDynamicBytesOffset EncodeDynamicBytesContent          |          DecodeDynamicBytesOffset DecodeDynamicBytesContent          |
+| `[]ssz.DynamicObject` | DefineSliceOfDynamicObjectsOffset DefineSliceOfDynamicObjectsContent | EncodeSliceOfDynamicObjectsOffset EncodeSliceOfDynamicObjectsContent | DecodeSliceOfDynamicObjectsOffset DecodeSliceOfDynamicObjectsContent |
+
 ## Performance
 
 The goal of this package is to be close in performance to low level generated encoders, without sacrificing maintainability. It should, however, be significantly faster than runtime reflection encoders.
