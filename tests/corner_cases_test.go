@@ -81,8 +81,20 @@ func TestZeroCounterOffset(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	err = ssz.DecodeFromStream(bytes.NewReader(inSSZ), new(types.ExecutionPayload), uint32(len(inSSZ)))
+	err = ssz.DecodeFromBytes(inSSZ, new(types.ExecutionPayload))
 	if !errors.Is(err, ssz.ErrZeroCounterOffset) {
 		t.Errorf("decode error mismatch: have %v, want %v", err, ssz.ErrZeroCounterOffset)
+	}
+}
+
+// Tests that decoding a boolean with an invalid encoding is rejected.
+func TestInvalidBoolean(t *testing.T) {
+	inSSZ, err := hex.DecodeString("00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000")
+	if err != nil {
+		panic(err)
+	}
+	err = ssz.DecodeFromBytes(inSSZ, new(types.Validator))
+	if !errors.Is(err, ssz.ErrInvalidBoolean) {
+		t.Errorf("decode error mismatch: have %v, want %v", err, ssz.ErrInvalidBoolean)
 	}
 }
