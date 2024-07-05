@@ -244,9 +244,9 @@ Encoding the above `Witness` into an SSZ stream, you use the same thing as befor
 
 ### Checked types
 
-If your types are using strongly typed arrays (e.g. `[32]byte`, and not `[]byte`) for static lists, the above demonstrated API works just fine. However, some types might want to use `[]byte` as the field type, but have it still *behave* as if it was `[32]byte`. This poses an issue, because if the decoder only sees `[]byte`, it cannot figure out whether you want to decode - say - 20 or 32 bytes into it. For those scenarios, we have a few *Checked* methods to help out.
+If your types are using strongly typed arrays (e.g. `[32]byte`, and not `[]byte`) for static lists, the above codes work just fine. However, some types might want to use `[]byte` as the field type, but have it still *behave* as if it was `[32]byte`. This poses an issue, because if the decoder only sees `[]byte`, it cannot figure out how much data you want to decode into it. For those scenarios, we have *checked methods*.
 
-Out previous `Withdrawal` is a good example. Let's replace the `type Address [20]byte` alias, with simply a plain `[]byte` slice (not a `[20]byte` array, rather really an opaque `[]byte` slice).
+The previous `Withdrawal` is a good example. Let's replace the `type Address [20]byte` alias, with a plain `[]byte` slice (not a `[20]byte` array, rather an opaque `[]byte` slice).
 
 ```go
 type Withdrawal struct {
@@ -257,7 +257,7 @@ type Withdrawal struct {
 }
 ```
 
-The code for the `SizeSSZ` remains the same, nothing changed after all. But the code for `DefineSSZ` changes ever so slightly.
+The code for the `SizeSSZ` remains the same. The code for `DefineSSZ` changes ever so slightly:
 
 ```go
 func (w *Withdrawal) DefineSSZ(codec *ssz.Codec) {
@@ -270,9 +270,7 @@ func (w *Withdrawal) DefineSSZ(codec *ssz.Codec) {
 
 Notably, the `ssz.DefineStaticBytes` call from our old code (which got given a `[20]byte` array), is replaced with `ssz.DefineStaticBytesChecked`. The latter method operates on an opaque `[]byte` slice, so if we want it to behave like a static sized list, we need to tell it how large it's needed to be. This will result in a runtime check to ensure that the size is correct before decoding.
 
-Important to highlight, *checked methods* entail a runtime cost. When decoding such opaque slices, we can't blindly fill the fields with data, rather we need to ensure that they are allocated and that they are of the correct size.
-
-Ideally only use *checked methods* for prototyping or for pre-existing types where you just have to run with whatever you have and can't change the field to an array.
+Note, *checked methods* entail a runtime cost. When decoding such opaque slices, we can't blindly fill the fields with data, rather we need to ensure that they are allocated and that they are of the correct size.  Ideally only use *checked methods* for prototyping or for pre-existing types where you just have to run with whatever you have and can't change the field to an array.
 
 ### Generated types
 
