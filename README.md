@@ -300,7 +300,7 @@ The table below is a summary of the methods available for `DefineSSZ`:
 |     `ssz.DynamicObject`     |                   [`DefineDynamicBytesOffset`](https://pkg.go.dev/github.com/karalabe/ssz#DefineDynamicBytesOffset) [`DefineDynamicBytesContent`](https://pkg.go.dev/github.com/karalabe/ssz#DefineDynamicBytesContent)                   |                   [`EncodeDynamicBytesOffset`](https://pkg.go.dev/github.com/karalabe/ssz#EncodeDynamicBytesOffset) [`EncodeDynamicBytesContent`](https://pkg.go.dev/github.com/karalabe/ssz#EncodeDynamicBytesContent)                   |                   [`DecodeDynamicBytesOffset`](https://pkg.go.dev/github.com/karalabe/ssz#DecodeDynamicBytesOffset) [`DecodeDynamicBytesContent`](https://pkg.go.dev/github.com/karalabe/ssz#DecodeDynamicBytesContent)                   |
 |    `[]ssz.DynamicObject`    | [`DefineSliceOfDynamicObjectsOffset`](https://pkg.go.dev/github.com/karalabe/ssz#DefineSliceOfDynamicObjectsOffset) [`DefineSliceOfDynamicObjectsContent`](https://pkg.go.dev/github.com/karalabe/ssz#DefineSliceOfDynamicObjectsContent) | [`EncodeSliceOfDynamicObjectsOffset`](https://pkg.go.dev/github.com/karalabe/ssz#EncodeSliceOfDynamicObjectsOffset) [`EncodeSliceOfDynamicObjectsContent`](https://pkg.go.dev/github.com/karalabe/ssz#EncodeSliceOfDynamicObjectsContent) | [`DecodeSliceOfDynamicObjectsOffset`](https://pkg.go.dev/github.com/karalabe/ssz#DecodeSliceOfDynamicObjectsOffset) [`DecodeSliceOfDynamicObjectsContent`](https://pkg.go.dev/github.com/karalabe/ssz#DecodeSliceOfDynamicObjectsContent) |
 
-*¹Type is from `github.com/holiman/uint256`.* \
+*¹Type is from `github.com/holiman/uint256`.*
 
 ## Performance
 

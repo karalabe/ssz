@@ -359,6 +359,9 @@ func FuzzConsensusSpecsValidator(f *testing.F) {
 func FuzzConsensusSpecsWithdrawal(f *testing.F) {
 	fuzzConsensusSpecType[*types.Withdrawal](f, "Withdrawal")
 }
+func FuzzConsensusSpecsWithdrawalVariation(f *testing.F) {
+	fuzzConsensusSpecType[*types.WithdrawalVariation](f, "Withdrawal")
+}
 
 func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string) {
 	// Iterate over all the forks and collect all the sample data. It's fine to
