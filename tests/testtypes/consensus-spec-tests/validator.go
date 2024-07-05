@@ -19,8 +19,8 @@ type Validator struct {
 
 func (v *Validator) SizeSSZ() uint32 { return 121 }
 func (v *Validator) DefineSSZ(codec *ssz.Codec) {
-	ssz.DefineStaticBytes(codec, v.Pubkey[:])
-	ssz.DefineStaticBytes(codec, v.WithdrawalCredentials[:])
+	ssz.DefineStaticBytes(codec, &v.Pubkey)
+	ssz.DefineStaticBytes(codec, &v.WithdrawalCredentials)
 	ssz.DefineUint64(codec, &v.EffectiveBalance)
 	ssz.DefineBool(codec, &v.Slashed)
 	ssz.DefineUint64(codec, &v.ActivationEligibilityEpoch)

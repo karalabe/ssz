@@ -63,13 +63,25 @@ func DefineUint256(c *Codec, n **uint256.Int) {
 	DecodeUint256(c.dec, n)
 }
 
-// DefineStaticBytes defines the next field as static binary blob.
-func DefineStaticBytes(c *Codec, bytes []byte) {
+// DefineStaticBytes defines the next field as static binary blob. This method
+// can be used for byte arrays.
+func DefineStaticBytes[T commonBinaryLengths](c *Codec, blob *T) {
 	if c.enc != nil {
-		EncodeStaticBytes(c.enc, bytes)
+		EncodeStaticBytes(c.enc, blob)
 		return
 	}
-	DecodeStaticBytes(c.dec, bytes)
+	DecodeStaticBytes(c.dec, blob)
+}
+
+// DefineStaticBytesChecked defines the next field as static binary blob. This
+// method can be used for plain byte slices, which is more expensive , since it
+// needs runtime size validation.
+func DefineStaticBytesChecked(c *Codec, blob *[]byte, size uint32) {
+	if c.enc != nil {
+		EncodeStaticBytesChecked(c.enc, *blob)
+		return
+	}
+	DecodeStaticBytesChecked(c.dec, blob, size)
 }
 
 // DefineDynamicBytesOffset defines the next field as dynamic binary blob.
@@ -137,12 +149,12 @@ func DefineSliceOfUint64sContent[T ~uint64](c *Codec, ns *[]T, maxItems uint32) 
 
 // DefineArrayOfStaticBytes defines the next field as a static array of static
 // binary blobs.
-func DefineArrayOfStaticBytes[T commonBinaryLengths](c *Codec, bytes []T) {
+func DefineArrayOfStaticBytes[T commonBinaryLengths](c *Codec, blobs []T) {
 	if c.enc != nil {
-		EncodeArrayOfStaticBytes(c.enc, bytes)
+		EncodeArrayOfStaticBytes(c.enc, blobs)
 		return
 	}
-	DecodeArrayOfStaticBytes(c.dec, bytes)
+	DecodeArrayOfStaticBytes(c.dec, blobs)
 }
 
 // DefineSliceOfStaticBytesOffset defines the next field as a dynamic slice of static
@@ -157,12 +169,12 @@ func DefineSliceOfStaticBytesOffset[T commonBinaryLengths](c *Codec, bytes *[]T)
 
 // DefineSliceOfStaticBytesContent defines the next field as a dynamic slice of static
 // binary blobs.
-func DefineSliceOfStaticBytesContent[T commonBinaryLengths](c *Codec, bytes *[]T, maxItems uint32) {
+func DefineSliceOfStaticBytesContent[T commonBinaryLengths](c *Codec, blobs *[]T, maxItems uint32) {
 	if c.enc != nil {
-		EncodeSliceOfStaticBytesContent(c.enc, *bytes)
+		EncodeSliceOfStaticBytesContent(c.enc, *blobs)
 		return
 	}
-	DecodeSliceOfStaticBytesContent(c.dec, bytes, maxItems)
+	DecodeSliceOfStaticBytesContent(c.dec, blobs, maxItems)
 }
 
 // DefineSliceOfDynamicBytesOffset defines the next field as a dynamic slice of dynamic

@@ -134,20 +134,48 @@ func DecodeUint256(dec *Decoder, n **uint256.Int) {
 }
 
 // DecodeStaticBytes parses a static binary blob.
-func DecodeStaticBytes(dec *Decoder, blob []byte) {
+func DecodeStaticBytes[T commonBinaryLengths](dec *Decoder, blob *T) {
 	if dec.err != nil {
 		return
 	}
+	// The code below should have used `*blob[:]`, alas Go's generics compiler
+	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+	slice := unsafe.Slice(&(*blob)[0], len(*blob))
+
 	if dec.inReader != nil {
-		_, dec.err = io.ReadFull(dec.inReader, blob)
-		dec.inRead += uint32(len(blob))
+		_, dec.err = io.ReadFull(dec.inReader, slice)
+		dec.inRead += uint32(len(slice))
 	} else {
-		if len(dec.inBuffer) < len(blob) {
+		if len(dec.inBuffer) < len(slice) {
 			dec.err = io.ErrUnexpectedEOF
 			return
 		}
-		copy(blob, dec.inBuffer)
-		dec.inBuffer = dec.inBuffer[len(blob):]
+		copy(slice, dec.inBuffer)
+		dec.inBuffer = dec.inBuffer[len(slice):]
+	}
+}
+
+// DecodeStaticBytesChecked parses a static binary blob.
+func DecodeStaticBytesChecked(dec *Decoder, blob *[]byte, size uint32) {
+	if dec.err != nil {
+		return
+	}
+	// Expand the byte slice if needed and fill it with the data
+	if uint32(cap(*blob)) < size {
+		*blob = make([]byte, size)
+	} else {
+		*blob = (*blob)[:size]
+	}
+	if dec.inReader != nil {
+		_, dec.err = io.ReadFull(dec.inReader, *blob)
+		dec.inRead += size
+	} else {
+		if uint32(len(dec.inBuffer)) < size {
+			dec.err = io.ErrUnexpectedEOF
+			return
+		}
+		copy(*blob, dec.inBuffer)
+		dec.inBuffer = dec.inBuffer[size:]
 	}
 }
 

@@ -13,6 +13,6 @@ type Checkpoint struct {
 
 func (c *Checkpoint) SizeSSZ() uint32 { return 40 }
 func (c *Checkpoint) DefineSSZ(codec *ssz.Codec) {
-	ssz.DefineUint64(codec, &c.Epoch)       // Field (0) - Epoch -  8 bytes
-	ssz.DefineStaticBytes(codec, c.Root[:]) // Field (1) - Root  - 32 bytes
+	ssz.DefineUint64(codec, &c.Epoch)     // Field (0) - Epoch -  8 bytes
+	ssz.DefineStaticBytes(codec, &c.Root) // Field (1) - Root  - 32 bytes
 }

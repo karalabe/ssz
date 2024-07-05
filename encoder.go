@@ -127,7 +127,28 @@ func EncodeUint256(enc *Encoder, n *uint256.Int) {
 }
 
 // EncodeStaticBytes serializes a static binary blob.
-func EncodeStaticBytes(enc *Encoder, blob []byte) {
+//
+// The reason the blob is passed by pointer and not by value is to prevent it
+// from escaping to the heap (and incurring an allocation) when passing it to
+// the output stream.
+func EncodeStaticBytes[T commonBinaryLengths](enc *Encoder, blob *T) {
+	if enc.outWriter != nil {
+		if enc.err != nil {
+			return
+		}
+		// The code below should have used `*blob[:]`, alas Go's generics compiler
+		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+		_, enc.err = enc.outWriter.Write(unsafe.Slice(&(*blob)[0], len(*blob)))
+	} else {
+		// The code below should have used `*blob[:]`, alas Go's generics compiler
+		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+		copy(enc.outBuffer, unsafe.Slice(&(*blob)[0], len(*blob)))
+		enc.outBuffer = enc.outBuffer[len(*blob):]
+	}
+}
+
+// EncodeStaticBytesChecked serializes a static binary blob.
+func EncodeStaticBytesChecked(enc *Encoder, blob []byte) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return

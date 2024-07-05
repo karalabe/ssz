@@ -47,19 +47,19 @@ func (e *ExecutionPayload) SizeSSZ(fixed bool) uint32 {
 }
 func (e *ExecutionPayload) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
-	ssz.DefineStaticBytes(codec, e.ParentHash[:])               // Field  ( 0) - ParentHash    -  32 bytes
-	ssz.DefineStaticBytes(codec, e.FeeRecipient[:])             // Field  ( 1) - FeeRecipient  -  20 bytes
-	ssz.DefineStaticBytes(codec, e.StateRoot[:])                // Field  ( 2) - StateRoot     -  32 bytes
-	ssz.DefineStaticBytes(codec, e.ReceiptsRoot[:])             // Field  ( 3) - ReceiptsRoot  -  32 bytes
-	ssz.DefineStaticBytes(codec, e.LogsBloom[:])                // Field  ( 4) - LogsBloom     - 256 bytes
-	ssz.DefineStaticBytes(codec, e.PrevRandao[:])               // Field  ( 5) - PrevRandao    -  32 bytes
+	ssz.DefineStaticBytes(codec, &e.ParentHash)                 // Field  ( 0) - ParentHash    -  32 bytes
+	ssz.DefineStaticBytes(codec, &e.FeeRecipient)               // Field  ( 1) - FeeRecipient  -  20 bytes
+	ssz.DefineStaticBytes(codec, &e.StateRoot)                  // Field  ( 2) - StateRoot     -  32 bytes
+	ssz.DefineStaticBytes(codec, &e.ReceiptsRoot)               // Field  ( 3) - ReceiptsRoot  -  32 bytes
+	ssz.DefineStaticBytes(codec, &e.LogsBloom)                  // Field  ( 4) - LogsBloom     - 256 bytes
+	ssz.DefineStaticBytes(codec, &e.PrevRandao)                 // Field  ( 5) - PrevRandao    -  32 bytes
 	ssz.DefineUint64(codec, &e.BlockNumber)                     // Field  ( 6) - BlockNumber   -   8 bytes
 	ssz.DefineUint64(codec, &e.GasLimit)                        // Field  ( 7) - GasLimit      -   8 bytes
 	ssz.DefineUint64(codec, &e.GasUsed)                         // Field  ( 8) - GasUsed       -   8 bytes
 	ssz.DefineUint64(codec, &e.Timestamp)                       // Field  ( 9) - Timestamp     -   8 bytes
 	ssz.DefineDynamicBytesOffset(codec, &e.ExtraData)           // Offset (10) - ExtraData     -   4 bytes
 	ssz.DefineUint256(codec, &e.BaseFeePerGas)                  // Field  (11) - BaseFeePerGas -  32 bytes
-	ssz.DefineStaticBytes(codec, e.BlockHash[:])                // Field  (12) - BlockHash     -  32 bytes
+	ssz.DefineStaticBytes(codec, &e.BlockHash)                  // Field  (12) - BlockHash     -  32 bytes
 	ssz.DefineSliceOfDynamicBytesOffset(codec, &e.Transactions) // Offset (13) - Transactions  -   4 bytes
 	ssz.DefineSliceOfStaticObjectsOffset(codec, &e.Withdrawals) // Offset (14) - Withdrawals   -   4 bytes
 
