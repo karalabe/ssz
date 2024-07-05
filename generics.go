@@ -27,6 +27,6 @@ type newableDynamicObject[U any] interface {
 // generics compiler that it cannot represent arrays of arbitrary sizes with
 // one shorthand notation.
 type commonBinaryLengths interface {
-	// footgun | address | hash | pubkey
-	~[]byte | ~[20]byte | ~[32]byte | [48]byte
+	// footgun | address | hash | pubkey | signature
+	~[]byte | ~[20]byte | ~[32]byte | [48]byte | [96]byte
 }
