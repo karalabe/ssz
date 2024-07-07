@@ -8,10 +8,14 @@ import (
 	"bytes"
 	"fmt"
 	"go/types"
+	"math"
 	"sort"
 )
 
-const pkgPath = "github.com/rjl493456442/sszgen/ssz"
+const (
+	offsetBytes = 4
+	sszPkgPath  = "github.com/karalabe/ssz"
+)
 
 type genContext struct {
 	topType bool
@@ -90,60 +94,95 @@ func (ctx *genContext) reset() {
 	ctx.topType = true
 }
 
-func generateSSZSize(ctx *genContext, typ sszType) ([]byte, error) {
+func generateSizeSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 	var b bytes.Buffer
 	ctx.reset()
 
-	// TODO non-struct types are not supported yet
-	if _, ok := typ.(*sszStruct); !ok {
-		return nil, nil
+	// Generate the code itself
+	if typ.static {
+		fmt.Fprint(&b, "// SizeSSZ returns the total size of the static ssz object.\n")
+		fmt.Fprintf(&b, "func (obj *%s) SizeSSZ() int {\n", typ.named.Obj().Name())
+		fmt.Fprint(&b, "return ")
+		for i := range typ.opsets {
+			opset := typ.opsets[i].(*opsetStatic)
+			if opset.bytes > 0 {
+				fmt.Fprintf(&b, "%d", opset.bytes)
+			} else {
+
+			}
+			if i < len(typ.opsets)-1 {
+				fmt.Fprint(&b, " + ")
+			}
+		}
+		fmt.Fprintf(&b, "}\n")
+	} else {
+		fmt.Fprint(&b, "// SizeSSZ returns either the static size of the object if fixed == true, or\n// the total size otherwise.\n")
+		fmt.Fprintf(&b, "func (obj *%s) SizeSSZ(fixed bool) int {\n", typ.named.Obj().Name())
+		fmt.Fprint(&b, "return 42\n")
+		fmt.Fprintf(&b, "}\n")
 	}
-	fmt.Fprintf(&b, "func (obj *%s) SizeSSZ() int {\n", typ.typeName())
-	fmt.Fprint(&b, typ.genSize(ctx, "s", "obj"))
-	fmt.Fprint(&b, "return s\n")
-	fmt.Fprintf(&b, "}\n")
 	return b.Bytes(), nil
 }
 
-func generateEncoder(ctx *genContext, typ sszType) ([]byte, error) {
+func generateDefineSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 	var b bytes.Buffer
 	ctx.reset()
 
-	// TODO non-struct types are not supported yet
-	if _, ok := typ.(*sszStruct); !ok {
-		return nil, nil
+	// Add a needed import of the ssz encoder
+	ctx.addImport(sszPkgPath, "")
+
+	// Iterate through the fields names to compute some comment formatting mods
+	var (
+		maxFieldLength = 0
+		maxBytes       = 0
+	)
+	for i, field := range typ.fields {
+		maxFieldLength = max(maxFieldLength, len(field))
+		switch opset := typ.opsets[i].(type) {
+		case *opsetStatic:
+			maxBytes = max(maxBytes, opset.bytes)
+		case *opsetDynamic:
+			maxBytes = max(maxBytes, offsetBytes) // offset size
+		}
 	}
-	// Generate `MarshalSSZTo` binding
-	fmt.Fprintf(&b, "func (obj *%s) MarshalSSZTo(w []byte) error {\n", typ.typeName())
-	fmt.Fprint(&b, typ.genEncoder(ctx, "obj"))
-	fmt.Fprint(&b, "return nil\n")
+	var (
+		indexRule = fmt.Sprintf("%%%dd", int(math.Ceil(math.Log10(float64(len(typ.fields))))))
+		nameRule  = fmt.Sprintf("%%%ds", maxFieldLength)
+		sizeRule  = fmt.Sprintf("%%%dd", int(math.Ceil(math.Log10(float64(maxBytes)))))
+	)
+	// Generate the code itself
+	fmt.Fprint(&b, "// DefineSSZ defines how an object is encoded/decoded.\n")
+	fmt.Fprintf(&b, "func (obj *%s) DefineSSZ(codec *ssz.Codec) {\n", typ.named.Obj().Name())
+	if !typ.static {
+		fmt.Fprint(&b, "// Define the static data (fields and dynamic offsets)\n")
+	}
+	for i := 0; i < len(typ.fields); i++ {
+		field := typ.fields[i]
+		switch opset := typ.opsets[i].(type) {
+		case *opsetStatic:
+			fmt.Fprintf(&b, "ssz.%s(codec, &obj.%s) // Field  ("+indexRule+") - "+nameRule+" - "+sizeRule+" bytes\n", opset.define, field, i, field, opset.bytes)
+		case *opsetDynamic:
+			fmt.Fprintf(&b, "ssz.%s(codec, &obj.%s) // Offset ("+indexRule+") - "+nameRule+" - "+sizeRule+" bytes\n", opset.defineOffset, field, i, field, offsetBytes)
+		}
+	}
+	if !typ.static {
+		fmt.Fprint(&b, "\n// Define the dynamic data (fields)\n")
+		for i := 0; i < len(typ.fields); i++ {
+			field := typ.fields[i]
+			if opset, ok := (typ.opsets[i]).(*opsetDynamic); ok {
+				fmt.Fprintf(&b, "ssz.%s(codec, &obj.%s) // Field  ("+indexRule+") - "+nameRule+" -  ? bytes\n", opset.defineContent, field, i, field)
+			}
+		}
+	}
 	fmt.Fprint(&b, "}\n")
 	return b.Bytes(), nil
 }
 
-func generateDecoder(ctx *genContext, typ sszType) ([]byte, error) {
-	var b bytes.Buffer
-	ctx.reset()
-
-	// TODO non-struct types are not supported yet
-	if _, ok := typ.(*sszStruct); !ok {
-		return nil, nil
-	}
-	// Generate `UnmarshalSSZ` binding
-	ctx.addImport(pkgPath, "")
-	fmt.Fprintf(&b, "func (obj *%s) UnmarshalSSZ(s *%s) error {\n", typ.typeName(), ctx.qualifier(pkgPath, "Stream"))
-	fmt.Fprint(&b, typ.genDecoder(ctx, "s", "obj"))
-	fmt.Fprint(&b, "return nil\n")
-	fmt.Fprint(&b, "}\n")
-	return b.Bytes(), nil
-}
-
-func generate(ctx *genContext, typ sszType) ([]byte, error) {
+func generate(ctx *genContext, typ *sszContainer) ([]byte, error) {
 	var codes [][]byte
-	for _, fn := range []func(ctx *genContext, typ sszType) ([]byte, error){
-		generateSSZSize,
-		generateEncoder,
-		generateDecoder,
+	for _, fn := range []func(ctx *genContext, typ *sszContainer) ([]byte, error){
+		generateSizeSSZ,
+		generateDefineSSZ,
 	} {
 		code, err := fn(ctx, typ)
 		if err != nil {

@@ -5,37 +5,45 @@
 package main
 
 import (
-	"errors"
+	"fmt"
 	"go/types"
 )
 
-func parsePackage(pkg *types.Package, names []string) ([]sszType, error) {
+func parsePackage(pkg *types.Package, names []string) ([]*sszContainer, error) {
 	if len(names) == 0 {
 		names = pkg.Scope().Names()
 	}
-	var types []sszType
+	var conts []*sszContainer
 	for _, name := range names {
-		named, err := lookupType(pkg.Scope(), name)
+		named, str, err := lookupStruct(pkg.Scope(), name)
 		if err != nil {
 			return nil, err
 		}
-		typ, err := buildType(nil, named, nil)
+		typ, err := newContainer(named, str)
 		if err != nil {
 			return nil, err
 		}
-		types = append(types, typ)
+		conts = append(conts, typ)
 	}
-	return types, nil
+	return conts, nil
 }
 
-func lookupType(scope *types.Scope, name string) (*types.Named, error) {
+func lookupStruct(scope *types.Scope, name string) (*types.Named, *types.Struct, error) {
 	obj := scope.Lookup(name)
 	if obj == nil {
-		return nil, errors.New("no such identifier")
+		return nil, nil, fmt.Errorf("identifier not found: %s", name)
 	}
 	typ, ok := obj.(*types.TypeName)
 	if !ok {
-		return nil, errors.New("not a type")
+		return nil, nil, fmt.Errorf("identifier not a type: %s", name)
 	}
-	return typ.Type().(*types.Named), nil
+	dec, ok := typ.Type().(*types.Named)
+	if !ok {
+		return nil, nil, fmt.Errorf("identifier not a named type: %s", name)
+	}
+	str, ok := dec.Underlying().(*types.Struct)
+	if !ok {
+		return nil, nil, fmt.Errorf("identifier not a named struct: %s", name)
+	}
+	return dec, str, nil
 }

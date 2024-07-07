@@ -23,14 +23,13 @@ type sizeTag struct {
 }
 
 func parseTag(input string) (bool, []sizeTag, error) {
-	strs := strings.Split(input, " ")
-	if len(strs) == 0 {
-		return false, nil, fmt.Errorf("no tag found")
+	if len(input) == 0 {
+		return false, nil, nil
 	}
 	var (
-		ignored bool
-		tags    []sizeTag
-		setTag  = func(i int, v int64, ident string) {
+		ignore bool
+		tags   []sizeTag
+		setTag = func(i int, v int64, ident string) {
 			if i >= len(tags) {
 				tags = append(tags, make([]sizeTag, i-len(tags)+1)...)
 			}
@@ -41,16 +40,16 @@ func parseTag(input string) (bool, []sizeTag, error) {
 			}
 		}
 	)
-	for _, str := range strs {
-		parts := strings.Split(str, ":")
+	for _, tag := range strings.Split(input, " ") {
+		parts := strings.Split(tag, ":")
 		if len(parts) != 2 {
-			return false, nil, fmt.Errorf("invalid tag %s", str)
+			return false, nil, fmt.Errorf("invalid tag %s", tag)
 		}
 		ident, remain := parts[0], strings.Trim(parts[1], "\"")
 		switch ident {
 		case sszTagIdent:
 			if remain == "-" {
-				ignored = true
+				ignore = true
 			}
 		case sszMaxTagIdent, sszSizeTagIdent:
 			parts := strings.Split(remain, ",")
@@ -67,5 +66,5 @@ func parseTag(input string) (bool, []sizeTag, error) {
 			}
 		}
 	}
-	return ignored, tags, nil
+	return ignore, tags, nil
 }
