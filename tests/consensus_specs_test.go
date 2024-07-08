@@ -33,10 +33,8 @@ var (
 func commonPrefix(a []byte, b []byte) []byte {
 	var prefix []byte
 
-	for len(a) > 0 && len(b) > 0 {
-		if a[0] == b[0] {
-			prefix = append(prefix, a[0])
-		}
+	for len(a) > 0 && len(b) > 0 && a[0] == b[0] {
+		prefix = append(prefix, a[0])
 		a, b = a[1:], b[1:]
 	}
 	return prefix
@@ -52,17 +50,29 @@ func TestConsensusSpecs(t *testing.T) {
 	testConsensusSpecType[*types.BeaconBlock](t, "BeaconBlock", "phase0")
 	testConsensusSpecType[*types.BeaconBlockBody](t, "BeaconBlockBody", "phase0")
 	testConsensusSpecType[*types.BeaconBlockHeader](t, "BeaconBlockHeader")
+	testConsensusSpecType[*types.BeaconState](t, "BeaconState", "phase0")
+	testConsensusSpecType[*types.BLSToExecutionChange](t, "BLSToExecutionChange")
 	testConsensusSpecType[*types.Checkpoint](t, "Checkpoint")
 	testConsensusSpecType[*types.Deposit](t, "Deposit")
 	testConsensusSpecType[*types.DepositData](t, "DepositData")
+	testConsensusSpecType[*types.DepositMessage](t, "DepositMessage")
+	testConsensusSpecType[*types.Eth1Block](t, "Eth1Block")
 	testConsensusSpecType[*types.Eth1Data](t, "Eth1Data")
 	testConsensusSpecType[*types.ExecutionPayload](t, "ExecutionPayload", "bellatrix")
 	testConsensusSpecType[*types.ExecutionPayloadCapella](t, "ExecutionPayload", "capella")
+	testConsensusSpecType[*types.Fork](t, "Fork")
 	testConsensusSpecType[*types.HistoricalBatch](t, "HistoricalBatch")
+	testConsensusSpecType[*types.HistoricalSummary](t, "HistoricalSummary")
 	testConsensusSpecType[*types.IndexedAttestation](t, "IndexedAttestation")
+	testConsensusSpecType[*types.PendingAttestation](t, "PendingAttestation")
 	testConsensusSpecType[*types.ProposerSlashing](t, "ProposerSlashing")
 	testConsensusSpecType[*types.SignedBeaconBlockHeader](t, "SignedBeaconBlockHeader")
+	testConsensusSpecType[*types.SignedBLSToExecutionChange](t, "SignedBLSToExecutionChange")
 	testConsensusSpecType[*types.SignedVoluntaryExit](t, "SignedVoluntaryExit")
+	testConsensusSpecType[*types.SigningRoot](t, "SigningRoot")
+	testConsensusSpecType[*types.SyncAggregate](t, "SyncAggregate")
+	testConsensusSpecType[*types.SyncCommittee](t, "SyncCommittee")
+	testConsensusSpecType[*types.Transfer](t, "Transfer")
 	testConsensusSpecType[*types.Validator](t, "Validator")
 	testConsensusSpecType[*types.VoluntaryExit](t, "VoluntaryExit")
 	testConsensusSpecType[*types.Withdrawal](t, "Withdrawal")
@@ -167,7 +177,9 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 					t.Fatalf("failed to re-encode SSZ stream: %v", err)
 				}
 				if !bytes.Equal(blob.Bytes(), inSSZ) {
-					t.Fatalf("re-encoded stream mismatch: have %x, want %x", blob, inSSZ)
+					prefix := commonPrefix(blob.Bytes(), inSSZ)
+					t.Fatalf("re-encoded stream mismatch: have %x, want %x, common prefix %d, have left %x, want left %x",
+						blob, inSSZ, len(prefix), blob.Bytes()[len(prefix):], inSSZ[len(prefix):])
 				}
 				obj = T(new(U))
 				if err := ssz.DecodeFromBytes(inSSZ, obj); err != nil {
@@ -178,7 +190,9 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 					t.Fatalf("failed to re-encode SSZ buffer: %v", err)
 				}
 				if !bytes.Equal(bin, inSSZ) {
-					t.Fatalf("re-encoded bytes mismatch: have %x, want %x", bin, inSSZ)
+					prefix := commonPrefix(bin, inSSZ)
+					t.Fatalf("re-encoded bytes mismatch: have %x, want %x, common prefix %d, have left %x, want left %x",
+						blob, inSSZ, len(prefix), bin[len(prefix):], inSSZ[len(prefix):])
 				}
 				// Encoder/decoder seems to work, check if the size reported by the
 				// encoded object actually matches the encoded stream

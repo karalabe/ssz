@@ -223,10 +223,12 @@ func generateSizeSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 			fmt.Fprintf(&b, "		return size\n")
 			fmt.Fprintf(&b, "	}\n")
 			for i := range typ.opsets {
-				if _, ok := typ.opsets[i].(*opsetDynamic); ok {
-					fmt.Fprintf(&b, "	size += obj.%s.SizeSSZ(false)\n", typ.fields[i])
+				if opset, ok := typ.opsets[i].(*opsetDynamic); ok {
+					call := generateCall(opset.size, "", "obj."+typ.fields[i])
+					fmt.Fprintf(&b, "	size += ssz.%s\n", call)
 				}
 			}
+			fmt.Fprintf(&b, "\n")
 			fmt.Fprintf(&b, "	return size\n")
 			fmt.Fprintf(&b, "}\n")
 		} else {
@@ -253,10 +255,12 @@ func generateSizeSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 			fmt.Fprintf(&b, "		return size\n")
 			fmt.Fprintf(&b, "	}\n")
 			for i := range typ.opsets {
-				if _, ok := typ.opsets[i].(*opsetDynamic); ok {
-					fmt.Fprintf(&b, "	size += obj.%s.SizeSSZ(false)\n", typ.fields[i])
+				if opset, ok := typ.opsets[i].(*opsetDynamic); ok {
+					call := generateCall(opset.size, "", "obj."+typ.fields[i])
+					fmt.Fprintf(&b, "	size += ssz.%s\n", call)
 				}
 			}
+			fmt.Fprintf(&b, "\n")
 			fmt.Fprintf(&b, "	return size\n")
 			fmt.Fprintf(&b, "}\n")
 		}
@@ -326,7 +330,7 @@ func generateDefineSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 			field := typ.fields[i]
 			if opset, ok := (typ.opsets[i]).(*opsetDynamic); ok {
 				call := generateCall(opset.defineContent, "codec", "obj."+field, opset.limits...)
-				fmt.Fprintf(&b, "	ssz.%s // Field  ("+indexRule+") - "+nameRule+" -  ? bytes\n", call, i, field)
+				fmt.Fprintf(&b, "	ssz.%s // Field  ("+indexRule+") - "+nameRule+" - ? bytes\n", call, i, field)
 			}
 		}
 	}

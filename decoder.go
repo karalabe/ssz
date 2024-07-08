@@ -249,6 +249,32 @@ func DecodeDynamicObjectContent[T newableDynamicObject[U], U any](dec *Decoder, 
 	dec.flushDynamics()
 }
 
+// DecodeArrayOfUint64s parses a static array of uint64s.
+func DecodeArrayOfUint64s[T ~uint64](dec *Decoder, ns []T) {
+	if dec.err != nil {
+		return
+	}
+	if dec.inReader != nil {
+		for i := 0; i < len(ns); i++ {
+			_, dec.err = io.ReadFull(dec.inReader, dec.buf[:8])
+			if dec.err != nil {
+				return
+			}
+			ns[i] = T(binary.LittleEndian.Uint64(dec.buf[:8]))
+			dec.inRead += 8
+		}
+	} else {
+		for i := 0; i < len(ns); i++ {
+			if len(dec.inBuffer) < 8 {
+				dec.err = io.ErrUnexpectedEOF
+				return
+			}
+			ns[i] = T(binary.LittleEndian.Uint64(dec.inBuffer))
+			dec.inBuffer = dec.inBuffer[8:]
+		}
+	}
+}
+
 // DecodeSliceOfUint64sOffset parses a dynamic slice of uint64s.
 func DecodeSliceOfUint64sOffset[T ~uint64](dec *Decoder, ns *[]T) {
 	dec.decodeOffset(false)

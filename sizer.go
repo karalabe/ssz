@@ -22,6 +22,15 @@ func SizeDynamicObject[T DynamicObject](obj T) uint32 {
 	return obj.SizeSSZ(false)
 }
 
+// SizeSliceOfStaticBytes returns the serialized size of the dynamic part of a dynamic
+// list of static blobs.
+func SizeSliceOfStaticBytes[T commonBytesLengths](blobs []T) uint32 {
+	if len(blobs) == 0 {
+		return 0
+	}
+	return uint32(len(blobs) * len(blobs[0]))
+}
+
 // SizeSliceOfDynamicBytes returns the serialized size of the dynamic part of a dynamic
 // list of dynamic blobs.
 func SizeSliceOfDynamicBytes(blobs [][]byte) uint32 {

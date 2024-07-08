@@ -212,6 +212,30 @@ func EncodeDynamicObjectContent(enc *Encoder, obj DynamicObject) {
 	obj.DefineSSZ(enc.codec)
 }
 
+// EncodeArrayOfUint64s serializes a static array of uint64s.
+//
+// The reason the ns is passed by pointer and not by value is to prevent it from
+// escaping to the heap (and incurring an allocation) when passing it to the
+// output stream.
+func EncodeArrayOfUint64s[T ~uint64](enc *Encoder, ns []T) {
+	// Internally this method is essentially calling EncodeUint64 on all numbers
+	// in a loop. Practically, we've inlined that call to make things a *lot* faster.
+	if enc.outWriter != nil {
+		for _, n := range ns {
+			if enc.err != nil {
+				return
+			}
+			binary.LittleEndian.PutUint64(enc.buf[:8], (uint64)(n))
+			_, enc.err = enc.outWriter.Write(enc.buf[:8])
+		}
+	} else {
+		for _, n := range ns {
+			binary.LittleEndian.PutUint64(enc.outBuffer, (uint64)(n))
+			enc.outBuffer = enc.outBuffer[8:]
+		}
+	}
+}
+
 // EncodeSliceOfUint64sOffset serializes a dynamic slice of uint64s.
 func EncodeSliceOfUint64sOffset[T ~uint64](enc *Encoder, ns []T) {
 	if enc.outWriter != nil {

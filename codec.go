@@ -129,6 +129,15 @@ func DefineDynamicObjectContent[T newableDynamicObject[U], U any](c *Codec, obj 
 	DecodeDynamicObjectContent(c.dec, obj)
 }
 
+// DefineArrayOfUint64s defines the next field as a static array of uint64s.
+func DefineArrayOfUint64s[T ~uint64](c *Codec, ns []T) {
+	if c.enc != nil {
+		EncodeArrayOfUint64s(c.enc, ns)
+		return
+	}
+	DecodeArrayOfUint64s(c.dec, ns)
+}
+
 // DefineSliceOfUint64sOffset defines the next field as a dynamic slice of uint64s.
 func DefineSliceOfUint64sOffset[T ~uint64](c *Codec, ns *[]T) {
 	if c.enc != nil {
