@@ -19,6 +19,7 @@ import "github.com/holiman/uint256"
 //go:generate go run ../../../cmd/sszgen -type Eth1Block -out gen_eth1_block_ssz.go
 //go:generate go run ../../../cmd/sszgen -type Eth1Data -out gen_eth1_data_ssz.go
 //go:generate go run ../../../cmd/sszgen -type ExecutionPayload -out gen_execution_payload_ssz.go
+//go:generate go run ../../../cmd/sszgen -type ExecutionPayloadHeader -out gen_execution_payload_header_ssz.go
 //go:generate go run ../../../cmd/sszgen -type Fork -out gen_fork_ssz.go
 //go:generate go run ../../../cmd/sszgen -type HistoricalBatch -out gen_historical_batch_ssz.go
 //go:generate go run ../../../cmd/sszgen -type HistoricalSummary -out gen_historical_summary_ssz.go
@@ -36,8 +37,15 @@ import "github.com/holiman/uint256"
 //go:generate go run ../../../cmd/sszgen -type Validator -out gen_validator_ssz.go
 //go:generate go run ../../../cmd/sszgen -type Withdrawal -out gen_withdrawal_ssz.go
 //go:generate go run ../../../cmd/sszgen -type ExecutionPayloadCapella -out gen_execution_payload_capella_ssz.go
+//go:generate go run ../../../cmd/sszgen -type ExecutionPayloadHeaderCapella -out gen_execution_payload_header_capella_ssz.go
+//go:generate go run ../../../cmd/sszgen -type ExecutionPayloadDeneb -out gen_execution_payload_deneb_ssz.go
+//go:generate go run ../../../cmd/sszgen -type ExecutionPayloadHeaderDeneb -out gen_execution_payload_header_deneb_ssz.go
 //go:generate go run ../../../cmd/sszgen -type BeaconState -out gen_beacon_state_ssz.go
 //go:generate go run ../../../cmd/sszgen -type BeaconBlockBody -out gen_beacon_block_body_ssz.go
+//go:generate go run ../../../cmd/sszgen -type BeaconBlockBodyAltair -out gen_beacon_block_body_altair_ssz.go
+//go:generate go run ../../../cmd/sszgen -type BeaconBlockBodyBellatrix -out gen_beacon_block_body_bellatrix_ssz.go
+//go:generate go run ../../../cmd/sszgen -type BeaconBlockBodyCapella -out gen_beacon_block_body_capella_ssz.go
+//go:generate go run ../../../cmd/sszgen -type BeaconBlockBodyDeneb -out gen_beacon_block_body_deneb_ssz.go
 //go:generate go run ../../../cmd/sszgen -type BeaconBlock -out gen_beacon_block_ssz.go
 
 // Slot is an alias of uint64
@@ -102,6 +110,60 @@ type BeaconBlockBody struct {
 	Attestations      []*Attestation         `ssz-max:"128"`
 	Deposits          []*Deposit             `ssz-max:"16"`
 	VoluntaryExits    []*SignedVoluntaryExit `ssz-max:"16"`
+}
+
+type BeaconBlockBodyAltair struct {
+	RandaoReveal      [96]byte
+	Eth1Data          *Eth1Data
+	Graffiti          [32]byte
+	ProposerSlashings []*ProposerSlashing    `ssz-max:"16"`
+	AttesterSlashings []*AttesterSlashing    `ssz-max:"2"`
+	Attestations      []*Attestation         `ssz-max:"128"`
+	Deposits          []*Deposit             `ssz-max:"16"`
+	VoluntaryExits    []*SignedVoluntaryExit `ssz-max:"16"`
+	SyncAggregate     *SyncAggregate
+}
+
+type BeaconBlockBodyBellatrix struct {
+	RandaoReveal      [96]byte
+	Eth1Data          *Eth1Data
+	Graffiti          [32]byte
+	ProposerSlashings []*ProposerSlashing    `ssz-max:"16"`
+	AttesterSlashings []*AttesterSlashing    `ssz-max:"2"`
+	Attestations      []*Attestation         `ssz-max:"128"`
+	Deposits          []*Deposit             `ssz-max:"16"`
+	VoluntaryExits    []*SignedVoluntaryExit `ssz-max:"16"`
+	SyncAggregate     *SyncAggregate
+	ExecutionPayload  *ExecutionPayload
+}
+
+type BeaconBlockBodyCapella struct {
+	RandaoReveal          [96]byte
+	Eth1Data              *Eth1Data
+	Graffiti              [32]byte
+	ProposerSlashings     []*ProposerSlashing    `ssz-max:"16"`
+	AttesterSlashings     []*AttesterSlashing    `ssz-max:"2"`
+	Attestations          []*Attestation         `ssz-max:"128"`
+	Deposits              []*Deposit             `ssz-max:"16"`
+	VoluntaryExits        []*SignedVoluntaryExit `ssz-max:"16"`
+	SyncAggregate         *SyncAggregate
+	ExecutionPayload      *ExecutionPayloadCapella
+	BlsToExecutionChanges []*SignedBLSToExecutionChange `ssz-max:"16"`
+}
+
+type BeaconBlockBodyDeneb struct {
+	RandaoReveal          [96]byte
+	Eth1Data              *Eth1Data
+	Graffiti              [32]byte
+	ProposerSlashings     []*ProposerSlashing    `ssz-max:"16"`
+	AttesterSlashings     []*AttesterSlashing    `ssz-max:"2"`
+	Attestations          []*Attestation         `ssz-max:"128"`
+	Deposits              []*Deposit             `ssz-max:"16"`
+	VoluntaryExits        []*SignedVoluntaryExit `ssz-max:"16"`
+	SyncAggregate         *SyncAggregate
+	ExecutionPayload      *ExecutionPayloadDeneb
+	BlsToExecutionChanges []*SignedBLSToExecutionChange `ssz-max:"16"`
+	BlobKzgCommitments    [][48]byte                    `ssz-max:"4096"`
 }
 
 type BeaconState struct {
@@ -201,6 +263,81 @@ type ExecutionPayloadCapella struct {
 	BlockHash     Hash
 	Transactions  [][]byte      `ssz-max:"1048576,1073741824"`
 	Withdrawals   []*Withdrawal `ssz-max:"16"`
+}
+
+type ExecutionPayloadDeneb struct {
+	ParentHash    Hash
+	FeeRecipient  Address
+	StateRoot     Hash
+	ReceiptsRoot  Hash
+	LogsBloom     LogsBloom
+	PrevRandao    Hash
+	BlockNumber   uint64
+	GasLimit      uint64
+	GasUsed       uint64
+	Timestamp     uint64
+	ExtraData     []byte `ssz-max:"32"`
+	BaseFeePerGas *uint256.Int
+	BlockHash     Hash
+	Transactions  [][]byte      `ssz-max:"1048576,1073741824"`
+	Withdrawals   []*Withdrawal `ssz-max:"16"`
+	BlobGasUsed   uint64
+	ExcessBlobGas uint64
+}
+
+type ExecutionPayloadHeader struct {
+	ParentHash       [32]byte
+	FeeRecipient     [20]byte
+	StateRoot        [32]byte
+	ReceiptsRoot     [32]byte
+	LogsBloom        [256]byte
+	PrevRandao       [32]byte
+	BlockNumber      uint64
+	GasLimit         uint64
+	GasUsed          uint64
+	Timestamp        uint64
+	ExtraData        []byte `ssz-max:"32"`
+	BaseFeePerGas    [32]byte
+	BlockHash        [32]byte
+	TransactionsRoot [32]byte
+}
+
+type ExecutionPayloadHeaderCapella struct {
+	ParentHash       [32]byte
+	FeeRecipient     [20]byte
+	StateRoot        [32]byte
+	ReceiptsRoot     [32]byte
+	LogsBloom        [256]byte
+	PrevRandao       [32]byte
+	BlockNumber      uint64
+	GasLimit         uint64
+	GasUsed          uint64
+	Timestamp        uint64
+	ExtraData        []byte `ssz-max:"32"`
+	BaseFeePerGas    [32]byte
+	BlockHash        [32]byte
+	TransactionsRoot [32]byte
+	WithdrawalRoot   [32]byte
+}
+
+type ExecutionPayloadHeaderDeneb struct {
+	ParentHash       [32]byte
+	FeeRecipient     [20]byte
+	StateRoot        [32]byte
+	ReceiptsRoot     [32]byte
+	LogsBloom        [256]byte
+	PrevRandao       [32]byte
+	BlockNumber      uint64
+	GasLimit         uint64
+	GasUsed          uint64
+	Timestamp        uint64
+	ExtraData        []byte `ssz-max:"32"`
+	BaseFeePerGas    [32]byte
+	BlockHash        [32]byte
+	TransactionsRoot [32]byte
+	WithdrawalRoot   [32]byte
+	BlobGasUsed      uint64
+	ExcessBlobGas    uint64
 }
 
 type Fork struct {

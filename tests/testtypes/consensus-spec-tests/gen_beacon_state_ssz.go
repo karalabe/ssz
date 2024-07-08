@@ -52,8 +52,8 @@ func (obj *BeaconState) DefineSSZ(codec *ssz.Codec) {
 	// Define the dynamic data (fields)
 	ssz.DefineSliceOfStaticBytesContent(codec, &obj.HistoricalRoots, 16777216)          // Field  ( 7) -             HistoricalRoots - ? bytes
 	ssz.DefineSliceOfStaticObjectsContent(codec, &obj.Eth1DataVotes, 2048)              // Field  ( 9) -               Eth1DataVotes - ? bytes
-	ssz.DefineSliceOfStaticObjectsContent(codec, &obj.Validators, 1099511627)        // Field  (11) -                  Validators - ? bytes
-	ssz.DefineSliceOfUint64sContent(codec, &obj.Balances, 1099511627)                // Field  (12) -                    Balances - ? bytes
+	ssz.DefineSliceOfStaticObjectsContent(codec, &obj.Validators, 1099511627776)        // Field  (11) -                  Validators - ? bytes
+	ssz.DefineSliceOfUint64sContent(codec, &obj.Balances, 1099511627776)                // Field  (12) -                    Balances - ? bytes
 	ssz.DefineSliceOfDynamicObjectsContent(codec, &obj.PreviousEpochAttestations, 4096) // Field  (15) -   PreviousEpochAttestations - ? bytes
 	ssz.DefineSliceOfDynamicObjectsContent(codec, &obj.CurrentEpochAttestations, 4096)  // Field  (16) -    CurrentEpochAttestations - ? bytes
 }

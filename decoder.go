@@ -152,21 +152,21 @@ func DecodeStaticBytes(dec *Decoder, blob []byte) {
 }
 
 // DecodeCheckedStaticBytes parses a static binary blob.
-func DecodeCheckedStaticBytes(dec *Decoder, blob *[]byte, size uint32) {
+func DecodeCheckedStaticBytes(dec *Decoder, blob *[]byte, size uint64) {
 	if dec.err != nil {
 		return
 	}
 	// Expand the byte slice if needed and fill it with the data
-	if uint32(cap(*blob)) < size {
+	if uint64(cap(*blob)) < size {
 		*blob = make([]byte, size)
 	} else {
 		*blob = (*blob)[:size]
 	}
 	if dec.inReader != nil {
 		_, dec.err = io.ReadFull(dec.inReader, *blob)
-		dec.inRead += size
+		dec.inRead += uint32(size)
 	} else {
-		if uint32(len(dec.inBuffer)) < size {
+		if uint64(len(dec.inBuffer)) < size {
 			dec.err = io.ErrUnexpectedEOF
 			return
 		}
@@ -181,13 +181,13 @@ func DecodeDynamicBytesOffset(dec *Decoder, blob *[]byte) {
 }
 
 // DecodeDynamicBytesContent is the lazy data reader of DecodeDynamicBytesOffset.
-func DecodeDynamicBytesContent(dec *Decoder, blob *[]byte, maxSize uint32) {
+func DecodeDynamicBytesContent(dec *Decoder, blob *[]byte, maxSize uint64) {
 	if dec.err != nil {
 		return
 	}
 	// Compute the length of the blob based on the seen offsets
 	size := dec.retrieveSize()
-	if size > maxSize {
+	if uint64(size) > maxSize {
 		dec.err = fmt.Errorf("%w: decoded %d, max %d", ErrMaxLengthExceeded, size, maxSize)
 		return
 	}
@@ -281,7 +281,7 @@ func DecodeSliceOfUint64sOffset[T ~uint64](dec *Decoder, ns *[]T) {
 }
 
 // DecodeSliceOfUint64sContent is the lazy data reader of DecodeSliceOfUint64sOffset.
-func DecodeSliceOfUint64sContent[T ~uint64](dec *Decoder, ns *[]T, maxItems uint32) {
+func DecodeSliceOfUint64sContent[T ~uint64](dec *Decoder, ns *[]T, maxItems uint64) {
 	if dec.err != nil {
 		return
 	}
@@ -296,7 +296,7 @@ func DecodeSliceOfUint64sContent[T ~uint64](dec *Decoder, ns *[]T, maxItems uint
 		return
 	}
 	itemCount := size >> 3
-	if itemCount > maxItems {
+	if uint64(itemCount) > maxItems {
 		dec.err = fmt.Errorf("%w: decoded %d, max %d", ErrMaxItemsExceeded, itemCount, maxItems)
 		return
 	}
@@ -357,12 +357,12 @@ func DecodeArrayOfStaticBytes[T commonBytesLengths](dec *Decoder, blobs []T) {
 }
 
 // DecodeCheckedArrayOfStaticBytes parses a static array of static binary blobs.
-func DecodeCheckedArrayOfStaticBytes[T commonBytesLengths](dec *Decoder, blobs *[]T, size uint32) {
+func DecodeCheckedArrayOfStaticBytes[T commonBytesLengths](dec *Decoder, blobs *[]T, size uint64) {
 	if dec.err != nil {
 		return
 	}
 	// Expand the byte-array slice if needed and fill it with the data
-	if uint32(cap(*blobs)) < size {
+	if uint64(cap(*blobs)) < size {
 		*blobs = make([]T, size)
 	} else {
 		*blobs = (*blobs)[:size]
@@ -397,7 +397,7 @@ func DecodeSliceOfStaticBytesOffset[T commonBytesLengths](dec *Decoder, blobs *[
 }
 
 // DecodeSliceOfStaticBytesContent is the lazy data reader of DecodeSliceOfStaticBytesOffset.
-func DecodeSliceOfStaticBytesContent[T commonBytesLengths](dec *Decoder, blobs *[]T, maxItems uint32) {
+func DecodeSliceOfStaticBytesContent[T commonBytesLengths](dec *Decoder, blobs *[]T, maxItems uint64) {
 	if dec.err != nil {
 		return
 	}
@@ -415,7 +415,7 @@ func DecodeSliceOfStaticBytesContent[T commonBytesLengths](dec *Decoder, blobs *
 		return
 	}
 	itemCount := size / itemSize
-	if itemCount > maxItems {
+	if uint64(itemCount) > maxItems {
 		dec.err = fmt.Errorf("%w: decoded %d, max %d", ErrMaxItemsExceeded, itemCount, maxItems)
 		return
 	}
@@ -459,7 +459,7 @@ func DecodeSliceOfDynamicBytesOffset(dec *Decoder, blobs *[][]byte) {
 }
 
 // DecodeSliceOfDynamicBytesContent is the lazy data reader of DecodeSliceOfDynamicBytesOffset.
-func DecodeSliceOfDynamicBytesContent(dec *Decoder, blobs *[][]byte, maxItems uint32, maxSize uint32) {
+func DecodeSliceOfDynamicBytesContent(dec *Decoder, blobs *[][]byte, maxItems uint64, maxSize uint64) {
 	if dec.err != nil {
 		return
 	}
@@ -493,7 +493,7 @@ func DecodeSliceOfDynamicBytesContent(dec *Decoder, blobs *[][]byte, maxItems ui
 		return
 	}
 	items := dec.offset >> 2
-	if items > maxItems {
+	if uint64(items) > maxItems {
 		dec.err = fmt.Errorf("%w: decoded %d, max %d", ErrMaxItemsExceeded, items, maxItems)
 		return
 	}
@@ -517,7 +517,7 @@ func DecodeSliceOfStaticObjectsOffset[T newableStaticObject[U], U any](dec *Deco
 }
 
 // DecodeSliceOfStaticObjectsContent is the lazy data reader of DecodeSliceOfStaticObjectsOffset.
-func DecodeSliceOfStaticObjectsContent[T newableStaticObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
+func DecodeSliceOfStaticObjectsContent[T newableStaticObject[U], U any](dec *Decoder, objects *[]T, maxItems uint64) {
 	if dec.err != nil {
 		return
 	}
@@ -535,7 +535,7 @@ func DecodeSliceOfStaticObjectsContent[T newableStaticObject[U], U any](dec *Dec
 		return
 	}
 	itemCount := size / itemSize
-	if itemCount > maxItems {
+	if uint64(itemCount) > maxItems {
 		dec.err = fmt.Errorf("%w: decoded %d, max %d", ErrMaxItemsExceeded, itemCount, maxItems)
 		return
 	}
@@ -566,7 +566,7 @@ func DecodeSliceOfDynamicObjectsOffset[T newableDynamicObject[U], U any](dec *De
 }
 
 // DecodeSliceOfDynamicObjectsContent is the lazy data reader of DecodeSliceOfDynamicObjectsOffset.
-func DecodeSliceOfDynamicObjectsContent[T newableDynamicObject[U], U any](dec *Decoder, objects *[]T, maxItems uint32) {
+func DecodeSliceOfDynamicObjectsContent[T newableDynamicObject[U], U any](dec *Decoder, objects *[]T, maxItems uint64) {
 	if dec.err != nil {
 		return
 	}
@@ -601,7 +601,7 @@ func DecodeSliceOfDynamicObjectsContent[T newableDynamicObject[U], U any](dec *D
 		return
 	}
 	items := dec.offset >> 2
-	if items > maxItems {
+	if uint64(items) > maxItems {
 		dec.err = fmt.Errorf("%w: decoded %d, max %d", ErrMaxItemsExceeded, items, maxItems)
 		return
 	}
