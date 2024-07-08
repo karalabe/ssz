@@ -59,7 +59,7 @@ func (os *opsetDynamic) decodeDynamic() string { return os.decodeContent }
 // resolveBasicOpset retrieves the opset required to handle a basic struct
 // field. Yes, we could maybe have some of these be "computed" instead of hard
 // coded, but it makes things brittle for corner-cases.
-func resolveBasicOpset(typ *types.Basic) (*opsetStatic, error) {
+func (p *parseContext) resolveBasicOpset(typ *types.Basic) (*opsetStatic, error) {
 	switch typ.Kind() {
 	case types.Bool:
 		return &opsetStatic{"DefineBool", "EncodeBool", "DecodeBool", 1}, nil
@@ -72,11 +72,11 @@ func resolveBasicOpset(typ *types.Basic) (*opsetStatic, error) {
 
 // resolveUint256Opset retrieves the opset required to handle a uint256
 // struct field implemented using github.com/holiman/uint256. Yay hard code!
-func resolveUint256Opset() *opsetStatic {
+func (p *parseContext) resolveUint256Opset() *opsetStatic {
 	return &opsetStatic{"DefineUint256", "EncodeUint256", "DecodeUint256", 32}
 }
 
-func resolveArrayOpset(typ types.Type, size int) (*opsetStatic, error) {
+func (p *parseContext) resolveArrayOpset(typ types.Type, size int) (*opsetStatic, error) {
 	switch typ := typ.(type) {
 	case *types.Basic:
 		switch typ.Kind() {
@@ -90,7 +90,7 @@ func resolveArrayOpset(typ types.Type, size int) (*opsetStatic, error) {
 	}
 }
 
-func resolveSliceOpset(typ types.Type) (*opsetDynamic, error) {
+func (p *parseContext) resolveSliceOpset(typ types.Type) (*opsetDynamic, error) {
 	switch typ := typ.(type) {
 	case *types.Basic:
 		switch typ.Kind() {
@@ -105,4 +105,20 @@ func resolveSliceOpset(typ types.Type) (*opsetDynamic, error) {
 	default:
 		return nil, fmt.Errorf("unsupported slice item type: %s", typ)
 	}
+}
+
+func (p *parseContext) resolvePointerOpset(typ *types.Pointer) (opset, error) {
+	if isUint256(typ.Elem()) {
+		return &opsetStatic{"DefineUint256", "EncodeUint256", "DecodeUint256", 32}, nil
+	}
+	if types.Implements(typ, p.staticObjectIface) {
+		return &opsetStatic{"DefineStaticObject", "EncodeStaticObject", "DecodeStaticObject", 0}, nil
+	}
+	if types.Implements(typ, p.dynamicObjectIface) {
+		return &opsetDynamic{
+			"DefineDynamicObjectOffset", "DefineDynamicObjectContent",
+			"EncodeDynamicObjectOffset", "EncodeDynamicObjectContent",
+			"DecodeDynamicObjectOffset", "DecodeDynamicObjectContent"}, nil
+	}
+	return nil, fmt.Errorf("unsupported pointer type %s", typ.String())
 }

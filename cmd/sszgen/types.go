@@ -14,13 +14,17 @@ type sszContainer struct {
 	named  *types.Named
 	static bool
 	fields []string
+	types  []types.Type
 	opsets []opset
 }
 
-func newContainer(named *types.Named, typ *types.Struct) (*sszContainer, error) {
+// makeContainer iterates over the fields of the struct and attempt to match each
+// field with an opset for encoding/decoding ssz.
+func (p *parseContext) makeContainer(named *types.Named, typ *types.Struct) (*sszContainer, error) {
 	var (
 		static = true
 		fields []string
+		types  []types.Type
 		opsets []opset
 	)
 	// Iterate over all the fields of the struct
@@ -38,7 +42,7 @@ func newContainer(named *types.Named, typ *types.Struct) (*sszContainer, error) 
 			continue
 		}
 		// Required field found, validate type with tag content
-		opset, err := validateField(f.Type(), tags)
+		opset, err := p.resolveOpset(f.Type(), tags)
 		if err != nil {
 			return nil, fmt.Errorf("failed to validate field %s.%s: %v", named.Obj().Name(), f.Name(), err)
 		}
@@ -46,6 +50,7 @@ func newContainer(named *types.Named, typ *types.Struct) (*sszContainer, error) 
 			static = false
 		}
 		fields = append(fields, f.Name())
+		types = append(types, f.Type())
 		opsets = append(opsets, opset)
 	}
 	return &sszContainer{
@@ -53,194 +58,34 @@ func newContainer(named *types.Named, typ *types.Struct) (*sszContainer, error) 
 		named:  named,
 		static: static,
 		fields: fields,
+		types:  types,
 		opsets: opsets,
 	}, nil
 }
 
-// validateContainerField compares the type of the field to the provided tags and
-// returns whether there's a collision between them, or if more tags are needed to
-// fully derive the size.
-func validateField(typ types.Type, tags []sizeTag) (opset, error) {
+// resolveOpset compares the type of the field to the provided tags and returns
+// whether there's a collision between them, or if more tags are needed to fully
+// derive the size. If the type/tags are in sync and well-defined, an opset will
+// be returned that the generator can use to create the code.
+func (p *parseContext) resolveOpset(typ types.Type, tags []sizeTag) (opset, error) {
 	switch t := typ.(type) {
 	case *types.Named:
-		return validateField(t.Underlying(), tags)
+		return p.resolveOpset(t.Underlying(), tags)
 
 	case *types.Basic:
-		return resolveBasicOpset(t)
+		return p.resolveBasicOpset(t)
 
 	case *types.Array:
-		return resolveArrayOpset(t.Elem(), int(t.Len()))
+		return p.resolveArrayOpset(t.Elem(), int(t.Len()))
 
 	case *types.Slice:
-		return resolveSliceOpset(t.Elem())
+		return p.resolveSliceOpset(t.Elem())
 
 	case *types.Pointer:
-		if isUint256(t.Elem()) {
-			return resolveUint256Opset(), nil
-		}
-		return nil, fmt.Errorf("unsupported pointer type %s", typ.String())
-		/*case *types.Struct:
-		return newStruct(named, t)*/
+		return p.resolvePointerOpset(t)
 	}
 	return nil, fmt.Errorf("unsupported type %s", typ.String())
 }
-
-func validateBasic(typ *types.Basic, tags []sizeTag) error {
-	kind := typ.Kind()
-	switch {
-	/*case kind == types.Bool:
-		size = 1
-		encoder = "EncodeBool"
-		decoder = "DecodeBool"
-	case kind == types.Uint8:
-		size = 1
-		encoder = "EncodeByte"
-		decoder = "DecodeByte"
-	case kind > types.Uint8 && kind <= types.Uint64:
-		size = 1 << (kind - types.Uint8)
-		encoder = fmt.Sprintf("EncodeUint%d", size*8)
-		decoder = fmt.Sprintf("DecodeUint%d", size*8)*/
-	default:
-		return fmt.Errorf("unsupported basic type: %s", kind)
-	}
-}
-
-/*
-func (s *sszStruct) fixed() bool {
-	for _, tags := range s.fieldTags {
-		for _, tag := range tags {
-			if tag.limit > 0 {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-func (s *sszStruct) fixedSize() int {
-	if !s.fixed() {
-		return bytesPerLengthOffset
-	}
-	var size int
-	for _, field := range s.fields {
-		size += field.fixedSize()
-	}
-	return size
-}
-
-func (s *sszStruct) typeName() string {
-	return s.named.Obj().Name()
-}
-
-func (s *sszStruct) genSize(ctx *genContext, w string, obj string) string {
-	if !ctx.topType {
-		return fmt.Sprintf("%s += %s.SizeSSZ()\n", w, obj)
-	}
-	ctx.topType = false
-
-	var b bytes.Buffer
-	var fixedSize int
-	for _, field := range s.fields {
-		fixedSize += field.fixedSize()
-	}
-	fmt.Fprintf(&b, "%s := %d\n", w, fixedSize)
-
-	for i, field := range s.fields {
-		if field.fixed() {
-			continue
-		}
-		fmt.Fprintf(&b, "%s", field.genSize(ctx, w, fmt.Sprintf("%s.%s", obj, s.fieldNames[i])))
-	}
-	return b.String()
-}
-
-func (s *sszStruct) genEncoder(ctx *genContext, obj string) string {
-	var b bytes.Buffer
-	if !ctx.topType {
-		fmt.Fprintf(&b, "if err := %s.MarshalSSZTo(w); err != nil {\n", obj)
-		fmt.Fprint(&b, "return err\n")
-		fmt.Fprint(&b, "}\n")
-		return b.String()
-	}
-	ctx.topType = false
-
-	var oid string
-	if !s.fixed() {
-		var offset int
-		for _, field := range s.fields {
-			offset += field.fixedSize()
-		}
-		oid = ctx.tmpVar("o")
-		fmt.Fprintf(&b, "%s := %d\n", oid, offset)
-	}
-	for i, field := range s.fields {
-		if field.fixed() {
-			fmt.Fprintf(&b, "%s", field.genEncoder(ctx, fmt.Sprintf("%s.%s", obj, s.fieldNames[i])))
-		} else {
-			fmt.Fprintf(&b, "%s(w, uint32(%s))\n", ctx.qualifier(sszPkgPath, "EncodeUint32"), oid)
-			fmt.Fprintf(&b, "%s", field.genSize(ctx, oid, fmt.Sprintf("%s.%s", obj, s.fieldNames[i])))
-		}
-	}
-	for i, field := range s.fields {
-		if field.fixed() {
-			continue
-		}
-		fmt.Fprintf(&b, "%s", field.genEncoder(ctx, fmt.Sprintf("%s.%s", obj, s.fieldNames[i])))
-	}
-	return b.String()
-}
-
-func (s *sszStruct) genDecoder(ctx *genContext, r string, obj string) string {
-	var b bytes.Buffer
-	if !ctx.topType {
-		fmt.Fprintf(&b, "if err := %s.UnmarshalSSZ(%s); err != nil {\n", obj, r)
-		fmt.Fprint(&b, "return err\n")
-		fmt.Fprint(&b, "}\n")
-		return b.String()
-	}
-	ctx.topType = false
-
-	for i, field := range s.fields {
-		if field.fixed() {
-			fmt.Fprintf(&b, "%s", field.genDecoder(ctx, r, fmt.Sprintf("%s.%s", obj, s.fieldNames[i])))
-		} else {
-			decodeOffset(ctx, r, &b)
-		}
-	}
-	for i, field := range s.fields {
-		if field.fixed() {
-			continue
-		}
-		wrapList(ctx, r, &b, func() {
-			fmt.Fprintf(&b, "%s", field.genDecoder(ctx, r, fmt.Sprintf("%s.%s", obj, s.fieldNames[i])))
-		})
-	}
-	return b.String()
-}
-
-
-
-func wrapList(ctx *genContext, r string, b *bytes.Buffer, fn func()) {
-	err := ctx.tmpVar("e")
-	fmt.Fprintf(b, "%s := %s.BlockStart()\n", err, r)
-	fmt.Fprintf(b, "if %s != nil {\n", err)
-	fmt.Fprintf(b, "return %s\n", err)
-	fmt.Fprint(b, "}\n")
-	fn()
-	fmt.Fprintf(b, "%s = %s.BlockEnd()\n", err, r)
-	fmt.Fprintf(b, "if %s != nil {\n", err)
-	fmt.Fprintf(b, "return %s\n", err)
-	fmt.Fprint(b, "}\n")
-}
-
-func decodeOffset(ctx *genContext, r string, b *bytes.Buffer) {
-	err := ctx.tmpVar("e")
-	fmt.Fprintf(b, "if %s := %s.DecodeOffset(); %s != nil {\n", err, r, err)
-	fmt.Fprintf(b, "return %s\n", err)
-	fmt.Fprint(b, "}\n")
-}
-
-*/
 
 // isBigInt checks whether 'typ' is "math/big".Int.
 func isBigInt(typ types.Type) bool {

@@ -6,13 +6,6 @@ package consensus_spec_tests
 
 import "github.com/karalabe/ssz"
 
-type Withdrawal struct {
-	Index     uint64  `ssz-size:"8"`
-	Validator uint64  `ssz-size:"8"`
-	Address   Address `ssz-size:"20"`
-	Amount    uint64  `ssz-size:"8"`
-}
-
 func (w *Withdrawal) SizeSSZ() uint32 { return 44 }
 func (w *Withdrawal) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUint64(codec, &w.Index)          // Field (0) - Index          -  8 bytes

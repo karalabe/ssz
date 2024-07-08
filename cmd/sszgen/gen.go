@@ -100,26 +100,106 @@ func generateSizeSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 
 	// Generate the code itself
 	if typ.static {
-		fmt.Fprint(&b, "// SizeSSZ returns the total size of the static ssz object.\n")
-		fmt.Fprintf(&b, "func (obj *%s) SizeSSZ() int {\n", typ.named.Obj().Name())
-		fmt.Fprint(&b, "return ")
+		// Iterate through the fields to see if the size can be computed compile
+		// time or if runtime resolutions are needed
+		var runtime bool
 		for i := range typ.opsets {
-			opset := typ.opsets[i].(*opsetStatic)
-			if opset.bytes > 0 {
-				fmt.Fprintf(&b, "%d", opset.bytes)
-			} else {
-
-			}
-			if i < len(typ.opsets)-1 {
-				fmt.Fprint(&b, " + ")
+			if typ.opsets[i].(*opsetStatic).bytes == 0 {
+				runtime = true
+				break
 			}
 		}
-		fmt.Fprintf(&b, "}\n")
+		// If some types require runtime size determination, generate a helper
+		// variable to run it on package init
+		if runtime {
+			fmt.Fprintf(&b, "// Cached static size computed on package init.\n")
+			fmt.Fprintf(&b, "var staticSizeCache%s = ", typ.named.Obj().Name())
+			for i := range typ.opsets {
+				if bytes := typ.opsets[i].(*opsetStatic).bytes; bytes > 0 {
+					fmt.Fprintf(&b, "%d", bytes)
+				} else {
+					typ := typ.types[i].(*types.Pointer).Elem().(*types.Named)
+					pkg := typ.Obj().Pkg()
+					if pkg.Path() == ctx.pkg.Path() {
+						fmt.Fprintf(&b, "new(%s).SizeSSZ()", typ.Obj().Name())
+					} else {
+						ctx.addImport(pkg.Path(), "")
+						fmt.Fprintf(&b, "new(%s.%s).SizeSSZ()", pkg.Name(), typ.Obj().Name())
+					}
+				}
+				if i < len(typ.opsets)-1 {
+					fmt.Fprint(&b, " + ")
+				}
+			}
+			fmt.Fprintf(&b, "\n\n// SizeSSZ returns the total size of the static ssz object.\n")
+			fmt.Fprintf(&b, "func (obj *%s) SizeSSZ() uint32 {\n", typ.named.Obj().Name())
+			fmt.Fprintf(&b, "	return staticSizeCache%s\n", typ.named.Obj().Name())
+			fmt.Fprintf(&b, "}\n")
+		} else {
+			fmt.Fprint(&b, "// SizeSSZ returns the total size of the static ssz object.\n")
+			fmt.Fprintf(&b, "func (obj *%s) SizeSSZ() uint32 {\n", typ.named.Obj().Name())
+			fmt.Fprint(&b, "	return ")
+			for i := range typ.opsets {
+				fmt.Fprintf(&b, "%d", typ.opsets[i].(*opsetStatic).bytes)
+				if i < len(typ.opsets)-1 {
+					fmt.Fprint(&b, " + ")
+				}
+			}
+			fmt.Fprintf(&b, "}\n")
+		}
 	} else {
-		fmt.Fprint(&b, "// SizeSSZ returns either the static size of the object if fixed == true, or\n// the total size otherwise.\n")
-		fmt.Fprintf(&b, "func (obj *%s) SizeSSZ(fixed bool) int {\n", typ.named.Obj().Name())
-		fmt.Fprint(&b, "return 42\n")
-		fmt.Fprintf(&b, "}\n")
+		// Iterate through the fields to see if the static size can be computed
+		// compile time or if runtime resolutions are needed even for statics.
+		var runtime bool
+		for i := range typ.opsets {
+			if typ, ok := typ.opsets[i].(*opsetStatic); ok {
+				if typ.bytes == 0 {
+					runtime = true
+					break
+				}
+			}
+		}
+		// If some types require runtime size determination, generate a helper
+		// variable to run it on package init
+		if runtime {
+			fmt.Fprintf(&b, "// Cached static size computed on package init.\n")
+			fmt.Fprintf(&b, "var staticSizeCache%s = ", typ.named.Obj().Name())
+			for i := range typ.opsets {
+				switch t := typ.opsets[i].(type) {
+				case *opsetStatic:
+					if t.bytes > 0 {
+						fmt.Fprintf(&b, "%d", t.bytes)
+					} else {
+						typ := typ.types[i].(*types.Pointer).Elem().(*types.Named)
+						pkg := typ.Obj().Pkg()
+						if pkg.Path() == ctx.pkg.Path() {
+							fmt.Fprintf(&b, "new(%s).SizeSSZ()", typ.Obj().Name())
+						} else {
+							ctx.addImport(pkg.Path(), "")
+							fmt.Fprintf(&b, "new(%s.%s).SizeSSZ()", pkg.Name(), typ.Obj().Name())
+						}
+					}
+				case *opsetDynamic:
+					fmt.Fprintf(&b, "%d", offsetBytes)
+				}
+				if i < len(typ.opsets)-1 {
+					fmt.Fprint(&b, " + ")
+				}
+			}
+			fmt.Fprintf(&b, "\n\n// SizeSSZ returns either the static size of the object if fixed == true, or\n// the total size otherwise.\n")
+			fmt.Fprintf(&b, "func (obj *%s) SizeSSZ(fixed bool) uint32 {\n", typ.named.Obj().Name())
+			fmt.Fprintf(&b, "	var size = uint32(staticSizeCache%s)\n", typ.named.Obj().Name())
+			fmt.Fprintf(&b, "	if (fixed) {\n")
+			fmt.Fprintf(&b, "		return staticSizeCache%s\n", typ.named.Obj().Name())
+			fmt.Fprintf(&b, "	}\n")
+			for i := range typ.opsets {
+				if _, ok := typ.opsets[i].(*opsetDynamic); ok {
+					fmt.Fprintf(&b, "	size += obj.%s.SizeSSZ(false)\n", typ.fields[i])
+				}
+			}
+			fmt.Fprintf(&b, "	return size\n")
+			fmt.Fprintf(&b, "}\n")
+		}
 	}
 	return b.Bytes(), nil
 }
@@ -148,29 +228,34 @@ func generateDefineSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 	var (
 		indexRule = fmt.Sprintf("%%%dd", int(math.Ceil(math.Log10(float64(len(typ.fields))))))
 		nameRule  = fmt.Sprintf("%%%ds", maxFieldLength)
-		sizeRule  = fmt.Sprintf("%%%dd", int(math.Ceil(math.Log10(float64(maxBytes)))))
+		sizeRule  = fmt.Sprintf("%d", int(math.Ceil(math.Log10(float64(maxBytes)))))
 	)
 	// Generate the code itself
 	fmt.Fprint(&b, "// DefineSSZ defines how an object is encoded/decoded.\n")
 	fmt.Fprintf(&b, "func (obj *%s) DefineSSZ(codec *ssz.Codec) {\n", typ.named.Obj().Name())
 	if !typ.static {
-		fmt.Fprint(&b, "// Define the static data (fields and dynamic offsets)\n")
+		fmt.Fprint(&b, "	// Define the static data (fields and dynamic offsets)\n")
 	}
 	for i := 0; i < len(typ.fields); i++ {
 		field := typ.fields[i]
 		switch opset := typ.opsets[i].(type) {
 		case *opsetStatic:
-			fmt.Fprintf(&b, "ssz.%s(codec, &obj.%s) // Field  ("+indexRule+") - "+nameRule+" - "+sizeRule+" bytes\n", opset.define, field, i, field, opset.bytes)
+			if opset.bytes > 0 {
+				fmt.Fprintf(&b, "ssz.%s(codec, &obj.%s) // Field  ("+indexRule+") - "+nameRule+" - %"+sizeRule+"d bytes\n", opset.define, field, i, field, opset.bytes)
+			} else {
+				typ := typ.types[i].(*types.Pointer).Elem().(*types.Named)
+				fmt.Fprintf(&b, "	ssz.%s(codec, &obj.%s) // Field  ("+indexRule+") - "+nameRule+" - %"+sizeRule+"s bytes (%s)\n", opset.define, field, i, field, "?", typ.Obj().Name())
+			}
 		case *opsetDynamic:
-			fmt.Fprintf(&b, "ssz.%s(codec, &obj.%s) // Offset ("+indexRule+") - "+nameRule+" - "+sizeRule+" bytes\n", opset.defineOffset, field, i, field, offsetBytes)
+			fmt.Fprintf(&b, "	ssz.%s(codec, &obj.%s) // Offset ("+indexRule+") - "+nameRule+" - %"+sizeRule+"d bytes\n", opset.defineOffset, field, i, field, offsetBytes)
 		}
 	}
 	if !typ.static {
-		fmt.Fprint(&b, "\n// Define the dynamic data (fields)\n")
+		fmt.Fprint(&b, "\n	// Define the dynamic data (fields)\n")
 		for i := 0; i < len(typ.fields); i++ {
 			field := typ.fields[i]
 			if opset, ok := (typ.opsets[i]).(*opsetDynamic); ok {
-				fmt.Fprintf(&b, "ssz.%s(codec, &obj.%s) // Field  ("+indexRule+") - "+nameRule+" -  ? bytes\n", opset.defineContent, field, i, field)
+				fmt.Fprintf(&b, "	ssz.%s(codec, &obj.%s) // Field  ("+indexRule+") - "+nameRule+" -  ? bytes\n", opset.defineContent, field, i, field)
 			}
 		}
 	}
