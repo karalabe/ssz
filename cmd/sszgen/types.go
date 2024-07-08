@@ -34,7 +34,7 @@ func (p *parseContext) makeContainer(named *types.Named, typ *types.Struct) (*ss
 		if !f.Exported() {
 			continue
 		}
-		ignore, tags, err := parseTag(typ.Tag(i))
+		ignore, tags, err := parseTags(typ.Tag(i))
 		if err != nil {
 			return nil, err
 		}
@@ -67,22 +67,22 @@ func (p *parseContext) makeContainer(named *types.Named, typ *types.Struct) (*ss
 // whether there's a collision between them, or if more tags are needed to fully
 // derive the size. If the type/tags are in sync and well-defined, an opset will
 // be returned that the generator can use to create the code.
-func (p *parseContext) resolveOpset(typ types.Type, tags []sizeTag) (opset, error) {
+func (p *parseContext) resolveOpset(typ types.Type, tags *sizeTag) (opset, error) {
 	switch t := typ.(type) {
 	case *types.Named:
 		return p.resolveOpset(t.Underlying(), tags)
 
 	case *types.Basic:
-		return p.resolveBasicOpset(t)
+		return p.resolveBasicOpset(t, tags)
 
 	case *types.Array:
-		return p.resolveArrayOpset(t.Elem(), int(t.Len()))
+		return p.resolveArrayOpset(t.Elem(), int(t.Len()), tags)
 
 	case *types.Slice:
-		return p.resolveSliceOpset(t.Elem())
+		return p.resolveSliceOpset(t.Elem(), tags)
 
 	case *types.Pointer:
-		return p.resolvePointerOpset(t)
+		return p.resolvePointerOpset(t, tags)
 	}
 	return nil, fmt.Errorf("unsupported type %s", typ.String())
 }

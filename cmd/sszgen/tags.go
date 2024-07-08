@@ -18,25 +18,22 @@ const (
 
 // sizeTag describes the size restriction for types.
 type sizeTag struct {
-	size  int64 // 0 means the size is undefined
-	limit int64 // 0 means the limit is undefined
+	size  []int // 0 means the size for that dimension is undefined
+	limit []int // 0 means the limit for that dimension is undefined
 }
 
-func parseTag(input string) (bool, []sizeTag, error) {
+func parseTags(input string) (bool, *sizeTag, error) {
 	if len(input) == 0 {
 		return false, nil, nil
 	}
 	var (
 		ignore bool
-		tags   []sizeTag
-		setTag = func(i int, v int64, ident string) {
-			if i >= len(tags) {
-				tags = append(tags, make([]sizeTag, i-len(tags)+1)...)
-			}
+		tags   sizeTag
+		setTag = func(v int, ident string) {
 			if ident == sszMaxTagIdent {
-				tags[i].limit = v
+				tags.limit = append(tags.limit, v)
 			} else {
-				tags[i].size = v
+				tags.size = append(tags.size, v)
 			}
 		}
 	)
@@ -53,18 +50,21 @@ func parseTag(input string) (bool, []sizeTag, error) {
 			}
 		case sszMaxTagIdent, sszSizeTagIdent:
 			parts := strings.Split(remain, ",")
-			for i, p := range parts {
+			for _, p := range parts {
 				if p == "?" {
-					setTag(i, 0, ident)
+					setTag(0, ident)
 					continue
 				}
 				num, err := strconv.ParseInt(p, 10, 64)
 				if err != nil {
 					return false, nil, err
 				}
-				setTag(i, num, ident)
+				setTag(int(num), ident)
 			}
 		}
 	}
-	return ignore, tags, nil
+	if tags.size == nil && tags.limit == nil {
+		return ignore, nil, nil
+	}
+	return ignore, &tags, nil
 }

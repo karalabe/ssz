@@ -6,12 +6,6 @@ package consensus_spec_tests
 
 import "github.com/karalabe/ssz"
 
-type Attestation struct {
-	AggregationBits []byte
-	Data            *AttestationData
-	Signature       [96]byte
-}
-
 func (a *Attestation) SizeSSZ(fixed bool) uint32 {
 	size := uint32(228)
 	if !fixed {

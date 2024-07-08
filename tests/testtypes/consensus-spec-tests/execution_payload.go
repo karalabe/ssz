@@ -5,26 +5,8 @@
 package consensus_spec_tests
 
 import (
-	"github.com/holiman/uint256"
 	"github.com/karalabe/ssz"
 )
-
-type ExecutionPayload struct {
-	ParentHash    Hash
-	FeeRecipient  Address
-	StateRoot     Hash
-	ReceiptsRoot  Hash
-	LogsBloom     LogsBloom
-	PrevRandao    Hash
-	BlockNumber   uint64
-	GasLimit      uint64
-	GasUsed       uint64
-	Timestamp     uint64
-	ExtraData     []byte
-	BaseFeePerGas *uint256.Int
-	BlockHash     Hash
-	Transactions  [][]byte
-}
 
 func (e *ExecutionPayload) SizeSSZ(fixed bool) uint32 {
 	size := uint32(508)
