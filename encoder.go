@@ -111,14 +111,14 @@ func EncodeUint256(enc *Encoder, n *uint256.Int) {
 			return
 		}
 		if n != nil {
-			n.MarshalSSZTo(enc.buf[:32])
+			n.MarshalSSZInto(enc.buf[:32])
 			_, enc.err = enc.outWriter.Write(enc.buf[:32])
 		} else {
 			_, enc.err = enc.outWriter.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
 		}
 	} else {
 		if n != nil {
-			n.MarshalSSZTo(enc.outBuffer)
+			n.MarshalSSZInto(enc.outBuffer)
 		} else {
 			copy(enc.outBuffer, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
 		}
