@@ -27,13 +27,20 @@ There are several possible outcomes from this experiment:
 - The package turns out simple enough, performant enough and popular enough to be accepted into `go-ethereum` beyond a test.
 - Some other unforeseen outcome of the infinite possibilities.
 
-## Development
+## Design
 
-This module is primarily developed by @karalabe (and possibly @fjl and @rjl493456442). For discussions, please reach out on the Ethereum Research Discord server.
+The `ssz` package splits the responsibility between user code and library code in the way charted below:
+
+![Scope](./docs/scope.svg)
+
+- Users are responsible for creating Go structs they'd like to serialize, which are mapped one-to-one to the *SSZ Container* type. The library does not support runtime defining SSZ containers.
+- The *SSZ Vector* and *SSZ List* types are constructed inside the library from user supplied Go arrays and Go slices respectively. The caller is not able to create their own Go types that serialize into a standalone *SSZ Vector* or *SSZ List*.
+- Similarly to the *SSZ Vector* and *SSZ List* types, the *SSZ Basic Types* are constructed inside the library from user supplied Go primitive types, or within Go arrays and slices. The caller is not able to create their own Go types that serialize into a standalone *SSZ Basic Type*.
+- *SSZ Union* is not implemented as it is an unused (and disliked) feature in Ethereum.
 
 ## How to use
 
-First up, you need to add the packag eto your ptoject:
+First up, you need to add the package to your project:
 
 ```go
 go get github.com/karalabe/ssz

@@ -30,13 +30,6 @@ func newGenContext(pkg *types.Package) *genContext {
 	}
 }
 
-func (ctx *genContext) qualifier(path string, obj string) string {
-	if path == ctx.pkg.Path() {
-		return obj
-	}
-	return fmt.Sprintf("%s.%s", pkgName(path), obj)
-}
-
 func (ctx *genContext) addImport(path string, alias string) error {
 	if path == ctx.pkg.Path() {
 		return nil
