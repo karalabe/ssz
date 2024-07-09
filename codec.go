@@ -4,7 +4,10 @@
 
 package ssz
 
-import "github.com/holiman/uint256"
+import (
+	"github.com/holiman/uint256"
+	"github.com/prysmaticlabs/go-bitfield"
+)
 
 // Codec is a unified SSZ encoder and decoder that allows simple structs to
 // define their schemas once and have that work for both operations at once
@@ -127,6 +130,33 @@ func DefineDynamicObjectContent[T newableDynamicObject[U], U any](c *Codec, obj 
 		return
 	}
 	DecodeDynamicObjectContent(c.dec, obj)
+}
+
+// DefineArrayOfBits defines the next field as a static array of (packed) bits.
+func DefineArrayOfBits[T ~[]byte](c *Codec, bits T, size uint64) {
+	if c.enc != nil {
+		EncodeArrayOfBits(c.enc, bits)
+		return
+	}
+	DecodeArrayOfBits(c.dec, bits, size)
+}
+
+// DefineSliceOfBitsOffset defines the next field as a dynamic slice of (packed) bits.
+func DefineSliceOfBitsOffset(c *Codec, bits *bitfield.Bitlist) {
+	if c.enc != nil {
+		EncodeSliceOfBitsOffset(c.enc, *bits)
+		return
+	}
+	DecodeSliceOfBitsOffset(c.dec, bits)
+}
+
+// DefineSliceOfBitsContent defines the next field as a dynamic slice of (packed) bits.
+func DefineSliceOfBitsContent(c *Codec, bits *bitfield.Bitlist, maxBits uint64) {
+	if c.enc != nil {
+		EncodeSliceOfBitsContent(c.enc, *bits)
+		return
+	}
+	DecodeSliceOfBitsContent(c.dec, bits, maxBits)
 }
 
 // DefineArrayOfUint64s defines the next field as a static array of uint64s.

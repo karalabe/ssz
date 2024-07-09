@@ -4,10 +4,18 @@
 
 package ssz
 
+import "github.com/prysmaticlabs/go-bitfield"
+
 // SizeDynamicBytes returns the serialized size of the dynamic part of a dynamic
 // blob.
 func SizeDynamicBytes(blobs []byte) uint32 {
 	return uint32(len(blobs))
+}
+
+// SizeSliceOfBits returns the serialized size of the dynamic part of a slice of
+// bits.
+func SizeSliceOfBits(bits bitfield.Bitlist) uint32 {
+	return uint32(len(bits))
 }
 
 // SizeSliceOfUint64s returns the serialized size of the dynamic part of a dynamic

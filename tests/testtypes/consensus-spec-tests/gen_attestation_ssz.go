@@ -14,7 +14,7 @@ func (obj *Attestation) SizeSSZ(fixed bool) uint32 {
 	if fixed {
 		return size
 	}
-	size += ssz.SizeDynamicBytes(obj.AggregationBits)
+	size += ssz.SizeSliceOfBits(obj.AggregationBits)
 
 	return size
 }
@@ -22,10 +22,10 @@ func (obj *Attestation) SizeSSZ(fixed bool) uint32 {
 // DefineSSZ defines how an object is encoded/decoded.
 func (obj *Attestation) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
-	ssz.DefineDynamicBytesOffset(codec, &obj.AggregationBits) // Offset (0) - AggregationBits -  4 bytes
-	ssz.DefineStaticObject(codec, &obj.Data)                  // Field  (1) -            Data -  ? bytes (AttestationData)
-	ssz.DefineStaticBytes(codec, obj.Signature[:])            // Field  (2) -       Signature - 96 bytes
+	ssz.DefineSliceOfBitsOffset(codec, &obj.AggregationBits) // Offset (0) - AggregationBits -  4 bytes
+	ssz.DefineStaticObject(codec, &obj.Data)                 // Field  (1) -            Data -  ? bytes (AttestationData)
+	ssz.DefineStaticBytes(codec, obj.Signature[:])           // Field  (2) -       Signature - 96 bytes
 
 	// Define the dynamic data (fields)
-	ssz.DefineDynamicBytesContent(codec, &obj.AggregationBits, 2048) // Field  (0) - AggregationBits - ? bytes
+	ssz.DefineSliceOfBitsContent(codec, &obj.AggregationBits, 2048) // Field  (0) - AggregationBits - ? bytes
 }

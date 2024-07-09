@@ -10,6 +10,7 @@ import (
 	"unsafe"
 
 	"github.com/holiman/uint256"
+	"github.com/prysmaticlabs/go-bitfield"
 )
 
 // Some helpers to avoid occasional allocations
@@ -217,6 +218,47 @@ func EncodeDynamicObjectContent(enc *Encoder, obj DynamicObject) {
 	}
 	enc.offsetDynamics(obj.SizeSSZ(true))
 	obj.DefineSSZ(enc.codec)
+}
+
+// EncodeArrayOfBits serializes a static array of (packed) bits.
+func EncodeArrayOfBits[T ~[]byte](enc *Encoder, bits T) {
+	if enc.outWriter != nil {
+		if enc.err != nil {
+			return
+		}
+		_, enc.err = enc.outWriter.Write(bits)
+	} else {
+		copy(enc.outBuffer, bits)
+		enc.outBuffer = enc.outBuffer[len(bits):]
+	}
+}
+
+// EncodeSliceOfBitsOffset serializes a dynamic slice of (packed) bits.
+func EncodeSliceOfBitsOffset(enc *Encoder, bits bitfield.Bitlist) {
+	if enc.outWriter != nil {
+		if enc.err != nil {
+			return
+		}
+		binary.LittleEndian.PutUint32(enc.buf[:4], enc.offset)
+		_, enc.err = enc.outWriter.Write(enc.buf[:4])
+	} else {
+		binary.LittleEndian.PutUint32(enc.outBuffer, enc.offset)
+		enc.outBuffer = enc.outBuffer[4:]
+	}
+	enc.offset += uint32(len(bits))
+}
+
+// EncodeSliceOfBitsContent is the lazy data writer for EncodeSliceOfBitsOffset.
+func EncodeSliceOfBitsContent(enc *Encoder, bits bitfield.Bitlist) {
+	if enc.outWriter != nil {
+		if enc.err != nil {
+			return
+		}
+		_, enc.err = enc.outWriter.Write(bits) // bitfield.Bitlist already has the length bit set
+	} else {
+		copy(enc.outBuffer, bits)
+		enc.outBuffer = enc.outBuffer[len(bits):] // bitfield.Bitlist already has the length bit set
+	}
 }
 
 // EncodeArrayOfUint64s serializes a static array of uint64s.

@@ -44,7 +44,7 @@ func (obj *BeaconState) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineArrayOfUint64s(codec, obj.Slashings[:])                            // Field  (14) -                   Slashings -   65536 bytes
 	ssz.DefineSliceOfDynamicObjectsOffset(codec, &obj.PreviousEpochAttestations) // Offset (15) -   PreviousEpochAttestations -       4 bytes
 	ssz.DefineSliceOfDynamicObjectsOffset(codec, &obj.CurrentEpochAttestations)  // Offset (16) -    CurrentEpochAttestations -       4 bytes
-	ssz.DefineStaticBytes(codec, obj.JustificationBits[:])                       // Field  (17) -           JustificationBits -       1 bytes
+	ssz.DefineArrayOfBits(codec, obj.JustificationBits[:], 4)                    // Field  (17) -           JustificationBits -       1 bytes
 	ssz.DefineStaticObject(codec, &obj.PreviousJustifiedCheckpoint)              // Field  (18) - PreviousJustifiedCheckpoint -       ? bytes (Checkpoint)
 	ssz.DefineStaticObject(codec, &obj.CurrentJustifiedCheckpoint)               // Field  (19) -  CurrentJustifiedCheckpoint -       ? bytes (Checkpoint)
 	ssz.DefineStaticObject(codec, &obj.FinalizedCheckpoint)                      // Field  (20) -         FinalizedCheckpoint -       ? bytes (Checkpoint)

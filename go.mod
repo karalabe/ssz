@@ -10,6 +10,7 @@ require (
 )
 
 require (
+	github.com/prysmaticlabs/go-bitfield v0.0.0-20240618144021-706c95b2dd15 // indirect
 	golang.org/x/mod v0.18.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
 )

@@ -54,3 +54,11 @@ var ErrObjectSlotSizeMismatch = errors.New("ssz: object didn't consume all desig
 // ErrInvalidBoolean is returned from decoding if a boolean slot contains some
 // other byte than 0x00 or 0x01.
 var ErrInvalidBoolean = errors.New("ssz: invalid boolean")
+
+// ErrJunkInBitvector is returned from decoding if the high (unused) bits of a
+// bitvector contains junk, instead of being all 0.
+var ErrJunkInBitvector = errors.New("ssz: junk in bitvector unused bits")
+
+// ErrJunkInBitlist is returned from decoding if the high (unused) bits of a
+// bitlist contains junk, instead of being all 0.
+var ErrJunkInBitlist = errors.New("ssz: junk in bitlist unused bits")

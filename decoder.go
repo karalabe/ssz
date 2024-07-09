@@ -8,9 +8,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math/bits"
 	"unsafe"
 
 	"github.com/holiman/uint256"
+	"github.com/prysmaticlabs/go-bitfield"
 )
 
 // Decoder is a wrapper around an io.Reader to implement dense SSZ decoding. It
@@ -247,6 +249,86 @@ func DecodeDynamicObjectContent[T newableDynamicObject[U], U any](dec *Decoder, 
 	dec.startDynamics((*obj).SizeSSZ(true))
 	(*obj).DefineSSZ(dec.codec)
 	dec.flushDynamics()
+}
+
+// DecodeArrayOfBits parses a static array of (packed) bits.
+func DecodeArrayOfBits[T ~[]byte](dec *Decoder, bits T, size uint64) {
+	if dec.err != nil {
+		return
+	}
+	if dec.inReader != nil {
+		_, dec.err = io.ReadFull(dec.inReader, bits)
+		if dec.err != nil {
+			return
+		}
+		dec.inRead += uint32(len(bits))
+	} else {
+		if len(dec.inBuffer) < len(bits) {
+			dec.err = io.ErrUnexpectedEOF
+			return
+		}
+		copy(bits, dec.inBuffer)
+		dec.inBuffer = dec.inBuffer[len(bits):]
+	}
+	// TODO(karalabe): This can probably be done more optimally...
+	for i := size; i < uint64(len(bits)<<3); i++ {
+		if bits[i>>3]&(1<<(i&0x7)) > 0 {
+			dec.err = fmt.Errorf("%w: bit %d set, size %d bits", ErrJunkInBitvector, i+1, size)
+			return
+		}
+	}
+}
+
+// DecodeSliceOfBitsOffset parses a dynamic slice of (packed) bits.
+func DecodeSliceOfBitsOffset(dec *Decoder, bitlist *bitfield.Bitlist) {
+	dec.decodeOffset(false)
+}
+
+// DecodeSliceOfBitsContent is the lazy data reader of DecodeSliceOfBitsOffset.
+func DecodeSliceOfBitsContent(dec *Decoder, bitlist *bitfield.Bitlist, maxBits uint64) {
+	if dec.err != nil {
+		return
+	}
+	// Compute the length of the encoded bits based on the seen offsets
+	size := dec.retrieveSize()
+	if size == 0 {
+		return // empty slice of objects
+	}
+	// Verify that the byte size is reasonable, bits will need an extra step after decoding
+	if maxBytes := maxBits>>3 + 1; maxBytes < uint64(size) {
+		dec.err = fmt.Errorf("%w: decoded %d bytes, max %d bytes", ErrMaxItemsExceeded, size, maxBytes)
+		return
+	}
+	// Expand the slice if needed and read the bits
+	if uint32(cap(*bitlist)) < size {
+		*bitlist = make([]byte, size)
+	} else {
+		*bitlist = (*bitlist)[:size]
+	}
+	if dec.inReader != nil {
+		_, dec.err = io.ReadFull(dec.inReader, *bitlist)
+		if dec.err != nil {
+			return
+		}
+		dec.inRead += uint32(len(*bitlist))
+	} else {
+		if len(dec.inBuffer) < len(*bitlist) {
+			dec.err = io.ErrUnexpectedEOF
+			return
+		}
+		copy(*bitlist, dec.inBuffer)
+		dec.inBuffer = dec.inBuffer[len(*bitlist):]
+	}
+	// Verify that the length bit is at the correct position
+	high := (*bitlist)[len(*bitlist)-1]
+	if high == 0 {
+		dec.err = fmt.Errorf("%w: high byte unset", ErrJunkInBitvector)
+		return
+	}
+	if len := ((len(*bitlist) - 1) >> 3) + bits.Len8(high) - 1; uint64(len) > maxBits {
+		dec.err = fmt.Errorf("%w: decoded %d bits, max %d bits", ErrMaxItemsExceeded, len, maxBits)
+		return
+	}
 }
 
 // DecodeArrayOfUint64s parses a static array of uint64s.

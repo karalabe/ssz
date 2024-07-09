@@ -70,6 +70,9 @@ func (p *parseContext) makeContainer(named *types.Named, typ *types.Struct) (*ss
 func (p *parseContext) resolveOpset(typ types.Type, tags *sizeTag) (opset, error) {
 	switch t := typ.(type) {
 	case *types.Named:
+		if isBitlist(typ) {
+			return p.resolveBitlistOpset(tags)
+		}
 		return p.resolveOpset(t.Underlying(), tags)
 
 	case *types.Basic:
@@ -105,4 +108,14 @@ func isUint256(typ types.Type) bool {
 	}
 	name := named.Obj()
 	return name.Pkg().Path() == "github.com/holiman/uint256" && name.Name() == "Int"
+}
+
+// isBitlist checks whether 'typ' is "github.com/prysmaticlabs/go-bitfield".Bitlist.
+func isBitlist(typ types.Type) bool {
+	named, ok := typ.(*types.Named)
+	if !ok {
+		return false
+	}
+	name := named.Obj()
+	return name.Pkg().Path() == "github.com/prysmaticlabs/go-bitfield" && name.Name() == "Bitlist"
 }

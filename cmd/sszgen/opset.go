@@ -78,6 +78,28 @@ func (p *parseContext) resolveBasicOpset(typ *types.Basic, tags *sizeTag) (opset
 	}
 }
 
+func (p *parseContext) resolveBitlistOpset(tags *sizeTag) (opset, error) {
+	if tags == nil || tags.limit == nil {
+		return nil, fmt.Errorf("slice of bits type requires ssz-max tag")
+	}
+	if len(tags.size) > 0 {
+		return nil, fmt.Errorf("slice of bits type cannot have ssz-size tag")
+	}
+	if len(tags.limit) != 1 {
+		return nil, fmt.Errorf("slice of bits tag conflict: field supports [N] bits, tag wants %v bits", tags.limit)
+	}
+	return &opsetDynamic{
+		"SizeSliceOfBits({{.Field}})",
+		"DefineSliceOfBitsOffset({{.Codec}}, &{{.Field}})",
+		fmt.Sprintf("DefineSliceOfBitsContent({{.Codec}}, &{{.Field}}, %d)", tags.limit[0]), // inject bit-cap directly
+		"EncodeSliceOfBitsOffset({{.Codec}}, &{{.Field}})",
+		fmt.Sprintf("EncodeSliceOfBitsContent({{.Codec}}, &{{.Field}}, %d)", tags.limit[0]), // inject bit-cap directly
+		"DecodeSliceOfBitsOffset({{.Codec}}, &{{.Field}})",
+		fmt.Sprintf("DecodeSliceOfBitsContent({{.Codec}}, &{{.Field}}, %d)", tags.limit[0]), // inject bit-cap directly
+		nil, []int{(tags.limit[0] + 7) / 8},
+	}, nil
+}
+
 func (p *parseContext) resolveArrayOpset(typ types.Type, size int, tags *sizeTag) (opset, error) {
 	switch typ := typ.(type) {
 	case *types.Basic:
@@ -89,6 +111,19 @@ func (p *parseContext) resolveArrayOpset(typ types.Type, size int, tags *sizeTag
 		}
 		switch typ.Kind() {
 		case types.Byte:
+			// If the byte array is a packet bitvector, handle is explicitly
+			if tags != nil && tags.bits {
+				if len(tags.size) != 1 || tags.size[0] < (size-1)*8+1 || tags.size[0] > size*8 {
+					return nil, fmt.Errorf("array of bits tag conflict: field supports %d-%d bits, tag wants %v bits", (size-1)*8+1, size*8, tags.size)
+				}
+				return &opsetStatic{
+					fmt.Sprintf("DefineArrayOfBits({{.Codec}}, {{.Field}}[:], %d)", tags.size[0]), // inject bit-size directly
+					fmt.Sprintf("EncodeArrayOfBits({{.Codec}}, {{.Field}}[:], %d)", tags.size[0]), // inject bit-size directly
+					fmt.Sprintf("DecodeArrayOfBits({{.Codec}}, {{.Field}}[:], %d)", tags.size[0]), // inject bit-size directly
+					[]int{size},
+				}, nil
+			}
+			// Not a bitvector, interpret as plain byte array
 			if tags != nil {
 				if (len(tags.size) != 1 && len(tags.size) != 2) ||
 					(len(tags.size) == 1 && tags.size[0] != size) ||

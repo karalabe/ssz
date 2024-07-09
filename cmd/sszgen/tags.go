@@ -18,6 +18,7 @@ const (
 
 // sizeTag describes the size restriction for types.
 type sizeTag struct {
+	bits  bool  // whether the sizes are bits instead of bytes
 	size  []int // 0 means the size for that dimension is undefined
 	limit []int // 0 means the limit for that dimension is undefined
 }
@@ -47,6 +48,8 @@ func parseTags(input string) (bool, *sizeTag, error) {
 		case sszTagIdent:
 			if remain == "-" {
 				ignore = true
+			} else if remain == "bits" {
+				tags.bits = true
 			}
 		case sszMaxTagIdent, sszSizeTagIdent:
 			parts := strings.Split(remain, ",")

@@ -4,7 +4,10 @@
 
 package consensus_spec_tests
 
-import "github.com/holiman/uint256"
+import (
+	"github.com/holiman/uint256"
+	"github.com/prysmaticlabs/go-bitfield"
+)
 
 //go:generate go run ../../../cmd/sszgen -type Checkpoint -out gen_checkpoint_ssz.go
 //go:generate go run ../../../cmd/sszgen -type AttestationData -out gen_attestation_data_ssz.go
@@ -65,7 +68,7 @@ type AggregateAndProof struct {
 }
 
 type Attestation struct {
-	AggregationBits []byte `ssz-max:"2048"`
+	AggregationBits bitfield.Bitlist `ssz-max:"2048"`
 	Data            *AttestationData
 	Signature       [96]byte
 }
@@ -182,7 +185,7 @@ type BeaconState struct {
 	Slashings                   [8192]uint64
 	PreviousEpochAttestations   []*PendingAttestation `ssz-max:"4096"`
 	CurrentEpochAttestations    []*PendingAttestation `ssz-max:"4096"`
-	JustificationBits           [1]byte
+	JustificationBits           [1]byte               `ssz-size:"4" ssz:"bits"`
 	PreviousJustifiedCheckpoint *Checkpoint
 	CurrentJustifiedCheckpoint  *Checkpoint
 	FinalizedCheckpoint         *Checkpoint
@@ -361,7 +364,7 @@ type IndexedAttestation struct {
 }
 
 type PendingAttestation struct {
-	AggregationBits []byte `ssz-max:"2048"`
+	AggregationBits bitfield.Bitlist `ssz-max:"2048"`
 	Data            *AttestationData
 	InclusionDelay  uint64
 	ProposerIndex   uint64
