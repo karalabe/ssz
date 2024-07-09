@@ -29,10 +29,8 @@ import "github.com/holiman/uint256"
 //go:generate go run ../../../cmd/sszgen -type SignedBeaconBlockHeader -out gen_signed_beacon_block_header_ssz.go
 //go:generate go run ../../../cmd/sszgen -type SignedBLSToExecutionChange -out gen_signed_bls_to_execution_change_ssz.go
 //go:generate go run ../../../cmd/sszgen -type SignedVoluntaryExit -out gen_signed_voluntary_exit_ssz.go
-//go:generate go run ../../../cmd/sszgen -type SigningRoot -out gen_signing_root_ssz.go
 //go:generate go run ../../../cmd/sszgen -type SyncAggregate -out gen_sync_aggregate_ssz.go
 //go:generate go run ../../../cmd/sszgen -type SyncCommittee -out gen_sync_committee_ssz.go
-//go:generate go run ../../../cmd/sszgen -type Transfer -out gen_transfer_ssz.go
 //go:generate go run ../../../cmd/sszgen -type VoluntaryExit -out gen_voluntary_exit_ssz.go
 //go:generate go run ../../../cmd/sszgen -type Validator -out gen_validator_ssz.go
 //go:generate go run ../../../cmd/sszgen -type Withdrawal -out gen_withdrawal_ssz.go
@@ -389,11 +387,6 @@ type SignedVoluntaryExit struct {
 	Signature [96]byte
 }
 
-type SigningRoot struct {
-	ObjectRoot [32]byte
-	Domain     [8]byte
-}
-
 type SyncAggregate struct {
 	SyncCommiteeBits      [64]byte
 	SyncCommiteeSignature [96]byte
@@ -402,16 +395,6 @@ type SyncAggregate struct {
 type SyncCommittee struct {
 	PubKeys         [512][48]byte
 	AggregatePubKey [48]byte
-}
-
-type Transfer struct {
-	Sender    uint64
-	Recipient uint64
-	Amount    uint64
-	Fee       uint64
-	Slot      uint64
-	Pubkey    [48]byte
-	Signature [96]byte
 }
 
 type VoluntaryExit struct {

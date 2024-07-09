@@ -12,6 +12,13 @@ import (
 	"github.com/holiman/uint256"
 )
 
+// Some helpers to avoid occasional allocations
+var (
+	boolFalse   = []byte{0x00}
+	boolTrue    = []byte{0x01}
+	uint256Zero = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+)
+
 // Encoder is a wrapper around an io.Writer or a []byte buffer to implement SSZ
 // encoding in a streaming or buffered way. It has the following behaviors:
 //
@@ -74,9 +81,9 @@ func EncodeBool[T ~bool](enc *Encoder, v T) {
 			return
 		}
 		if !v {
-			_, enc.err = enc.outWriter.Write([]byte{0x00})
+			_, enc.err = enc.outWriter.Write(boolFalse)
 		} else {
-			_, enc.err = enc.outWriter.Write([]byte{0x01})
+			_, enc.err = enc.outWriter.Write(boolTrue)
 		}
 	} else {
 		if !v {
@@ -114,13 +121,13 @@ func EncodeUint256(enc *Encoder, n *uint256.Int) {
 			n.MarshalSSZInto(enc.buf[:32])
 			_, enc.err = enc.outWriter.Write(enc.buf[:32])
 		} else {
-			_, enc.err = enc.outWriter.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
+			_, enc.err = enc.outWriter.Write(uint256Zero)
 		}
 	} else {
 		if n != nil {
 			n.MarshalSSZInto(enc.outBuffer)
 		} else {
-			copy(enc.outBuffer, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
+			copy(enc.outBuffer, uint256Zero)
 		}
 		enc.outBuffer = enc.outBuffer[32:]
 	}
