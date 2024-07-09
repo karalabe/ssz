@@ -21,10 +21,10 @@ Whilst we aim to be a become the SSZ encoder of `go-ethereum` - and more general
 
 There are several possible outcomes from this experiment:
 
-- We determine the effort required to implement all current and future SSZ features are not worth it, abandoning this package.
-- All the needed features are shipped, but the package is rejected in favor of some other design that is considered superior.
-- The API design of this package get merged into some other existing library and this work gets abandoned in its favor.
-- The package turns out simple enough, performant enough and popular enough to be accepted into `go-ethereum` beyond a test.
+- We determine the effort required to implement all SSZ features are not worth it, abandoning this package.
+- All the needed features are shipped, but the package is rejected in favor of some other superior design.
+- The API this package gets merged into some existing library and this work gets abandoned in its favor.
+- The package turns out simple, safe and performant enough to be added to `go-ethereum` as a test.
 - Some other unforeseen outcome of the infinite possibilities.
 
 ## Design
