@@ -54,7 +54,7 @@ go get github.com/karalabe/ssz
 
 ### Static types
 
-Some data types in Ethereum will only contain a handful of statically sized fields. One such example would be a `Withdrawal` as seen below.
+Some types in Ethereum will only contain a handful of statically sized fields. One example is a `Withdrawal`:
 
 ```go
 type Address [20]byte
@@ -67,7 +67,7 @@ type Withdrawal struct {
 }
 ```
 
-In order to encode/decode such a (standalone) object via SSZ, it needs to implement the `ssz.StaticObject` interface:
+To encode/decode such an object via SSZ, it needs to implement the `ssz.StaticObject` interface:
 
 ```go
 type StaticObject interface {
@@ -139,7 +139,7 @@ type ExecutionPayload struct {
 
 Do note, we've reused the previously defined `Address` and `Withdrawal` types. You'll need those too to make this part of the code work. The `uint256.Int` type is from the `github.com/holiman/uint256` package.
 
-In order to encode/decode such a (standalone) object via SSZ, it needs to implement the `ssz.DynamicObject` interface:
+To encode/decode such an object via SSZ, it needs to implement the `ssz.DynamicObject` interface:
 
 ```go
 type DynamicObject interface {
