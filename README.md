@@ -29,7 +29,7 @@ There are several possible outcomes from this experiment:
 
 ## Design
 
-The `ssz` package splits the responsibility between user code and library code in the way charted below:
+The `ssz` package splits the responsibility between user code and library code in the way pictured below:
 
 ![Scope](./docs/scope.svg)
 
@@ -37,6 +37,10 @@ The `ssz` package splits the responsibility between user code and library code i
 - The *SSZ Vector* and *SSZ List* types are constructed inside the library from user supplied Go arrays and Go slices respectively. The caller is not able to create their own Go types that serialize into a standalone *SSZ Vector* or *SSZ List*.
 - Similarly to the *SSZ Vector* and *SSZ List* types, the *SSZ Basic Types* are constructed inside the library from user supplied Go primitive types, or within Go arrays and slices. The caller is not able to create their own Go types that serialize into a standalone *SSZ Basic Type*.
 - *SSZ Union* is not implemented as it is an unused (and disliked) feature in Ethereum.
+
+### Weird shit
+
+The [SSZ spec](https://github.com/ethereum/consensus-specs/blob/dev/ssz/simple-serialize.md) has schema definitions for mapping SSZ data to [JSON and YAML](https://github.com/ethereum/consensus-specs/blob/dev/ssz/simple-serialize.md#json-mapping). We believe in separation of concerns. This library does not (nor will ever) concern itself with encoding/decoding from formats other than SSZ.
 
 ## How to use
 
