@@ -35,19 +35,14 @@ The `ssz` package splits the responsibility between user code and library code i
 
 ![Scope](./docs/scope.svg)
 
-- Users are responsible for creating Go structs they'd like to serialize, which are mapped one-to-one to the *SSZ Container* type.
-- The *SSZ Vector* and *SSZ List* types are constructed inside the library from user supplied Go arrays and Go slices respectively.
-- The *SSZ BitVector[N]* is constructed inside the library from user supplied Go array or slice of bytes, tagged with `ssz:"bits"`.
-- The *SSZ BitList[N]* type is constructed inside the library from user supplied `Bitlist` type from the `github.com/prysmaticlabs/go-bitfield` package.
-  - This construct uses an external type because working with unpacked bits (i.e. 1 array/slice item per bit) is unreasonable, so a packed type is needed that can track its bit-length independent of its byte-length.
-- The *SSZ Basic Types* are constructed inside the library from user supplied Go primitive types, or within Go arrays and slices.
-- The *SSZ Uint256* basic type is constructed inside the library from user supplied `Int` type from the `github.com/holiman/uint256` package.
-  - This construct uses an external type because Go does not have a built-in 256bit integer primitive and `big.Int` brings annoying ambiguity with arbitrary bit-lengths; also it is not alloc-free-friendly.
-- *SSZ Union* is not implemented as it is an unused (and disliked) feature in Ethereum.
+- Users are responsible for creating Go structs, which are mapped one-to-one to the SSZ container type.
+- The library is responsible for creating all other SSZ types from the fields of the user-defined structs.
+- Some SSZ types require specific types to be used due to robustness and performance reasons.
+- SSZ unions are not implemented as they are an unused (and disliked) feature in Ethereum.
 
-### Weird shit
+### Weird stuff
 
-The [Simple Serialize spec](https://github.com/ethereum/consensus-specs/blob/dev/ssz/simple-serialize.md) has schema definitions for mapping SSZ data to [JSON and YAML](https://github.com/ethereum/consensus-specs/blob/dev/ssz/simple-serialize.md#json-mapping). We believe in separation of concerns. This library does not (nor will ever) concern itself with encoding/decoding from formats other than SSZ.
+The [Simple Serialize spec](https://github.com/ethereum/consensus-specs/blob/dev/ssz/simple-serialize.md) has schema definitions for mapping SSZ data to [JSON](https://github.com/ethereum/consensus-specs/blob/dev/ssz/simple-serialize.md#json-mapping). We believe in separation of concerns. This library does not concern itself with encoding/decoding from formats other than SSZ.
 
 ## How to use
 
