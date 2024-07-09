@@ -5,7 +5,7 @@ package consensus_spec_tests
 import "github.com/karalabe/ssz"
 
 // Cached static size computed on package init.
-var staticSizeCacheAttestation = 4 + new(AttestationData).SizeSSZ() + 96
+var staticSizeCacheAttestation = 4 + (*AttestationData)(nil).SizeSSZ() + 96
 
 // SizeSSZ returns either the static size of the object if fixed == true, or
 // the total size otherwise.

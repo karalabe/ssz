@@ -19,10 +19,8 @@ const (
 )
 
 type genContext struct {
-	topType bool
 	pkg     *types.Package
 	imports map[string]string
-	nvar    int
 }
 
 func newGenContext(pkg *types.Package) *genContext {
@@ -80,19 +78,8 @@ func (ctx *genContext) header() []byte {
 			fmt.Fprintf(&b, "%s \"%s\"\n", alias, path)
 		}
 	}
-	fmt.Fprintf(&b, ")\n")
+	//fmt.Fprintf(&b, ")\n")
 	return b.Bytes()
-}
-
-func (ctx *genContext) tmpVar(name string) string {
-	id := fmt.Sprintf("_%s%d", name, ctx.nvar)
-	ctx.nvar += 1
-	return id
-}
-
-func (ctx *genContext) reset() {
-	ctx.nvar = 0
-	ctx.topType = true
 }
 
 func generate(ctx *genContext, typ *sszContainer) ([]byte, error) {
@@ -107,13 +94,12 @@ func generate(ctx *genContext, typ *sszContainer) ([]byte, error) {
 		}
 		codes = append(codes, code)
 	}
-	fmt.Println(string(bytes.Join(codes, []byte("\n"))))
+	//fmt.Println(string(bytes.Join(codes, []byte("\n"))))
 	return bytes.Join(codes, []byte("\n")), nil
 }
 
 func generateSizeSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 	var b bytes.Buffer
-	ctx.reset()
 
 	// Generate the code itself
 	if typ.static {
@@ -142,10 +128,10 @@ func generateSizeSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 					typ := typ.types[i].(*types.Pointer).Elem().(*types.Named)
 					pkg := typ.Obj().Pkg()
 					if pkg.Path() == ctx.pkg.Path() {
-						fmt.Fprintf(&b, "new(%s).SizeSSZ()", typ.Obj().Name())
+						fmt.Fprintf(&b, "(*%s)(nil).SizeSSZ()", typ.Obj().Name())
 					} else {
 						ctx.addImport(pkg.Path(), "")
-						fmt.Fprintf(&b, "new(%s.%s).SizeSSZ()", pkg.Name(), typ.Obj().Name())
+						fmt.Fprintf(&b, "(*%s.%s)(nil).SizeSSZ()", pkg.Name(), typ.Obj().Name())
 					}
 				}
 				if i < len(typ.opsets)-1 {
@@ -203,10 +189,10 @@ func generateSizeSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 						typ := typ.types[i].(*types.Pointer).Elem().(*types.Named)
 						pkg := typ.Obj().Pkg()
 						if pkg.Path() == ctx.pkg.Path() {
-							fmt.Fprintf(&b, "new(%s).SizeSSZ()", typ.Obj().Name())
+							fmt.Fprintf(&b, "(*%s)(nil).SizeSSZ()", typ.Obj().Name())
 						} else {
 							ctx.addImport(pkg.Path(), "")
-							fmt.Fprintf(&b, "new(%s.%s).SizeSSZ()", pkg.Name(), typ.Obj().Name())
+							fmt.Fprintf(&b, "(*%s.%s)(nil).SizeSSZ()", pkg.Name(), typ.Obj().Name())
 						}
 					}
 				case *opsetDynamic:
@@ -270,7 +256,6 @@ func generateSizeSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 
 func generateDefineSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 	var b bytes.Buffer
-	ctx.reset()
 
 	// Add a needed import of the ssz encoder
 	ctx.addImport(sszPkgPath, "")

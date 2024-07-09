@@ -5,7 +5,7 @@ package consensus_spec_tests
 import "github.com/karalabe/ssz"
 
 // Cached static size computed on package init.
-var staticSizeCacheDeposit = 33*32 + new(DepositData).SizeSSZ()
+var staticSizeCacheDeposit = 33*32 + (*DepositData)(nil).SizeSSZ()
 
 // SizeSSZ returns the total size of the static ssz object.
 func (obj *Deposit) SizeSSZ() uint32 {

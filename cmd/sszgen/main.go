@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"go/format"
 	"go/types"
+	"log"
 	"os"
 	"strings"
 
@@ -51,6 +52,9 @@ type Config struct {
 
 // process generates the Go code.
 func (cfg *Config) process() ([]byte, error) {
+	// Display a single log for mass generates
+	log.Printf("Generating SSZ bindings for: %v", cfg.Types)
+
 	// Load the ssz library package and the target package to generate into
 	pcfg := &packages.Config{
 		Mode: packages.NeedName | packages.NeedTypes | packages.NeedImports | packages.NeedDeps,

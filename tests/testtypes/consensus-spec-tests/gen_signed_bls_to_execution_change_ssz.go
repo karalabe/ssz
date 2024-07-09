@@ -5,7 +5,7 @@ package consensus_spec_tests
 import "github.com/karalabe/ssz"
 
 // Cached static size computed on package init.
-var staticSizeCacheSignedBLSToExecutionChange = new(BLSToExecutionChange).SizeSSZ() + 96
+var staticSizeCacheSignedBLSToExecutionChange = (*BLSToExecutionChange)(nil).SizeSSZ() + 96
 
 // SizeSSZ returns the total size of the static ssz object.
 func (obj *SignedBLSToExecutionChange) SizeSSZ() uint32 {

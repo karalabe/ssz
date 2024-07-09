@@ -5,7 +5,7 @@ package consensus_spec_tests
 import "github.com/karalabe/ssz"
 
 // Cached static size computed on package init.
-var staticSizeCacheBeaconBlockBody = 96 + new(Eth1Data).SizeSSZ() + 32 + 4 + 4 + 4 + 4 + 4
+var staticSizeCacheBeaconBlockBody = 96 + (*Eth1Data)(nil).SizeSSZ() + 32 + 4 + 4 + 4 + 4 + 4
 
 // SizeSSZ returns either the static size of the object if fixed == true, or
 // the total size otherwise.
