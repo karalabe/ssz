@@ -501,4 +501,133 @@ The table below is a summary of the methods available for `SizeSSZ` and `DefineS
 
 The goal of this package is to be close in performance to low level generated encoders, without sacrificing maintainability. It should, however, be significantly faster than runtime reflection encoders.
 
-There are some benchmarks that you can run via `go test ./tests --run=NONE --bench=.`, but no extensive measurement effort was made yet until the APIs are finalized, nor has the package been compared to any other implementation.
+The package includes a set of benchmarks for handling the beacon spec types and datasets. You can run them with `go test ./tests --run=NONE --bench=.`.
+
+The below numbers were achieved on a MaxBook Pro M2 Max:
+
+|        Beacon Type         |   Benchmark   |    Speed     |  Throughout   |
+|:--------------------------:|:-------------:|:------------:|:-------------:|
+|     AggregateAndProof      | encode-stream | 64.36 ns/op  | 5236.49 MB/s  |
+|                            | encode-buffer | 75.35 ns/op  | 4472.25 MB/s  |
+|                            | decode-stream | 176.9 ns/op  | 1904.66 MB/s  |
+|                            | decode-buffer | 107.0 ns/op  | 3150.75 MB/s  |
+|        Attestation         | encode-stream | 47.98 ns/op  | 4772.33 MB/s  |
+|                            | encode-buffer | 51.68 ns/op  | 4430.80 MB/s  |
+|                            | decode-stream | 110.0 ns/op  | 2082.66 MB/s  |
+|                            | decode-buffer | 73.45 ns/op  | 3117.73 MB/s  |
+|      AttestationData       | encode-stream | 36.43 ns/op  | 3513.67 MB/s  |
+|                            | encode-buffer | 38.31 ns/op  | 3341.30 MB/s  |
+|                            | decode-stream | 76.72 ns/op  | 1668.49 MB/s  |
+|                            | decode-buffer | 49.36 ns/op  | 2593.11 MB/s  |
+|      AttesterSlashing      | encode-stream | 126.1 ns/op  | 4377.66 MB/s  |
+|                            | encode-buffer | 114.4 ns/op  | 4826.32 MB/s  |
+|                            | decode-stream | 297.7 ns/op  | 1854.35 MB/s  |
+|                            | decode-buffer | 173.7 ns/op  | 3178.51 MB/s  |
+|        BeaconBlock         | encode-stream | 762.1 ns/op  | 9168.59 MB/s  |
+|                            | encode-buffer | 837.1 ns/op  | 8346.78 MB/s  |
+|                            | decode-stream |  1979 ns/op  | 3531.23 MB/s  |
+|                            | decode-buffer |  1071 ns/op  | 6525.61 MB/s  |
+|      BeaconBlockBody       | encode-stream |  1323 ns/op  | 12948.71 MB/s |
+|                            | encode-buffer |  1572 ns/op  | 10895.84 MB/s |
+|                            | decode-stream |  3467 ns/op  | 4939.50 MB/s  |
+|                            | decode-buffer |  1841 ns/op  | 9303.13 MB/s  |
+|     BeaconBlockHeader      | encode-stream | 26.46 ns/op  | 4232.26 MB/s  |
+|                            | encode-buffer | 28.89 ns/op  | 3877.38 MB/s  |
+|                            | decode-stream | 56.66 ns/op  | 1976.86 MB/s  |
+|                            | decode-buffer | 37.28 ns/op  | 3004.39 MB/s  |
+|        BeaconState         | encode-stream | 176132 ns/op | 15271.05 MB/s |
+|                            | encode-buffer | 205609 ns/op | 13081.71 MB/s |
+|                            | decode-stream | 532203 ns/op | 5053.93 MB/s  |
+|                            | decode-buffer | 209053 ns/op | 12866.19 MB/s |
+|    BLSToExecutionChange    | encode-stream | 20.04 ns/op  | 3792.75 MB/s  |
+|                            | encode-buffer | 23.30 ns/op  | 3261.26 MB/s  |
+|                            | decode-stream | 43.76 ns/op  | 1736.79 MB/s  |
+|                            | decode-buffer | 30.60 ns/op  | 2483.93 MB/s  |
+|         Checkpoint         | encode-stream | 17.78 ns/op  | 2249.76 MB/s  |
+|                            | encode-buffer | 20.09 ns/op  | 1990.79 MB/s  |
+|                            | decode-stream | 36.44 ns/op  | 1097.80 MB/s  |
+|                            | decode-buffer | 28.33 ns/op  | 1411.95 MB/s  |
+|          Deposit           | encode-stream | 84.76 ns/op  | 14629.76 MB/s |
+|                            | encode-buffer | 104.2 ns/op  | 11895.43 MB/s |
+|                            | decode-stream | 255.3 ns/op  | 4856.27 MB/s  |
+|                            | decode-buffer | 113.5 ns/op  | 10928.48 MB/s |
+|        DepositData         | encode-stream | 23.03 ns/op  | 7988.72 MB/s  |
+|                            | encode-buffer | 29.45 ns/op  | 6247.34 MB/s  |
+|                            | decode-stream | 51.96 ns/op  | 3541.28 MB/s  |
+|                            | decode-buffer | 45.85 ns/op  | 4012.88 MB/s  |
+|       DepositMessage       | encode-stream | 22.25 ns/op  | 3954.66 MB/s  |
+|                            | encode-buffer | 30.44 ns/op  | 2890.78 MB/s  |
+|                            | decode-stream | 44.73 ns/op  | 1967.53 MB/s  |
+|                            | decode-buffer | 31.59 ns/op  | 2786.09 MB/s  |
+|         Eth1Block          | encode-stream | 21.31 ns/op  | 2252.78 MB/s  |
+|                            | encode-buffer | 23.07 ns/op  | 2080.28 MB/s  |
+|                            | decode-stream | 43.79 ns/op  | 1096.10 MB/s  |
+|                            | decode-buffer | 30.72 ns/op  | 1562.55 MB/s  |
+|          Eth1Data          | encode-stream | 20.66 ns/op  | 3484.33 MB/s  |
+|                            | encode-buffer | 25.65 ns/op  | 2807.36 MB/s  |
+|                            | decode-stream | 42.75 ns/op  | 1684.35 MB/s  |
+|                            | decode-buffer | 31.00 ns/op  | 2322.56 MB/s  |
+|      ExecutionPayload      | encode-stream | 121.0 ns/op  | 49701.64 MB/s |
+|                            | encode-buffer | 211.9 ns/op  | 28381.10 MB/s |
+|                            | decode-stream | 396.2 ns/op  | 15180.96 MB/s |
+|                            | decode-buffer | 262.1 ns/op  | 22951.19 MB/s |
+|   ExecutionPayloadHeader   | encode-stream | 67.48 ns/op  | 8832.36 MB/s  |
+|                            | encode-buffer | 78.91 ns/op  | 7553.25 MB/s  |
+|                            | decode-stream | 158.2 ns/op  | 3768.06 MB/s  |
+|                            | decode-buffer | 94.97 ns/op  | 6275.76 MB/s  |
+|            Fork            | encode-stream | 20.47 ns/op  |  781.47 MB/s  |
+|                            | encode-buffer | 23.31 ns/op  |  686.52 MB/s  |
+|                            | decode-stream | 42.49 ns/op  |  376.59 MB/s  |
+|                            | decode-buffer | 31.47 ns/op  |  508.46 MB/s  |
+|      HistoricalBatch       | encode-stream | 32476 ns/op  | 16144.11 MB/s |
+|                            | encode-buffer | 46433 ns/op  | 11291.17 MB/s |
+|                            | decode-stream | 111437 ns/op | 4704.78 MB/s  |
+|                            | decode-buffer | 38557 ns/op  | 13597.77 MB/s |
+|     HistoricalSummary      | encode-stream | 16.74 ns/op  | 3823.29 MB/s  |
+|                            | encode-buffer | 20.66 ns/op  | 3098.03 MB/s  |
+|                            | decode-stream | 35.51 ns/op  | 1802.29 MB/s  |
+|                            | decode-buffer | 27.03 ns/op  | 2368.03 MB/s  |
+|     IndexedAttestation     | encode-stream | 51.46 ns/op  | 4741.58 MB/s  |
+|                            | encode-buffer | 53.81 ns/op  | 4534.74 MB/s  |
+|                            | decode-stream | 114.8 ns/op  | 2125.90 MB/s  |
+|                            | decode-buffer | 72.70 ns/op  | 3356.35 MB/s  |
+|     PendingAttestation     | encode-stream | 53.93 ns/op  | 2762.89 MB/s  |
+|                            | encode-buffer | 54.11 ns/op  | 2753.43 MB/s  |
+|                            | decode-stream | 116.0 ns/op  | 1284.27 MB/s  |
+|                            | decode-buffer | 75.02 ns/op  | 1986.16 MB/s  |
+|      ProposerSlashing      | encode-stream | 55.02 ns/op  | 7561.01 MB/s  |
+|                            | encode-buffer | 61.17 ns/op  | 6800.62 MB/s  |
+|                            | decode-stream | 117.6 ns/op  | 3538.03 MB/s  |
+|                            | decode-buffer | 77.87 ns/op  | 5341.99 MB/s  |
+|  SignedBeaconBlockHeader   | encode-stream | 30.84 ns/op  | 6745.16 MB/s  |
+|                            | encode-buffer | 35.03 ns/op  | 5937.03 MB/s  |
+|                            | decode-stream | 67.64 ns/op  | 3074.88 MB/s  |
+|                            | decode-buffer | 45.91 ns/op  | 4530.83 MB/s  |
+| SignedBLSToExecutionChange | encode-stream | 25.88 ns/op  | 6647.02 MB/s  |
+|                            | encode-buffer | 34.28 ns/op  | 5017.71 MB/s  |
+|                            | decode-stream | 62.50 ns/op  | 2752.11 MB/s  |
+|                            | decode-buffer | 47.10 ns/op  | 3651.46 MB/s  |
+|    SignedVoluntaryExit     | encode-stream | 25.04 ns/op  | 4471.99 MB/s  |
+|                            | encode-buffer | 26.43 ns/op  | 4237.30 MB/s  |
+|                            | decode-stream | 47.22 ns/op  | 2371.77 MB/s  |
+|                            | decode-buffer | 35.13 ns/op  | 3188.19 MB/s  |
+|       SyncAggregate        | encode-stream | 16.79 ns/op  | 9529.59 MB/s  |
+|                            | encode-buffer | 21.54 ns/op  | 7427.30 MB/s  |
+|                            | decode-stream | 36.61 ns/op  | 4369.90 MB/s  |
+|                            | decode-buffer | 29.30 ns/op  | 5460.15 MB/s  |
+|       SyncCommittee        | encode-stream |  1028 ns/op  | 23956.16 MB/s |
+|                            | encode-buffer |  1332 ns/op  | 18493.17 MB/s |
+|                            | decode-stream |  3242 ns/op  | 7594.97 MB/s  |
+|                            | decode-buffer |  1290 ns/op  | 19081.26 MB/s |
+|         Validator          | encode-stream | 37.17 ns/op  | 3255.24 MB/s  |
+|                            | encode-buffer | 38.51 ns/op  | 3142.10 MB/s  |
+|                            | decode-stream | 80.98 ns/op  | 1494.23 MB/s  |
+|                            | decode-buffer | 49.85 ns/op  | 2427.16 MB/s  |
+|       VoluntaryExit        | encode-stream | 18.98 ns/op  |  843.05 MB/s  |
+|                            | encode-buffer | 22.92 ns/op  |  698.01 MB/s  |
+|                            | decode-stream | 36.31 ns/op  |  440.65 MB/s  |
+|                            | decode-buffer | 27.40 ns/op  |  583.86 MB/s  |
+|         Withdrawal         | encode-stream | 27.58 ns/op  | 1595.26 MB/s  |
+|                            | encode-buffer | 31.53 ns/op  | 1395.58 MB/s  |
+|                            | decode-stream | 51.02 ns/op  |  862.45 MB/s  |
+|                            | decode-buffer | 38.39 ns/op  | 1146.25 MB/s  |
