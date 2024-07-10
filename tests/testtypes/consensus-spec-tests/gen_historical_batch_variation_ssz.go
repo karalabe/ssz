@@ -11,6 +11,6 @@ func (obj *HistoricalBatchVariation) SizeSSZ() uint32 {
 
 // DefineSSZ defines how an object is encoded/decoded.
 func (obj *HistoricalBatchVariation) DefineSSZ(codec *ssz.Codec) {
-	ssz.DefineArrayOfStaticBytes[[8192]Hash, Hash](codec, &obj.BlockRoots) // Field  (0) - BlockRoots - 262144 bytes
-	ssz.DefineCheckedArrayOfStaticBytes(codec, &obj.StateRoots, 8192)      // Field  (1) - StateRoots - 262144 bytes
+	ssz.DefineUnsafeArrayOfStaticBytes(codec, obj.BlockRoots[:])      // Field  (0) - BlockRoots - 262144 bytes
+	ssz.DefineCheckedArrayOfStaticBytes(codec, &obj.StateRoots, 8192) // Field  (1) - StateRoots - 262144 bytes
 }

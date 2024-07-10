@@ -426,29 +426,36 @@ func DecodeSliceOfUint64sContent[T ~uint64](dec *Decoder, ns *[]T, maxItems uint
 
 // DecodeArrayOfStaticBytes parses a static array of static binary blobs.
 func DecodeArrayOfStaticBytes[T commonBytesArrayLengths[U], U commonBytesLengths](dec *Decoder, blobs *T) {
+	// The code below should have used `(*blobs)[:]`, alas Go's generics compiler
+	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+	DecodeUnsafeArrayOfStaticBytes(dec, unsafe.Slice(&(*blobs)[0], len(*blobs)))
+}
+
+// DecodeUnsafeArrayOfStaticBytes parses a static array of static binary blobs.
+func DecodeUnsafeArrayOfStaticBytes[T commonBytesLengths](dec *Decoder, blobs []T) {
 	if dec.err != nil {
 		return
 	}
 	if dec.inReader != nil {
-		for i := 0; i < len(*blobs); i++ {
+		for i := 0; i < len(blobs); i++ {
 			// The code below should have used `(*blobs)[i][:]`, alas Go's generics compiler
 			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-			_, dec.err = io.ReadFull(dec.inReader, unsafe.Slice(&(*blobs)[i][0], len((*blobs)[i])))
+			_, dec.err = io.ReadFull(dec.inReader, unsafe.Slice(&(blobs)[i][0], len((blobs)[i])))
 			if dec.err != nil {
 				return
 			}
-			dec.inRead += uint32(len((*blobs)[i]))
+			dec.inRead += uint32(len((blobs)[i]))
 		}
 	} else {
-		for i := 0; i < len(*blobs); i++ {
-			if len(dec.inBuffer) < len((*blobs)[i]) {
+		for i := 0; i < len(blobs); i++ {
+			if len(dec.inBuffer) < len((blobs)[i]) {
 				dec.err = io.ErrUnexpectedEOF
 				return
 			}
-			// The code below should have used `*blobs[i][:]`, alas Go's generics compiler
+			// The code below should have used `blobs[i][:]`, alas Go's generics compiler
 			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-			copy(unsafe.Slice(&(*blobs)[i][0], len((*blobs)[i])), dec.inBuffer)
-			dec.inBuffer = dec.inBuffer[len((*blobs)[i]):]
+			copy(unsafe.Slice(&(blobs)[i][0], len((blobs)[i])), dec.inBuffer)
+			dec.inBuffer = dec.inBuffer[len((blobs)[i]):]
 		}
 	}
 }

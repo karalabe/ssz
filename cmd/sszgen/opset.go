@@ -100,7 +100,7 @@ func (p *parseContext) resolveBitlistOpset(tags *sizeTag) (opset, error) {
 	}, nil
 }
 
-func (p *parseContext) resolveArrayOpset(typ types.Type, name string, size int, tags *sizeTag) (opset, error) {
+func (p *parseContext) resolveArrayOpset(typ types.Type, size int, tags *sizeTag) (opset, error) {
 	switch typ := typ.(type) {
 	case *types.Basic:
 		// Sanity check a few tag constraints relevant for all arrays of basic types
@@ -157,21 +157,17 @@ func (p *parseContext) resolveArrayOpset(typ types.Type, name string, size int, 
 			return nil, fmt.Errorf("unsupported array item basic type: %s", typ)
 		}
 	case *types.Array:
-		return p.resolveArrayOfArrayOpset(typ.Elem(), name, size, typ.String(), int(typ.Len()), tags)
+		return p.resolveArrayOfArrayOpset(typ.Elem(), size, int(typ.Len()), tags)
 
 	case *types.Named:
-		// For named arrays, we need to pass the name too for the generics
-		if t, ok := typ.Underlying().(*types.Array); ok {
-			return p.resolveArrayOfArrayOpset(t.Elem(), name, size, typ.Obj().Name(), int(t.Len()), tags)
-		}
-		return p.resolveArrayOpset(typ.Underlying(), name, size, tags)
+		return p.resolveArrayOpset(typ.Underlying(), size, tags)
 
 	default:
 		return nil, fmt.Errorf("unsupported array item type: %s", typ)
 	}
 }
 
-func (p *parseContext) resolveArrayOfArrayOpset(typ types.Type, outerType string, outerSize int, innerType string, innerSize int, tags *sizeTag) (opset, error) {
+func (p *parseContext) resolveArrayOfArrayOpset(typ types.Type, outerSize, innerSize int, tags *sizeTag) (opset, error) {
 	switch typ := typ.(type) {
 	case *types.Basic:
 		// Sanity check a few tag constraints relevant for all arrays of basic types
@@ -189,13 +185,10 @@ func (p *parseContext) resolveArrayOfArrayOpset(typ types.Type, outerType string
 					return nil, fmt.Errorf("array of array of byte basic type tag conflict: field is [%d, %d] bytes, tag wants %v bytes", outerSize, innerSize, tags.size)
 				}
 			}
-			if outerType == "" {
-				outerType = fmt.Sprintf("[%d]%s", outerSize, innerType)
-			}
 			return &opsetStatic{
-				fmt.Sprintf("DefineArrayOfStaticBytes[%s, %s]({{.Codec}}, &{{.Field}})", outerType, innerType),
-				fmt.Sprintf("EncodeArrayOfStaticBytes[%s, %s]({{.Codec}}, &{{.Field}})", outerType, innerType),
-				fmt.Sprintf("DecodeArrayOfStaticBytes[%s, %s]({{.Codec}}, &{{.Field}})", outerType, innerType),
+				"DefineUnsafeArrayOfStaticBytes({{.Codec}}, {{.Field}}[:])",
+				"EncodeUnsafeArrayOfStaticBytes({{.Codec}}, {{.Field}}[:])",
+				"DecodeUnsafeArrayOfStaticBytes({{.Codec}}, {{.Field}}[:])",
 				[]int{outerSize, innerSize},
 			}, nil
 		default:

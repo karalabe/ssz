@@ -73,16 +73,13 @@ func (p *parseContext) resolveOpset(typ types.Type, tags *sizeTag) (opset, error
 		if isBitlist(typ) {
 			return p.resolveBitlistOpset(tags)
 		}
-		if nt, ok := typ.Underlying().(*types.Array); ok {
-			return p.resolveArrayOpset(nt.Elem(), t.Obj().Name(), int(nt.Len()), tags)
-		}
 		return p.resolveOpset(t.Underlying(), tags)
 
 	case *types.Basic:
 		return p.resolveBasicOpset(t, tags)
 
 	case *types.Array:
-		return p.resolveArrayOpset(t.Elem(), "", int(t.Len()), tags)
+		return p.resolveArrayOpset(t.Elem(), int(t.Len()), tags)
 
 	case *types.Slice:
 		return p.resolveSliceOpset(t.Elem(), tags)

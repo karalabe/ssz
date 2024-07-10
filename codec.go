@@ -196,9 +196,21 @@ func DefineArrayOfStaticBytes[T commonBytesArrayLengths[U], U commonBytesLengths
 	DecodeArrayOfStaticBytes[T, U](c.dec, blobs)
 }
 
+// DefineUnsafeArrayOfStaticBytes defines the next field as a static array of
+// static binary blobs. This method operates on plain slices of byte arrays and
+// will crash if provided a slice of a non-array. Its purpose is to get around
+// Go's generics limitations in generated code (use DefineArrayOfStaticBytes).
+func DefineUnsafeArrayOfStaticBytes[T commonBytesLengths](c *Codec, blobs []T) {
+	if c.enc != nil {
+		EncodeUnsafeArrayOfStaticBytes(c.enc, blobs)
+		return
+	}
+	DecodeUnsafeArrayOfStaticBytes(c.dec, blobs)
+}
+
 // DefineCheckedArrayOfStaticBytes defines the next field as a static array of
 // static binary blobs. This method can be used for plain slices of byte arrays,
-// which is more expensive  since it needs runtime size validation.
+// which is more expensive since it needs runtime size validation.
 func DefineCheckedArrayOfStaticBytes[T commonBytesLengths](c *Codec, blobs *[]T, size uint64) {
 	if c.enc != nil {
 		EncodeCheckedArrayOfStaticBytes(c.enc, *blobs)

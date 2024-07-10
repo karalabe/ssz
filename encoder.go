@@ -342,24 +342,32 @@ func EncodeSliceOfUint64sContent[T ~uint64](enc *Encoder, ns []T) {
 // from escaping to the heap (and incurring an allocation) when passing it to
 // the output stream.
 func EncodeArrayOfStaticBytes[T commonBytesArrayLengths[U], U commonBytesLengths](enc *Encoder, blobs *T) {
+	// The code below should have used `(*blobs)[:]`, alas Go's generics compiler
+	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+	EncodeUnsafeArrayOfStaticBytes(enc, unsafe.Slice(&(*blobs)[0], len(*blobs)))
+}
+
+// EncodeUnsafeArrayOfStaticBytes serializes a static array of static binary
+// blobs.
+func EncodeUnsafeArrayOfStaticBytes[T commonBytesLengths](enc *Encoder, blobs []T) {
 	// Internally this method is essentially calling EncodeStaticBytes on all
 	// the blobs in a loop. Practically, we've inlined that call to make things
 	// a *lot* faster.
 	if enc.outWriter != nil {
-		for i := 0; i < len(*blobs); i++ { // don't range loop, T might be an array, copy is expensive
+		for i := 0; i < len(blobs); i++ { // don't range loop, T might be an array, copy is expensive
 			if enc.err != nil {
 				return
 			}
-			// The code below should have used `(*blobs)[i][:]`, alas Go's generics compiler
+			// The code below should have used `blobs[i][:]`, alas Go's generics compiler
 			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-			_, enc.err = enc.outWriter.Write(unsafe.Slice(&((*blobs)[i])[0], len((*blobs)[i])))
+			_, enc.err = enc.outWriter.Write(unsafe.Slice(&blobs[i][0], len(blobs[i])))
 		}
 	} else {
-		for i := 0; i < len(*blobs); i++ { // don't range loop, T might be an array, copy is expensive
-			// The code below should have used `(*blobs)[i][:]`, alas Go's generics compiler
+		for i := 0; i < len(blobs); i++ { // don't range loop, T might be an array, copy is expensive
+			// The code below should have used `blobs[i][:]`, alas Go's generics compiler
 			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-			copy(enc.outBuffer, unsafe.Slice(&((*blobs)[i])[0], len((*blobs)[i])))
-			enc.outBuffer = enc.outBuffer[len((*blobs)[i]):]
+			copy(enc.outBuffer, unsafe.Slice(&blobs[i][0], len(blobs[i])))
+			enc.outBuffer = enc.outBuffer[len(blobs[i]):]
 		}
 	}
 }
