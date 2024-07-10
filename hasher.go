@@ -1,13 +1,13 @@
 package ssz
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
 	"math/bits"
 	"unsafe"
 
 	"github.com/holiman/uint256"
-	"github.com/minio/sha256-simd"
 	"github.com/prysmaticlabs/go-bitfield"
 	"github.com/prysmaticlabs/gohashtree"
 )
