@@ -29,7 +29,7 @@ func (obj *ExecutionPayloadHeaderDeneb) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUint64(codec, &obj.GasLimit)              // Field  ( 7) -         GasLimit -   8 bytes
 	ssz.DefineUint64(codec, &obj.GasUsed)               // Field  ( 8) -          GasUsed -   8 bytes
 	ssz.DefineUint64(codec, &obj.Timestamp)             // Field  ( 9) -        Timestamp -   8 bytes
-	ssz.DefineDynamicBytesOffset(codec, &obj.ExtraData) // Offset (10) -        ExtraData -   4 bytes
+	ssz.DefineDynamicBytesOffset(codec, &obj.ExtraData,32) // Offset (10) -        ExtraData -   4 bytes
 	ssz.DefineStaticBytes(codec, &obj.BaseFeePerGas)    // Field  (11) -    BaseFeePerGas -  32 bytes
 	ssz.DefineStaticBytes(codec, &obj.BlockHash)        // Field  (12) -        BlockHash -  32 bytes
 	ssz.DefineStaticBytes(codec, &obj.TransactionsRoot) // Field  (13) - TransactionsRoot -  32 bytes

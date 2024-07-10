@@ -30,10 +30,10 @@ func (obj *ExecutionPayload) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUint64(codec, &obj.GasLimit)                        // Field  ( 7) -      GasLimit -   8 bytes
 	ssz.DefineUint64(codec, &obj.GasUsed)                         // Field  ( 8) -       GasUsed -   8 bytes
 	ssz.DefineUint64(codec, &obj.Timestamp)                       // Field  ( 9) -     Timestamp -   8 bytes
-	ssz.DefineDynamicBytesOffset(codec, &obj.ExtraData)           // Offset (10) -     ExtraData -   4 bytes
+	ssz.DefineDynamicBytesOffset(codec, &obj.ExtraData, 32)           // Offset (10) -     ExtraData -   4 bytes
 	ssz.DefineUint256(codec, &obj.BaseFeePerGas)                  // Field  (11) - BaseFeePerGas -  32 bytes
 	ssz.DefineStaticBytes(codec, &obj.BlockHash)                  // Field  (12) -     BlockHash -  32 bytes
-	ssz.DefineSliceOfDynamicBytesOffset(codec, &obj.Transactions) // Offset (13) -  Transactions -   4 bytes
+	ssz.DefineSliceOfDynamicBytesOffset(codec, &obj.Transactions,1048576, 1073741824) // Offset (13) -  Transactions -   4 bytes
 
 	// Define the dynamic data (fields)
 	ssz.DefineDynamicBytesContent(codec, &obj.ExtraData, 32)                            // Field  (10) -     ExtraData - ? bytes

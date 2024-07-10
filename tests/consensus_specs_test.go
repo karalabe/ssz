@@ -47,7 +47,7 @@ func TestConsensusSpecs(t *testing.T) {
 	testConsensusSpecType[*types.AggregateAndProof](t, "AggregateAndProof", "altair", "bellatrix", "capella", "deneb", "eip7594", "phase0", "whisk")
 	testConsensusSpecType[*types.Attestation](t, "Attestation", "altair", "bellatrix", "capella", "deneb", "eip7594", "phase0", "whisk")
 	testConsensusSpecType[*types.AttestationData](t, "AttestationData")
-	testConsensusSpecType[*types.AttesterSlashing](t, "AttesterSlashing")
+	testConsensusSpecType[*types.AttesterSlashing](t, "AttesterSlashing", "phase0", "altair", "bellatrix", "capella", "deneb")
 	testConsensusSpecType[*types.BeaconBlock](t, "BeaconBlock", "phase0")
 	testConsensusSpecType[*types.BeaconBlockBody](t, "BeaconBlockBody", "phase0")
 	testConsensusSpecType[*types.BeaconBlockBodyAltair](t, "BeaconBlockBody", "altair")
@@ -72,7 +72,7 @@ func TestConsensusSpecs(t *testing.T) {
 	testConsensusSpecType[*types.Fork](t, "Fork")
 	testConsensusSpecType[*types.HistoricalBatch](t, "HistoricalBatch")
 	testConsensusSpecType[*types.HistoricalSummary](t, "HistoricalSummary")
-	testConsensusSpecType[*types.IndexedAttestation](t, "IndexedAttestation")
+	testConsensusSpecType[*types.IndexedAttestation](t, "IndexedAttestation", "phase0", "altair", "bellatrix", "capella", "deneb")
 	testConsensusSpecType[*types.PendingAttestation](t, "PendingAttestation")
 	testConsensusSpecType[*types.ProposerSlashing](t, "ProposerSlashing")
 	testConsensusSpecType[*types.SignedBeaconBlockHeader](t, "SignedBeaconBlockHeader")
@@ -206,7 +206,13 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 				if size := ssz.Size(obj); size != uint32(len(inSSZ)) {
 					t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
 				}
-				// TODO(karalabe): check the root hash of the object
+				hash, err := ssz.Merkleize(obj)
+				if err != nil {
+					t.Fatalf("failed to merkleize object: %v", err)
+				}
+				if fmt.Sprintf("%#x", hash) != inRoot.Root {
+					t.Fatalf("merkle root mismatch: have %#x, want %s", hash, inRoot.Root)
+				}
 			})
 		}
 	}
@@ -314,6 +320,21 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 		for i := 0; i < b.N; i++ {
 			if err := ssz.DecodeFromBytes(inSSZ, obj); err != nil {
 				b.Fatalf("failed to decode SSZ stream: %v", err)
+			}
+		}
+	})
+	b.Run(fmt.Sprintf("%s/merkleize", kind), func(b *testing.B) {
+		obj := T(new(U))
+		if err := ssz.DecodeFromBytes(inSSZ, obj); err != nil {
+			b.Fatalf("failed to decode SSZ stream: %v", err)
+		}
+		b.SetBytes(int64(len(inSSZ)))
+		b.ReportAllocs()
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			if _, err := ssz.Merkleize(obj); err != nil {
+				panic(err)
 			}
 		}
 	})

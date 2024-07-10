@@ -34,16 +34,16 @@ func (obj *BeaconState) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineStaticObject(codec, &obj.LatestBlockHeader)                        // Field  ( 4) -           LatestBlockHeader -       ? bytes (BeaconBlockHeader)
 	ssz.DefineUnsafeArrayOfStaticBytes(codec, obj.BlockRoots[:])                 // Field  ( 5) -                  BlockRoots -  262144 bytes
 	ssz.DefineUnsafeArrayOfStaticBytes(codec, obj.StateRoots[:])                 // Field  ( 6) -                  StateRoots -  262144 bytes
-	ssz.DefineSliceOfStaticBytesOffset(codec, &obj.HistoricalRoots)              // Offset ( 7) -             HistoricalRoots -       4 bytes
+	ssz.DefineSliceOfStaticBytesOffset(codec, &obj.HistoricalRoots,16777216)              // Offset ( 7) -             HistoricalRoots -       4 bytes
 	ssz.DefineStaticObject(codec, &obj.Eth1Data)                                 // Field  ( 8) -                    Eth1Data -       ? bytes (Eth1Data)
-	ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.Eth1DataVotes)              // Offset ( 9) -               Eth1DataVotes -       4 bytes
+	ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.Eth1DataVotes,2048)              // Offset ( 9) -               Eth1DataVotes -       4 bytes
 	ssz.DefineUint64(codec, &obj.Eth1DepositIndex)                               // Field  (10) -            Eth1DepositIndex -       8 bytes
-	ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.Validators)                 // Offset (11) -                  Validators -       4 bytes
-	ssz.DefineSliceOfUint64sOffset(codec, &obj.Balances)                         // Offset (12) -                    Balances -       4 bytes
+	ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.Validators,1099511627776)                 // Offset (11) -                  Validators -       4 bytes
+	ssz.DefineSliceOfUint64sOffset(codec, &obj.Balances,1099511627776)                         // Offset (12) -                    Balances -       4 bytes
 	ssz.DefineUnsafeArrayOfStaticBytes(codec, obj.RandaoMixes[:])                // Field  (13) -                 RandaoMixes - 2097152 bytes
 	ssz.DefineArrayOfUint64s(codec, &obj.Slashings)                              // Field  (14) -                   Slashings -   65536 bytes
-	ssz.DefineSliceOfDynamicObjectsOffset(codec, &obj.PreviousEpochAttestations) // Offset (15) -   PreviousEpochAttestations -       4 bytes
-	ssz.DefineSliceOfDynamicObjectsOffset(codec, &obj.CurrentEpochAttestations)  // Offset (16) -    CurrentEpochAttestations -       4 bytes
+	ssz.DefineSliceOfDynamicObjectsOffset(codec, &obj.PreviousEpochAttestations,4096) // Offset (15) -   PreviousEpochAttestations -       4 bytes
+	ssz.DefineSliceOfDynamicObjectsOffset(codec, &obj.CurrentEpochAttestations,4096)  // Offset (16) -    CurrentEpochAttestations -       4 bytes
 	ssz.DefineArrayOfBits(codec, &obj.JustificationBits, 4)                      // Field  (17) -           JustificationBits -       1 bytes
 	ssz.DefineStaticObject(codec, &obj.PreviousJustifiedCheckpoint)              // Field  (18) - PreviousJustifiedCheckpoint -       ? bytes (Checkpoint)
 	ssz.DefineStaticObject(codec, &obj.CurrentJustifiedCheckpoint)               // Field  (19) -  CurrentJustifiedCheckpoint -       ? bytes (Checkpoint)

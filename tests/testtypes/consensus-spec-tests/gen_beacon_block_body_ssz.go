@@ -29,11 +29,11 @@ func (obj *BeaconBlockBody) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineStaticBytes(codec, &obj.RandaoReveal)                      // Field  (0) -      RandaoReveal - 96 bytes
 	ssz.DefineStaticObject(codec, &obj.Eth1Data)                         // Field  (1) -          Eth1Data -  ? bytes (Eth1Data)
 	ssz.DefineStaticBytes(codec, &obj.Graffiti)                          // Field  (2) -          Graffiti - 32 bytes
-	ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.ProposerSlashings)  // Offset (3) - ProposerSlashings -  4 bytes
-	ssz.DefineSliceOfDynamicObjectsOffset(codec, &obj.AttesterSlashings) // Offset (4) - AttesterSlashings -  4 bytes
-	ssz.DefineSliceOfDynamicObjectsOffset(codec, &obj.Attestations)      // Offset (5) -      Attestations -  4 bytes
-	ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.Deposits)           // Offset (6) -          Deposits -  4 bytes
-	ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.VoluntaryExits)     // Offset (7) -    VoluntaryExits -  4 bytes
+	ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.ProposerSlashings,16)  // Offset (3) - ProposerSlashings -  4 bytes
+	ssz.DefineSliceOfDynamicObjectsOffset(codec, &obj.AttesterSlashings,2) // Offset (4) - AttesterSlashings -  4 bytes
+	ssz.DefineSliceOfDynamicObjectsOffset(codec, &obj.Attestations,128)      // Offset (5) -      Attestations -  4 bytes
+	ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.Deposits,16)           // Offset (6) -          Deposits -  4 bytes
+	ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.VoluntaryExits,16)     // Offset (7) -    VoluntaryExits -  4 bytes
 
 	// Define the dynamic data (fields)
 	ssz.DefineSliceOfStaticObjectsContent(codec, &obj.ProposerSlashings, 16) // Field  (3) - ProposerSlashings - ? bytes
