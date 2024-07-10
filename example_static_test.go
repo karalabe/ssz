@@ -34,10 +34,8 @@ func ExampleEncodeStaticObject() {
 	if err := ssz.EncodeToStream(out, new(Withdrawal)); err != nil {
 		panic(err)
 	}
-	hash, err := ssz.Merkleize(new(Withdrawal))
-	if err != nil {
-		panic(err)
-	}
+	hash := ssz.Merkleize(new(Withdrawal))
+
 	fmt.Printf("ssz: %#x\nhash: %#x\n", out, hash)
 	// Output:
 	// ssz: 0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

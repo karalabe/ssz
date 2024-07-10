@@ -12,9 +12,6 @@ import (
 	"unsafe"
 )
 
-// Hash is a Merkle hash of an ssz object.
-type Hash [32]byte
-
 // Object defines the methods a type needs to implement to be used as a ssz
 // encodable and decodable object.
 type Object interface {
@@ -202,16 +199,16 @@ func DecodeFromBytes(blob []byte, obj Object) error {
 }
 
 // Merkleize computes the ssz merkle root of the object.
-func Merkleize(obj Object) (Hash, error) {
+func Merkleize(obj Object) [32]byte {
 	codec := hasherPool.Get().(*Codec)
 	defer hasherPool.Put(codec)
 	defer codec.has.Reset()
 
-	idx := codec.has.Index()
+	idx := len(codec.has.scratch)
 	obj.DefineSSZ(codec)
-	codec.has.Merkleize(idx)
+	codec.has.merkleize(idx)
 
-	return codec.has.HashRoot()
+	return codec.has.hash()
 }
 
 // Size retrieves the size of a ssz object, independent if it's a static or a

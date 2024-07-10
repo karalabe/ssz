@@ -206,10 +206,7 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 				if size := ssz.Size(obj); size != uint32(len(inSSZ)) {
 					t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
 				}
-				hash, err := ssz.Merkleize(obj)
-				if err != nil {
-					t.Fatalf("failed to merkleize object: %v", err)
-				}
+				hash := ssz.Merkleize(obj)
 				if fmt.Sprintf("%#x", hash) != inRoot.Root {
 					t.Fatalf("merkle root mismatch: have %#x, want %s", hash, inRoot.Root)
 				}
@@ -333,9 +330,7 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			if _, err := ssz.Merkleize(obj); err != nil {
-				panic(err)
-			}
+			ssz.Merkleize(obj)
 		}
 	})
 }
