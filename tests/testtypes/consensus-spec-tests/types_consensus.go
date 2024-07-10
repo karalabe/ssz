@@ -28,7 +28,7 @@ import (
 //go:generate go run ../../../cmd/sszgen -type HistoricalSummary -out gen_historical_summary_ssz.go
 //go:generate go run ../../../cmd/sszgen -type IndexedAttestation -out gen_indexed_attestation_ssz.go
 //go:generate go run ../../../cmd/sszgen -type PendingAttestation -out gen_pending_attestation_ssz.go
-//go:generate go run ../../../cmd/sszgen -type ProposerSlashing -out gen_proposed_slashing_ssz.go
+//go:generate go run ../../../cmd/sszgen -type ProposerSlashing -out gen_proposer_slashing_ssz.go
 //go:generate go run ../../../cmd/sszgen -type SignedBeaconBlockHeader -out gen_signed_beacon_block_header_ssz.go
 //go:generate go run ../../../cmd/sszgen -type SignedBLSToExecutionChange -out gen_signed_bls_to_execution_change_ssz.go
 //go:generate go run ../../../cmd/sszgen -type SignedVoluntaryExit -out gen_signed_voluntary_exit_ssz.go

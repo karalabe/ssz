@@ -292,7 +292,14 @@ func DecodeSliceOfBitsContent(dec *Decoder, bitlist *bitfield.Bitlist, maxBits u
 	// Compute the length of the encoded bits based on the seen offsets
 	size := dec.retrieveSize()
 	if size == 0 {
-		return // empty slice of objects
+		// Empty slice, remove anything extra
+		if len(*bitlist) == 0 {
+			(*bitlist) = make([]byte, 1)
+		} else {
+			*bitlist = (*bitlist)[:1]
+		}
+		(*bitlist)[0] = 0x01
+		return
 	}
 	// Verify that the byte size is reasonable, bits will need an extra step after decoding
 	if maxBytes := maxBits>>3 + 1; maxBytes < uint64(size) {
@@ -370,7 +377,9 @@ func DecodeSliceOfUint64sContent[T ~uint64](dec *Decoder, ns *[]T, maxItems uint
 	// Compute the length of the encoded binaries based on the seen offsets
 	size := dec.retrieveSize()
 	if size == 0 {
-		return // empty slice of objects
+		// Empty slice, remove anything extra
+		*ns = (*ns)[:0]
+		return
 	}
 	// Compute the number of items based on the item size of the type
 	if size&7 != 0 {
@@ -486,7 +495,9 @@ func DecodeSliceOfStaticBytesContent[T commonBytesLengths](dec *Decoder, blobs *
 	// Compute the length of the encoded binaries based on the seen offsets
 	size := dec.retrieveSize()
 	if size == 0 {
-		return // empty slice of objects
+		// Empty slice, remove anything extra
+		*blobs = (*blobs)[:0]
+		return
 	}
 	// Compute the number of items based on the item size of the type
 	var sizer T // SizeSSZ is on *U, objects is static, so nil T is fine
@@ -549,7 +560,9 @@ func DecodeSliceOfDynamicBytesContent(dec *Decoder, blobs *[][]byte, maxItems ui
 	// check for empty slice or possibly bad data (too short to encode anything)
 	size := dec.retrieveSize()
 	if size == 0 {
-		return // empty slice of blobs
+		// Empty slice, remove anything extra
+		*blobs = (*blobs)[:0]
+		return
 	}
 	if size < 4 {
 		dec.err = fmt.Errorf("%w: %d bytes available", ErrShortCounterOffset, size)
@@ -606,7 +619,9 @@ func DecodeSliceOfStaticObjectsContent[T newableStaticObject[U], U any](dec *Dec
 	// Compute the length of the encoded objects based on the seen offsets
 	size := dec.retrieveSize()
 	if size == 0 {
-		return // empty slice of objects
+		// Empty slice, remove anything extra
+		*objects = (*objects)[:0]
+		return
 	}
 	// Compute the number of items based on the item size of the type
 	var sizer T // SizeSSZ is on *U, objects is static, so nil T is fine
@@ -656,7 +671,9 @@ func DecodeSliceOfDynamicObjectsContent[T newableDynamicObject[U], U any](dec *D
 	// check for empty slice or possibly bad data (too short to encode anything)
 	size := dec.retrieveSize()
 	if size == 0 {
-		return // empty slice of blobs
+		// Empty slice, remove anything extra
+		*objects = (*objects)[:0]
+		return
 	}
 	if size < 4 {
 		dec.err = fmt.Errorf("%w: %d bytes available", ErrShortCounterOffset, size)
