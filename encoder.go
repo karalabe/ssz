@@ -135,15 +135,22 @@ func EncodeUint256(enc *Encoder, n *uint256.Int) {
 }
 
 // EncodeStaticBytes serializes a static binary blob.
-func EncodeStaticBytes(enc *Encoder, blob []byte) {
+//
+// The blob is passed by pointer to avoid high stack copy costs and a potential
+// escape to the heap.
+func EncodeStaticBytes[T commonBytesLengths](enc *Encoder, blob *T) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
 		}
-		_, enc.err = enc.outWriter.Write(blob)
+		// The code below should have used `*blob[:]`, alas Go's generics compiler
+		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+		_, enc.err = enc.outWriter.Write(unsafe.Slice(&(*blob)[0], len(*blob)))
 	} else {
-		copy(enc.outBuffer, blob)
-		enc.outBuffer = enc.outBuffer[len(blob):]
+		// The code below should have used `blob[:]`, alas Go's generics compiler
+		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+		copy(enc.outBuffer, unsafe.Slice(&(*blob)[0], len(*blob)))
+		enc.outBuffer = enc.outBuffer[len(*blob):]
 	}
 }
 
@@ -221,15 +228,19 @@ func EncodeDynamicObjectContent(enc *Encoder, obj DynamicObject) {
 }
 
 // EncodeArrayOfBits serializes a static array of (packed) bits.
-func EncodeArrayOfBits[T ~[]byte](enc *Encoder, bits T) {
+func EncodeArrayOfBits[T commonBitsLengths](enc *Encoder, bits *T) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
 		}
-		_, enc.err = enc.outWriter.Write(bits)
+		// The code below should have used `*bits[:]`, alas Go's generics compiler
+		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+		_, enc.err = enc.outWriter.Write(unsafe.Slice(&(*bits)[0], len(*bits)))
 	} else {
-		copy(enc.outBuffer, bits)
-		enc.outBuffer = enc.outBuffer[len(bits):]
+		// The code below should have used `*bits[:]`, alas Go's generics compiler
+		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+		copy(enc.outBuffer, unsafe.Slice(&(*bits)[0], len(*bits)))
+		enc.outBuffer = enc.outBuffer[len(*bits):]
 	}
 }
 
@@ -266,20 +277,24 @@ func EncodeSliceOfBitsContent(enc *Encoder, bits bitfield.Bitlist) {
 // The reason the ns is passed by pointer and not by value is to prevent it from
 // escaping to the heap (and incurring an allocation) when passing it to the
 // output stream.
-func EncodeArrayOfUint64s[T ~uint64](enc *Encoder, ns []T) {
+func EncodeArrayOfUint64s[T commonUint64sLengths](enc *Encoder, ns *T) {
+	// The code below should have used `*blob[:]`, alas Go's generics compiler
+	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+	nums := unsafe.Slice(&(*ns)[0], len(*ns))
+
 	// Internally this method is essentially calling EncodeUint64 on all numbers
 	// in a loop. Practically, we've inlined that call to make things a *lot* faster.
 	if enc.outWriter != nil {
-		for _, n := range ns {
+		for _, n := range nums {
 			if enc.err != nil {
 				return
 			}
-			binary.LittleEndian.PutUint64(enc.buf[:8], (uint64)(n))
+			binary.LittleEndian.PutUint64(enc.buf[:8], n)
 			_, enc.err = enc.outWriter.Write(enc.buf[:8])
 		}
 	} else {
-		for _, n := range ns {
-			binary.LittleEndian.PutUint64(enc.outBuffer, (uint64)(n))
+		for _, n := range nums {
+			binary.LittleEndian.PutUint64(enc.outBuffer, n)
 			enc.outBuffer = enc.outBuffer[8:]
 		}
 	}
@@ -326,25 +341,25 @@ func EncodeSliceOfUint64sContent[T ~uint64](enc *Encoder, ns []T) {
 // The reason the blobs is passed by pointer and not by value is to prevent it
 // from escaping to the heap (and incurring an allocation) when passing it to
 // the output stream.
-func EncodeArrayOfStaticBytes[T commonBytesLengths](enc *Encoder, blobs []T) {
+func EncodeArrayOfStaticBytes[T commonBytesArrayLengths[U], U commonBytesLengths](enc *Encoder, blobs *T) {
 	// Internally this method is essentially calling EncodeStaticBytes on all
 	// the blobs in a loop. Practically, we've inlined that call to make things
 	// a *lot* faster.
 	if enc.outWriter != nil {
-		for i := 0; i < len(blobs); i++ { // don't range loop, T might be an array, copy is expensive
+		for i := 0; i < len(*blobs); i++ { // don't range loop, T might be an array, copy is expensive
 			if enc.err != nil {
 				return
 			}
-			// The code below should have used `blobs[i][:]`, alas Go's generics compiler
+			// The code below should have used `(*blobs)[i][:]`, alas Go's generics compiler
 			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-			_, enc.err = enc.outWriter.Write(unsafe.Slice(&blobs[i][0], len(blobs[i])))
+			_, enc.err = enc.outWriter.Write(unsafe.Slice(&((*blobs)[i])[0], len((*blobs)[i])))
 		}
 	} else {
-		for i := 0; i < len(blobs); i++ { // don't range loop, T might be an array, copy is expensive
-			// The code below should have used `blobs[i][:]`, alas Go's generics compiler
+		for i := 0; i < len(*blobs); i++ { // don't range loop, T might be an array, copy is expensive
+			// The code below should have used `(*blobs)[i][:]`, alas Go's generics compiler
 			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-			copy(enc.outBuffer, unsafe.Slice(&blobs[i][0], len(blobs[i])))
-			enc.outBuffer = enc.outBuffer[len(blobs[i]):]
+			copy(enc.outBuffer, unsafe.Slice(&((*blobs)[i])[0], len((*blobs)[i])))
+			enc.outBuffer = enc.outBuffer[len((*blobs)[i]):]
 		}
 	}
 }

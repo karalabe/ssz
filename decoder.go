@@ -136,20 +136,24 @@ func DecodeUint256(dec *Decoder, n **uint256.Int) {
 }
 
 // DecodeStaticBytes parses a static binary blob.
-func DecodeStaticBytes(dec *Decoder, blob []byte) {
+func DecodeStaticBytes[T commonBytesLengths](dec *Decoder, blob *T) {
 	if dec.err != nil {
 		return
 	}
 	if dec.inReader != nil {
-		_, dec.err = io.ReadFull(dec.inReader, blob)
-		dec.inRead += uint32(len(blob))
+		// The code below should have used `*blob[:]`, alas Go's generics compiler
+		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+		_, dec.err = io.ReadFull(dec.inReader, unsafe.Slice(&(*blob)[0], len(*blob)))
+		dec.inRead += uint32(len(*blob))
 	} else {
-		if len(dec.inBuffer) < len(blob) {
+		if len(dec.inBuffer) < len(*blob) {
 			dec.err = io.ErrUnexpectedEOF
 			return
 		}
-		copy(blob, dec.inBuffer)
-		dec.inBuffer = dec.inBuffer[len(blob):]
+		// The code below should have used `*blob[:]`, alas Go's generics compiler
+		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+		copy(unsafe.Slice(&(*blob)[0], len(*blob)), dec.inBuffer)
+		dec.inBuffer = dec.inBuffer[len(*blob):]
 	}
 }
 
@@ -252,27 +256,31 @@ func DecodeDynamicObjectContent[T newableDynamicObject[U], U any](dec *Decoder, 
 }
 
 // DecodeArrayOfBits parses a static array of (packed) bits.
-func DecodeArrayOfBits[T ~[]byte](dec *Decoder, bits T, size uint64) {
+func DecodeArrayOfBits[T commonBitsLengths](dec *Decoder, bits *T, size uint64) {
 	if dec.err != nil {
 		return
 	}
+	// The code below should have used `*bits[:]`, alas Go's generics compiler
+	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+	bitvector := unsafe.Slice(&(*bits)[0], len(*bits))
+
 	if dec.inReader != nil {
-		_, dec.err = io.ReadFull(dec.inReader, bits)
+		_, dec.err = io.ReadFull(dec.inReader, bitvector)
 		if dec.err != nil {
 			return
 		}
-		dec.inRead += uint32(len(bits))
+		dec.inRead += uint32(len(bitvector))
 	} else {
-		if len(dec.inBuffer) < len(bits) {
+		if len(dec.inBuffer) < len(bitvector) {
 			dec.err = io.ErrUnexpectedEOF
 			return
 		}
-		copy(bits, dec.inBuffer)
-		dec.inBuffer = dec.inBuffer[len(bits):]
+		copy(bitvector, dec.inBuffer)
+		dec.inBuffer = dec.inBuffer[len(bitvector):]
 	}
 	// TODO(karalabe): This can probably be done more optimally...
-	for i := size; i < uint64(len(bits)<<3); i++ {
-		if bits[i>>3]&(1<<(i&0x7)) > 0 {
+	for i := size; i < uint64(len(bitvector)<<3); i++ {
+		if bitvector[i>>3]&(1<<(i&0x7)) > 0 {
 			dec.err = fmt.Errorf("%w: bit %d set, size %d bits", ErrJunkInBitvector, i+1, size)
 			return
 		}
@@ -333,26 +341,30 @@ func DecodeSliceOfBitsContent(dec *Decoder, bitlist *bitfield.Bitlist, maxBits u
 }
 
 // DecodeArrayOfUint64s parses a static array of uint64s.
-func DecodeArrayOfUint64s[T ~uint64](dec *Decoder, ns []T) {
+func DecodeArrayOfUint64s[T commonUint64sLengths](dec *Decoder, ns *T) {
 	if dec.err != nil {
 		return
 	}
+	// The code below should have used `*blob[:]`, alas Go's generics compiler
+	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+	nums := unsafe.Slice(&(*ns)[0], len(*ns))
+
 	if dec.inReader != nil {
-		for i := 0; i < len(ns); i++ {
+		for i := 0; i < len(nums); i++ {
 			_, dec.err = io.ReadFull(dec.inReader, dec.buf[:8])
 			if dec.err != nil {
 				return
 			}
-			ns[i] = T(binary.LittleEndian.Uint64(dec.buf[:8]))
+			nums[i] = binary.LittleEndian.Uint64(dec.buf[:8])
 			dec.inRead += 8
 		}
 	} else {
-		for i := 0; i < len(ns); i++ {
+		for i := 0; i < len(nums); i++ {
 			if len(dec.inBuffer) < 8 {
 				dec.err = io.ErrUnexpectedEOF
 				return
 			}
-			ns[i] = T(binary.LittleEndian.Uint64(dec.inBuffer))
+			nums[i] = binary.LittleEndian.Uint64(dec.inBuffer)
 			dec.inBuffer = dec.inBuffer[8:]
 		}
 	}
@@ -413,30 +425,30 @@ func DecodeSliceOfUint64sContent[T ~uint64](dec *Decoder, ns *[]T, maxItems uint
 }
 
 // DecodeArrayOfStaticBytes parses a static array of static binary blobs.
-func DecodeArrayOfStaticBytes[T commonBytesLengths](dec *Decoder, blobs []T) {
+func DecodeArrayOfStaticBytes[T commonBytesArrayLengths[U], U commonBytesLengths](dec *Decoder, blobs *T) {
 	if dec.err != nil {
 		return
 	}
 	if dec.inReader != nil {
-		for i := 0; i < len(blobs); i++ {
+		for i := 0; i < len(*blobs); i++ {
 			// The code below should have used `(*blobs)[i][:]`, alas Go's generics compiler
 			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-			_, dec.err = io.ReadFull(dec.inReader, unsafe.Slice(&(blobs)[i][0], len((blobs)[i])))
+			_, dec.err = io.ReadFull(dec.inReader, unsafe.Slice(&(*blobs)[i][0], len((*blobs)[i])))
 			if dec.err != nil {
 				return
 			}
-			dec.inRead += uint32(len((blobs)[i]))
+			dec.inRead += uint32(len((*blobs)[i]))
 		}
 	} else {
-		for i := 0; i < len(blobs); i++ {
-			if len(dec.inBuffer) < len((blobs)[i]) {
+		for i := 0; i < len(*blobs); i++ {
+			if len(dec.inBuffer) < len((*blobs)[i]) {
 				dec.err = io.ErrUnexpectedEOF
 				return
 			}
-			// The code below should have used `blobs[i][:]`, alas Go's generics compiler
+			// The code below should have used `*blobs[i][:]`, alas Go's generics compiler
 			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-			copy(unsafe.Slice(&(blobs)[i][0], len((blobs)[i])), dec.inBuffer)
-			dec.inBuffer = dec.inBuffer[len((blobs)[i]):]
+			copy(unsafe.Slice(&(*blobs)[i][0], len((*blobs)[i])), dec.inBuffer)
+			dec.inBuffer = dec.inBuffer[len((*blobs)[i]):]
 		}
 	}
 }

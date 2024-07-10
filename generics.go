@@ -20,15 +20,46 @@ type newableDynamicObject[U any] interface {
 	*U
 }
 
-// commonBytesLengths is a generic type whose purpose is to permit that lists
-// of different fixed-sized binary blobs can be passed to methods.
+// commonBytesLengths is a generic type whose purpose is to permit that fixed-
+// sized binary blobs can be passed to different methods. Although a slice of
+// the array would work for simple cases, there are scenarios when a new array
+// needs to be instantiated (e.g. optional field), and in that case we cannot
+// operate on slices anymore as there's nothing yet to slice.
 //
 // You can add any size to this list really, it's just a limitation of the Go
 // generics compiler that it cannot represent arrays of arbitrary sizes with
 // one shorthand notation.
 type commonBytesLengths interface {
-	// address | verkle-stem | hash | pubkey | signature | bloom
-	~[20]byte | ~[31]byte | ~[32]byte | ~[48]byte | ~[96]byte | ~[256]byte
+	// fork | address | verkle-stem | hash | pubkey | committee | signature | bloom
+	~[4]byte | ~[20]byte | ~[31]byte | ~[32]byte | ~[48]byte | ~[64]byte | ~[96]byte | ~[256]byte
+}
+
+// commonUint64sLengths is a generic type whose purpose is to permit that fixed-
+// sized uint64 arrays can be passed to different methods. Although a slice of
+// the array would work for simple cases, there are scenarios when a new array
+// needs to be instantiated (e.g. optional field), and in that case we cannot
+// operate on slices anymore as there's nothing yet to slice.
+//
+// You can add any size to this list really, it's just a limitation of the Go
+// generics compiler that it cannot represent arrays of arbitrary sizes with
+// one shorthand notation.
+type commonUint64sLengths interface {
+	// slashing
+	~[8192]uint64
+}
+
+// commonBitsLengths is a generic type whose purpose is to permit that fixed-
+// sized bit-vectors can be passed to different methods. Although a slice of
+// the array would work for simple cases, there are scenarios when a new array
+// needs to be instantiated (e.g. optional field), and in that case we cannot
+// operate on slices anymore as there's nothing yet to slice.
+//
+// You can add any size to this list really, it's just a limitation of the Go
+// generics compiler that it cannot represent arrays of arbitrary sizes with
+// one shorthand notation.
+type commonBitsLengths interface {
+	// justification
+	~[1]byte
 }
 
 // commonBytesArrayLengths is a generic type whose purpose is to permit that
@@ -38,6 +69,6 @@ type commonBytesLengths interface {
 // generics compiler that it cannot represent arrays of arbitrary sizes with
 // one shorthand notation.
 type commonBytesArrayLengths[U commonBytesLengths] interface {
-	// proof | history | randao
-	~[33]U | ~[8192]U | ~[65536]U
+	// proof | committee | history | randao
+	~[33]U | ~[512]U | ~[8192]U | ~[65536]U
 }

@@ -14,9 +14,9 @@ func (obj *AttestationData) SizeSSZ() uint32 {
 
 // DefineSSZ defines how an object is encoded/decoded.
 func (obj *AttestationData) DefineSSZ(codec *ssz.Codec) {
-	ssz.DefineUint64(codec, &obj.Slot)                   // Field  (0) -            Slot -  8 bytes
-	ssz.DefineUint64(codec, &obj.Index)                  // Field  (1) -           Index -  8 bytes
-	ssz.DefineStaticBytes(codec, obj.BeaconBlockHash[:]) // Field  (2) - BeaconBlockHash - 32 bytes
-	ssz.DefineStaticObject(codec, &obj.Source)           // Field  (3) -          Source -  ? bytes (Checkpoint)
-	ssz.DefineStaticObject(codec, &obj.Target)           // Field  (4) -          Target -  ? bytes (Checkpoint)
+	ssz.DefineUint64(codec, &obj.Slot)                 // Field  (0) -            Slot -  8 bytes
+	ssz.DefineUint64(codec, &obj.Index)                // Field  (1) -           Index -  8 bytes
+	ssz.DefineStaticBytes(codec, &obj.BeaconBlockHash) // Field  (2) - BeaconBlockHash - 32 bytes
+	ssz.DefineStaticObject(codec, &obj.Source)         // Field  (3) -          Source -  ? bytes (Checkpoint)
+	ssz.DefineStaticObject(codec, &obj.Target)         // Field  (4) -          Target -  ? bytes (Checkpoint)
 }

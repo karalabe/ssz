@@ -2,7 +2,7 @@
 
 # Simple Serialize (SSZ)... v15
 
-[![API Reference](https://pkg.go.dev/badge/github.com/karalabe/ssz)](https://pkg.go.dev/github.com/karalabe/ssz?tab=doc) [![Build Status](https://github.com/karalabe/ssz/actions/workflows/tests.yml/badge.svg)](https://github.com/karalabe/ssz/actions/workflows/tests.yml)
+[![API Reference](https://pkg.go.dev/badge/github.com/karalabe/ssz)](https://pkg.go.dev/github.com/karalabe/ssz?tab=doc) [![Build Status](https://github.com/karalabe/ssz/actions/workflows/tests.yml/badge.svg)](https://github.com/karalabe/ssz/actions/workflows/tests.yml~~~~)
 
 Package `ssz` provides a zero-allocation, opinionated toolkit for working with Ethereum's [Simple Serialize (SSZ)](https://github.com/ethereum/consensus-specs/blob/dev/ssz/simple-serialize.md) format through Go. The focus is on code maintainability, only secondarily striving towards raw performance.
 
@@ -88,15 +88,14 @@ type StaticObject interface {
 func (w *Withdrawal) SizeSSZ() uint32 { return 44 }
 
 func (w *Withdrawal) DefineSSZ(codec *ssz.Codec) {
-	ssz.DefineUint64(codec, &w.Index)          // Field (0) - Index          -  8 bytes
-	ssz.DefineUint64(codec, &w.Validator)      // Field (1) - ValidatorIndex -  8 bytes
-	ssz.DefineStaticBytes(codec, w.Address[:]) // Field (2) - Address        - 20 bytes
-	ssz.DefineUint64(codec, &w.Amount)         // Field (3) - Amount         -  8 bytes
+	ssz.DefineUint64(codec, &w.Index)        // Field (0) - Index          -  8 bytes
+	ssz.DefineUint64(codec, &w.Validator)    // Field (1) - ValidatorIndex -  8 bytes
+	ssz.DefineStaticBytes(codec, &w.Address) // Field (2) - Address        - 20 bytes
+	ssz.DefineUint64(codec, &w.Amount)       // Field (3) - Amount         -  8 bytes
 }
 ```
 
 - The `DefineXYZ` methods should feel self-explanatory. They spill out what fields to encode in what order and into what types. The interesting tidbit is the addressing of the fields. Since this code is used for *both* encoding and decoding, it needs to be able to instantiate any `nil` fields during decoding, so pointers are needed.
-- Another interesting part is that we haven't defined an encoder/decoder for `Address`, rather just sliced it into `[]byte`. It is common in Go world that byte slices or arrays are aliased into various types, so instead of requiring the user to annotate all those tiny utility types, they can just use them directly.
 
 To encode the above `Witness` into an SSZ stream, use either `ssz.EncodeToStream` or `ssz.EncodeToBytes`. The former will write into a stream directly, whilst the latter will write into a bytes buffer directly. In both cases you need to supply the output location to avoid GC allocations in the library.
 
@@ -185,19 +184,19 @@ The codec itself is very similar to the static example before:
 ```go
 func (e *ExecutionPayload) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
-	ssz.DefineStaticBytes(codec, e.ParentHash[:])               // Field  ( 0) - ParentHash    -  32 bytes
-	ssz.DefineStaticBytes(codec, e.FeeRecipient[:])             // Field  ( 1) - FeeRecipient  -  20 bytes
-	ssz.DefineStaticBytes(codec, e.StateRoot[:])                // Field  ( 2) - StateRoot     -  32 bytes
-	ssz.DefineStaticBytes(codec, e.ReceiptsRoot[:])             // Field  ( 3) - ReceiptsRoot  -  32 bytes
-	ssz.DefineStaticBytes(codec, e.LogsBloom[:])                // Field  ( 4) - LogsBloom     - 256 bytes
-	ssz.DefineStaticBytes(codec, e.PrevRandao[:])               // Field  ( 5) - PrevRandao    -  32 bytes
+	ssz.DefineStaticBytes(codec, &e.ParentHash)                 // Field  ( 0) - ParentHash    -  32 bytes
+	ssz.DefineStaticBytes(codec, &e.FeeRecipient)               // Field  ( 1) - FeeRecipient  -  20 bytes
+	ssz.DefineStaticBytes(codec, &e.StateRoot)                  // Field  ( 2) - StateRoot     -  32 bytes
+	ssz.DefineStaticBytes(codec, &e.ReceiptsRoot)               // Field  ( 3) - ReceiptsRoot  -  32 bytes
+	ssz.DefineStaticBytes(codec, &e.LogsBloom)                  // Field  ( 4) - LogsBloom     - 256 bytes
+	ssz.DefineStaticBytes(codec, &e.PrevRandao)                 // Field  ( 5) - PrevRandao    -  32 bytes
 	ssz.DefineUint64(codec, &e.BlockNumber)                     // Field  ( 6) - BlockNumber   -   8 bytes
 	ssz.DefineUint64(codec, &e.GasLimit)                        // Field  ( 7) - GasLimit      -   8 bytes
 	ssz.DefineUint64(codec, &e.GasUsed)                         // Field  ( 8) - GasUsed       -   8 bytes
 	ssz.DefineUint64(codec, &e.Timestamp)                       // Field  ( 9) - Timestamp     -   8 bytes
 	ssz.DefineDynamicBytesOffset(codec, &e.ExtraData)           // Offset (10) - ExtraData     -   4 bytes
 	ssz.DefineUint256(codec, &e.BaseFeePerGas)                  // Field  (11) - BaseFeePerGas -  32 bytes
-	ssz.DefineStaticBytes(codec, e.BlockHash[:])                // Field  (12) - BlockHash     -  32 bytes
+	ssz.DefineStaticBytes(codec, &e.BlockHash)                  // Field  (12) - BlockHash     -  32 bytes
 	ssz.DefineSliceOfDynamicBytesOffset(codec, &e.Transactions) // Offset (13) - Transactions  -   4 bytes
 	ssz.DefineSliceOfStaticObjectsOffset(codec, &e.Withdrawals) // Offset (14) - Withdrawals   -   4 bytes
 
@@ -237,16 +236,16 @@ To avoid having a real-world example's complexity overshadow the point we're try
 ```go
 func (w *Withdrawal) DefineSSZ(codec *ssz.Codec) {
 	codec.DefineEncoder(func(enc *ssz.Encoder) {
-		ssz.EncodeUint64(enc, w.Index)           // Field (0) - Index          -  8 bytes
-		ssz.EncodeUint64(enc, w.Validator)       // Field (1) - ValidatorIndex -  8 bytes
-		ssz.EncodeStaticBytes(enc, w.Address[:]) // Field (2) - Address        - 20 bytes
-		ssz.EncodeUint64(enc, w.Amount)          // Field (3) - Amount         -  8 bytes
+		ssz.EncodeUint64(enc, w.Index)         // Field (0) - Index          -  8 bytes
+		ssz.EncodeUint64(enc, w.Validator)     // Field (1) - ValidatorIndex -  8 bytes
+		ssz.EncodeStaticBytes(enc, &w.Address) // Field (2) - Address        - 20 bytes
+		ssz.EncodeUint64(enc, w.Amount)        // Field (3) - Amount         -  8 bytes
 	})
 	codec.DefineDecoder(func(dec *ssz.Decoder) {
-		ssz.DecodeUint64(dec, &w.Index)          // Field (0) - Index          -  8 bytes
-		ssz.DecodeUint64(dec, &w.Validator)      // Field (1) - ValidatorIndex -  8 bytes
-		ssz.DecodeStaticBytes(dec, w.Address[:]) // Field (2) - Address        - 20 bytes
-		ssz.DecodeUint64(dec, &w.Amount)         // Field (3) - Amount         -  8 bytes
+		ssz.DecodeUint64(dec, &w.Index)        // Field (0) - Index          -  8 bytes
+		ssz.DecodeUint64(dec, &w.Validator)    // Field (1) - ValidatorIndex -  8 bytes
+		ssz.DecodeStaticBytes(dec, &w.Address) // Field (2) - Address        - 20 bytes
+		ssz.DecodeUint64(dec, &w.Amount)       // Field (3) - Amount         -  8 bytes
 	})
 }
 ```
@@ -254,7 +253,7 @@ func (w *Withdrawal) DefineSSZ(codec *ssz.Codec) {
 - As you can see, we piggie-back on the already existing `ssz.Object`'s `DefineSSZ` method, and do *not* require implementing new functions. This is good because we want to be able to seamlessly use unified or split encoders without having to tell everyone about it.
 - Whereas previously we had a bunch of `DefineXYZ` method to enumerate the fields for the unified encoding/decoding, here we replaced them with separate definitions for the encoder and decoder via `codec.DefineEncoder` and `codec.DefineDecoder`.
 - The implementation of the encoder and decoder follows the exact same pattern and naming conventions as with the `codec` but instead of operating on a `ssz.Codec` object, we're operating on an `ssz.Encoder`/`ssz.Decoder` objects; and instead of calling methods named `ssz.DefineXYZ`, we're calling methods named `ssz.EncodeXYZ` and `ssz.DecodeXYZ`.
-- Perhaps note, the `EncodeXYZ` methods do not take pointers to everything anymore, since they do not require the ability to instantiate the field during operation.
+- Perhaps note, the `EncodeXYZ` methods do not take pointers to everything anymore, since they do not require the ability to instantiate the field during operation. Still, static bytes are passed by pointer to avoid heavy copy overheads for large arrays.
 
 Encoding the above `Witness` into an SSZ stream, you use the same thing as before. Everything is seamless.
 
@@ -333,10 +332,10 @@ func (obj *Withdrawal) SizeSSZ() uint32 {
 
 // DefineSSZ defines how an object is encoded/decoded.
 func (obj *Withdrawal) DefineSSZ(codec *ssz.Codec) {
-	ssz.DefineUint64(codec, &obj.Index)          // Field  (0) -     Index -  8 bytes
-	ssz.DefineUint64(codec, &obj.Validator)      // Field  (1) - Validator -  8 bytes
-	ssz.DefineStaticBytes(codec, obj.Address[:]) // Field  (2) -   Address - 20 bytes
-	ssz.DefineUint64(codec, &obj.Amount)         // Field  (3) -    Amount -  8 bytes
+	ssz.DefineUint64(codec, &obj.Index)        // Field  (0) -     Index -  8 bytes
+	ssz.DefineUint64(codec, &obj.Validator)    // Field  (1) - Validator -  8 bytes
+	ssz.DefineStaticBytes(codec, &obj.Address) // Field  (2) -   Address - 20 bytes
+	ssz.DefineUint64(codec, &obj.Amount)       // Field  (3) -    Amount -  8 bytes
 }
 ```
 

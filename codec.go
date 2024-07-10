@@ -68,7 +68,7 @@ func DefineUint256(c *Codec, n **uint256.Int) {
 
 // DefineStaticBytes defines the next field as static binary blob. This method
 // can be used for byte arrays.
-func DefineStaticBytes(c *Codec, blob []byte) {
+func DefineStaticBytes[T commonBytesLengths](c *Codec, blob *T) {
 	if c.enc != nil {
 		EncodeStaticBytes(c.enc, blob)
 		return
@@ -77,7 +77,7 @@ func DefineStaticBytes(c *Codec, blob []byte) {
 }
 
 // DefineCheckedStaticBytes defines the next field as static binary blob. This
-// method can be used for plain byte slices, which is more expensive , since it
+// method can be used for plain byte slices, which is more expensive, since it
 // needs runtime size validation.
 func DefineCheckedStaticBytes(c *Codec, blob *[]byte, size uint64) {
 	if c.enc != nil {
@@ -133,7 +133,7 @@ func DefineDynamicObjectContent[T newableDynamicObject[U], U any](c *Codec, obj 
 }
 
 // DefineArrayOfBits defines the next field as a static array of (packed) bits.
-func DefineArrayOfBits[T ~[]byte](c *Codec, bits T, size uint64) {
+func DefineArrayOfBits[T commonBitsLengths](c *Codec, bits *T, size uint64) {
 	if c.enc != nil {
 		EncodeArrayOfBits(c.enc, bits)
 		return
@@ -160,7 +160,7 @@ func DefineSliceOfBitsContent(c *Codec, bits *bitfield.Bitlist, maxBits uint64) 
 }
 
 // DefineArrayOfUint64s defines the next field as a static array of uint64s.
-func DefineArrayOfUint64s[T ~uint64](c *Codec, ns []T) {
+func DefineArrayOfUint64s[T commonUint64sLengths](c *Codec, ns *T) {
 	if c.enc != nil {
 		EncodeArrayOfUint64s(c.enc, ns)
 		return
@@ -188,12 +188,12 @@ func DefineSliceOfUint64sContent[T ~uint64](c *Codec, ns *[]T, maxItems uint64) 
 
 // DefineArrayOfStaticBytes defines the next field as a static array of static
 // binary blobs.
-func DefineArrayOfStaticBytes[T commonBytesLengths](c *Codec, blobs []T) {
+func DefineArrayOfStaticBytes[T commonBytesArrayLengths[U], U commonBytesLengths](c *Codec, blobs *T) {
 	if c.enc != nil {
-		EncodeArrayOfStaticBytes(c.enc, blobs)
+		EncodeArrayOfStaticBytes[T, U](c.enc, blobs)
 		return
 	}
-	DecodeArrayOfStaticBytes(c.dec, blobs)
+	DecodeArrayOfStaticBytes[T, U](c.dec, blobs)
 }
 
 // DefineCheckedArrayOfStaticBytes defines the next field as a static array of

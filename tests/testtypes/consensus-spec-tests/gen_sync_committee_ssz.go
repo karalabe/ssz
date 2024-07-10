@@ -11,6 +11,6 @@ func (obj *SyncCommittee) SizeSSZ() uint32 {
 
 // DefineSSZ defines how an object is encoded/decoded.
 func (obj *SyncCommittee) DefineSSZ(codec *ssz.Codec) {
-	ssz.DefineArrayOfStaticBytes(codec, obj.PubKeys[:])  // Field  (0) -         PubKeys - 24576 bytes
-	ssz.DefineStaticBytes(codec, obj.AggregatePubKey[:]) // Field  (1) - AggregatePubKey -    48 bytes
+	ssz.DefineArrayOfStaticBytes[[512][48]byte, [48]byte](codec, &obj.PubKeys) // Field  (0) -         PubKeys - 24576 bytes
+	ssz.DefineStaticBytes(codec, &obj.AggregatePubKey)                         // Field  (1) - AggregatePubKey -    48 bytes
 }

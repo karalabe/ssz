@@ -21,8 +21,8 @@ func (obj *BeaconBlock) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
 	ssz.DefineUint64(codec, &obj.Slot)              // Field  (0) -          Slot -  8 bytes
 	ssz.DefineUint64(codec, &obj.ProposerIndex)     // Field  (1) - ProposerIndex -  8 bytes
-	ssz.DefineStaticBytes(codec, obj.ParentRoot[:]) // Field  (2) -    ParentRoot - 32 bytes
-	ssz.DefineStaticBytes(codec, obj.StateRoot[:])  // Field  (3) -     StateRoot - 32 bytes
+	ssz.DefineStaticBytes(codec, &obj.ParentRoot)   // Field  (2) -    ParentRoot - 32 bytes
+	ssz.DefineStaticBytes(codec, &obj.StateRoot)    // Field  (3) -     StateRoot - 32 bytes
 	ssz.DefineDynamicObjectOffset(codec, &obj.Body) // Offset (4) -          Body -  4 bytes
 
 	// Define the dynamic data (fields)

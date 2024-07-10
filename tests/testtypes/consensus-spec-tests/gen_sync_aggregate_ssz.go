@@ -11,6 +11,6 @@ func (obj *SyncAggregate) SizeSSZ() uint32 {
 
 // DefineSSZ defines how an object is encoded/decoded.
 func (obj *SyncAggregate) DefineSSZ(codec *ssz.Codec) {
-	ssz.DefineStaticBytes(codec, obj.SyncCommiteeBits[:])      // Field  (0) -      SyncCommiteeBits - 64 bytes
-	ssz.DefineStaticBytes(codec, obj.SyncCommiteeSignature[:]) // Field  (1) - SyncCommiteeSignature - 96 bytes
+	ssz.DefineStaticBytes(codec, &obj.SyncCommiteeBits)      // Field  (0) -      SyncCommiteeBits - 64 bytes
+	ssz.DefineStaticBytes(codec, &obj.SyncCommiteeSignature) // Field  (1) - SyncCommiteeSignature - 96 bytes
 }

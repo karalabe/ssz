@@ -14,6 +14,6 @@ func (obj *SignedVoluntaryExit) SizeSSZ() uint32 {
 
 // DefineSSZ defines how an object is encoded/decoded.
 func (obj *SignedVoluntaryExit) DefineSSZ(codec *ssz.Codec) {
-	ssz.DefineStaticObject(codec, &obj.Exit)       // Field  (0) -      Exit -  ? bytes (VoluntaryExit)
-	ssz.DefineStaticBytes(codec, obj.Signature[:]) // Field  (1) - Signature - 96 bytes
+	ssz.DefineStaticObject(codec, &obj.Exit)     // Field  (0) -      Exit -  ? bytes (VoluntaryExit)
+	ssz.DefineStaticBytes(codec, &obj.Signature) // Field  (1) - Signature - 96 bytes
 }

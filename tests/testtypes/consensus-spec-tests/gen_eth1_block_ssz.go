@@ -11,7 +11,7 @@ func (obj *Eth1Block) SizeSSZ() uint32 {
 
 // DefineSSZ defines how an object is encoded/decoded.
 func (obj *Eth1Block) DefineSSZ(codec *ssz.Codec) {
-	ssz.DefineUint64(codec, &obj.Timestamp)          // Field  (0) -    Timestamp -  8 bytes
-	ssz.DefineStaticBytes(codec, obj.DepositRoot[:]) // Field  (1) -  DepositRoot - 32 bytes
-	ssz.DefineUint64(codec, &obj.DepositCount)       // Field  (2) - DepositCount -  8 bytes
+	ssz.DefineUint64(codec, &obj.Timestamp)        // Field  (0) -    Timestamp -  8 bytes
+	ssz.DefineStaticBytes(codec, &obj.DepositRoot) // Field  (1) -  DepositRoot - 32 bytes
+	ssz.DefineUint64(codec, &obj.DepositCount)     // Field  (2) - DepositCount -  8 bytes
 }

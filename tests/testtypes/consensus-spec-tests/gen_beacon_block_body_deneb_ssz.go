@@ -29,9 +29,9 @@ func (obj *BeaconBlockBodyDeneb) SizeSSZ(fixed bool) uint32 {
 // DefineSSZ defines how an object is encoded/decoded.
 func (obj *BeaconBlockBodyDeneb) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
-	ssz.DefineStaticBytes(codec, obj.RandaoReveal[:])                       // Field  ( 0) -          RandaoReveal - 96 bytes
+	ssz.DefineStaticBytes(codec, &obj.RandaoReveal)                         // Field  ( 0) -          RandaoReveal - 96 bytes
 	ssz.DefineStaticObject(codec, &obj.Eth1Data)                            // Field  ( 1) -              Eth1Data -  ? bytes (Eth1Data)
-	ssz.DefineStaticBytes(codec, obj.Graffiti[:])                           // Field  ( 2) -              Graffiti - 32 bytes
+	ssz.DefineStaticBytes(codec, &obj.Graffiti)                             // Field  ( 2) -              Graffiti - 32 bytes
 	ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.ProposerSlashings)     // Offset ( 3) -     ProposerSlashings -  4 bytes
 	ssz.DefineSliceOfDynamicObjectsOffset(codec, &obj.AttesterSlashings)    // Offset ( 4) -     AttesterSlashings -  4 bytes
 	ssz.DefineSliceOfDynamicObjectsOffset(codec, &obj.Attestations)         // Offset ( 5) -          Attestations -  4 bytes

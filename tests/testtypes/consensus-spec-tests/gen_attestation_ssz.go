@@ -24,7 +24,7 @@ func (obj *Attestation) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
 	ssz.DefineSliceOfBitsOffset(codec, &obj.AggregationBits) // Offset (0) - AggregationBits -  4 bytes
 	ssz.DefineStaticObject(codec, &obj.Data)                 // Field  (1) -            Data -  ? bytes (AttestationData)
-	ssz.DefineStaticBytes(codec, obj.Signature[:])           // Field  (2) -       Signature - 96 bytes
+	ssz.DefineStaticBytes(codec, &obj.Signature)             // Field  (2) -       Signature - 96 bytes
 
 	// Define the dynamic data (fields)
 	ssz.DefineSliceOfBitsContent(codec, &obj.AggregationBits, 2048) // Field  (0) - AggregationBits - ? bytes

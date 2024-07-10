@@ -11,6 +11,6 @@ func (obj *HistoricalSummary) SizeSSZ() uint32 {
 
 // DefineSSZ defines how an object is encoded/decoded.
 func (obj *HistoricalSummary) DefineSSZ(codec *ssz.Codec) {
-	ssz.DefineStaticBytes(codec, obj.BlockSummaryRoot[:]) // Field  (0) - BlockSummaryRoot - 32 bytes
-	ssz.DefineStaticBytes(codec, obj.StateSummaryRoot[:]) // Field  (1) - StateSummaryRoot - 32 bytes
+	ssz.DefineStaticBytes(codec, &obj.BlockSummaryRoot) // Field  (0) - BlockSummaryRoot - 32 bytes
+	ssz.DefineStaticBytes(codec, &obj.StateSummaryRoot) // Field  (1) - StateSummaryRoot - 32 bytes
 }

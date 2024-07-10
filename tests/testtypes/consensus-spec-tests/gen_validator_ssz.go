@@ -11,12 +11,12 @@ func (obj *Validator) SizeSSZ() uint32 {
 
 // DefineSSZ defines how an object is encoded/decoded.
 func (obj *Validator) DefineSSZ(codec *ssz.Codec) {
-	ssz.DefineStaticBytes(codec, obj.Pubkey[:])                // Field  (0) -                     Pubkey - 48 bytes
-	ssz.DefineStaticBytes(codec, obj.WithdrawalCredentials[:]) // Field  (1) -      WithdrawalCredentials - 32 bytes
-	ssz.DefineUint64(codec, &obj.EffectiveBalance)             // Field  (2) -           EffectiveBalance -  8 bytes
-	ssz.DefineBool(codec, &obj.Slashed)                        // Field  (3) -                    Slashed -  1 bytes
-	ssz.DefineUint64(codec, &obj.ActivationEligibilityEpoch)   // Field  (4) - ActivationEligibilityEpoch -  8 bytes
-	ssz.DefineUint64(codec, &obj.ActivationEpoch)              // Field  (5) -            ActivationEpoch -  8 bytes
-	ssz.DefineUint64(codec, &obj.ExitEpoch)                    // Field  (6) -                  ExitEpoch -  8 bytes
-	ssz.DefineUint64(codec, &obj.WithdrawableEpoch)            // Field  (7) -          WithdrawableEpoch -  8 bytes
+	ssz.DefineStaticBytes(codec, &obj.Pubkey)                // Field  (0) -                     Pubkey - 48 bytes
+	ssz.DefineStaticBytes(codec, &obj.WithdrawalCredentials) // Field  (1) -      WithdrawalCredentials - 32 bytes
+	ssz.DefineUint64(codec, &obj.EffectiveBalance)           // Field  (2) -           EffectiveBalance -  8 bytes
+	ssz.DefineBool(codec, &obj.Slashed)                      // Field  (3) -                    Slashed -  1 bytes
+	ssz.DefineUint64(codec, &obj.ActivationEligibilityEpoch) // Field  (4) - ActivationEligibilityEpoch -  8 bytes
+	ssz.DefineUint64(codec, &obj.ActivationEpoch)            // Field  (5) -            ActivationEpoch -  8 bytes
+	ssz.DefineUint64(codec, &obj.ExitEpoch)                  // Field  (6) -                  ExitEpoch -  8 bytes
+	ssz.DefineUint64(codec, &obj.WithdrawableEpoch)          // Field  (7) -          WithdrawableEpoch -  8 bytes
 }

@@ -11,7 +11,6 @@ import (
 
 //go:generate go run ../../../cmd/sszgen -type Checkpoint -out gen_checkpoint_ssz.go
 //go:generate go run ../../../cmd/sszgen -type AttestationData -out gen_attestation_data_ssz.go
-//go:generate go run ../../../cmd/sszgen -type AttesterSlashing -out gen_attester_slashing_ssz.go
 //go:generate go run ../../../cmd/sszgen -type BeaconBlockHeader -out gen_beacon_block_header_ssz.go
 //go:generate go run ../../../cmd/sszgen -type BLSToExecutionChange -out gen_bls_to_execution_change_ssz.go
 //go:generate go run ../../../cmd/sszgen -type Attestation -out gen_attestation_ssz.go
@@ -27,14 +26,15 @@ import (
 //go:generate go run ../../../cmd/sszgen -type HistoricalBatch -out gen_historical_batch_ssz.go
 //go:generate go run ../../../cmd/sszgen -type HistoricalSummary -out gen_historical_summary_ssz.go
 //go:generate go run ../../../cmd/sszgen -type IndexedAttestation -out gen_indexed_attestation_ssz.go
+//go:generate go run ../../../cmd/sszgen -type AttesterSlashing -out gen_attester_slashing_ssz.go
 //go:generate go run ../../../cmd/sszgen -type PendingAttestation -out gen_pending_attestation_ssz.go
-//go:generate go run ../../../cmd/sszgen -type ProposerSlashing -out gen_proposer_slashing_ssz.go
 //go:generate go run ../../../cmd/sszgen -type SignedBeaconBlockHeader -out gen_signed_beacon_block_header_ssz.go
+//go:generate go run ../../../cmd/sszgen -type ProposerSlashing -out gen_proposer_slashing_ssz.go
 //go:generate go run ../../../cmd/sszgen -type SignedBLSToExecutionChange -out gen_signed_bls_to_execution_change_ssz.go
-//go:generate go run ../../../cmd/sszgen -type SignedVoluntaryExit -out gen_signed_voluntary_exit_ssz.go
 //go:generate go run ../../../cmd/sszgen -type SyncAggregate -out gen_sync_aggregate_ssz.go
 //go:generate go run ../../../cmd/sszgen -type SyncCommittee -out gen_sync_committee_ssz.go
 //go:generate go run ../../../cmd/sszgen -type VoluntaryExit -out gen_voluntary_exit_ssz.go
+//go:generate go run ../../../cmd/sszgen -type SignedVoluntaryExit -out gen_signed_voluntary_exit_ssz.go
 //go:generate go run ../../../cmd/sszgen -type Validator -out gen_validator_ssz.go
 //go:generate go run ../../../cmd/sszgen -type Withdrawal -out gen_withdrawal_ssz.go
 //go:generate go run ../../../cmd/sszgen -type ExecutionPayloadCapella -out gen_execution_payload_capella_ssz.go
@@ -60,6 +60,9 @@ type Address [20]byte
 
 // LogsBloom is a standalone mock of go-ethereum's types.LogsBloom
 type LogsBloom [256]byte
+
+// Roots is a helper type to foce a generator quirk.
+type Roots [8192]Hash
 
 type AggregateAndProof struct {
 	Index          uint64
@@ -349,7 +352,7 @@ type Fork struct {
 
 type HistoricalBatch struct {
 	BlockRoots [8192]Hash
-	StateRoots [8192]Hash
+	StateRoots Roots
 }
 
 type HistoricalSummary struct {
