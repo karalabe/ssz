@@ -292,13 +292,7 @@ func DecodeSliceOfBitsContent(dec *Decoder, bitlist *bitfield.Bitlist, maxBits u
 	// Compute the length of the encoded bits based on the seen offsets
 	size := dec.retrieveSize()
 	if size == 0 {
-		// Empty slice, remove anything extra
-		if len(*bitlist) == 0 {
-			(*bitlist) = make([]byte, 1)
-		} else {
-			*bitlist = (*bitlist)[:1]
-		}
-		(*bitlist)[0] = 0x01
+		dec.err = fmt.Errorf("%w: length bit missing", ErrJunkInBitlist)
 		return
 	}
 	// Verify that the byte size is reasonable, bits will need an extra step after decoding
@@ -329,7 +323,7 @@ func DecodeSliceOfBitsContent(dec *Decoder, bitlist *bitfield.Bitlist, maxBits u
 	// Verify that the length bit is at the correct position
 	high := (*bitlist)[len(*bitlist)-1]
 	if high == 0 {
-		dec.err = fmt.Errorf("%w: high byte unset", ErrJunkInBitvector)
+		dec.err = fmt.Errorf("%w: high byte unset", ErrJunkInBitlist)
 		return
 	}
 	if len := ((len(*bitlist) - 1) >> 3) + bits.Len8(high) - 1; uint64(len) > maxBits {
