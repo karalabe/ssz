@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"math/rand/v2"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"sync"
@@ -539,7 +539,7 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 		// If the testcase was valid, try decoding it into a used object
 		if valid {
 			// Pick a random starting object
-			vSSZ := valids[rand.N(len(valids))]
+			vSSZ := valids[rand.Intn(len(valids))]
 
 			// Try the stream encoder/decoder into a prepped object
 			obj = T(new(U))
