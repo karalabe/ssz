@@ -9,7 +9,6 @@ import (
 	"io"
 	"unsafe"
 
-	ssz "github.com/ferranbt/fastssz"
 	"github.com/holiman/uint256"
 	"github.com/prysmaticlabs/go-bitfield"
 )
@@ -46,7 +45,7 @@ var (
 //     If the caller provided bad data to encode, it is a programming error and
 //     a runtime error will not fix anything.
 //
-// Internally there are a few implementation details that maintainer need to be
+// Internally there are a few implementation details that maintainers need to be
 // aware of when modifying the code:
 //
 //  1. The encoder supports two modes of operation: streaming and buffered. Any
@@ -66,9 +65,8 @@ var (
 //     aggressively enough (neither does it allow explicitly directing it to),
 //     and in such tight loops, extra calls matter on performance.
 type Encoder struct {
-	outHasher *ssz.Hasher // Underlying output stream to hash into (hashing mode)
-	outWriter io.Writer   // Underlying output stream to write into (streaming mode)
-	outBuffer []byte      // Underlying output stream to write into (buffered mode)
+	outWriter io.Writer // Underlying output stream to write into (streaming mode)
+	outBuffer []byte    // Underlying output stream to write into (buffered mode)
 
 	err   error    // Any write error to halt future encoding calls
 	codec *Codec   // Self-referencing to pass DefineSSZ calls through (API trick)
@@ -79,12 +77,6 @@ type Encoder struct {
 
 // EncodeBool serializes a boolean.
 func EncodeBool[T ~bool](enc *Encoder, v T) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		enc.outHasher.PutBool((bool)(v))
-		return
-	}
-	// Nope, dive into actual encoding
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -106,12 +98,6 @@ func EncodeBool[T ~bool](enc *Encoder, v T) {
 
 // EncodeUint64 serializes a uint64.
 func EncodeUint64[T ~uint64](enc *Encoder, n T) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		binary.LittleEndian.PutUint64(enc.buf[:8], (uint64)(n))
-		enc.outHasher.AppendBytes32(enc.buf[:8])
-		return
-	}
 	// Nope, dive into actual encoding
 	if enc.outWriter != nil {
 		if enc.err != nil {
@@ -129,17 +115,6 @@ func EncodeUint64[T ~uint64](enc *Encoder, n T) {
 //
 // Note, a nil pointer is serialized as zero.
 func EncodeUint256(enc *Encoder, n *uint256.Int) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		if n != nil {
-			n.MarshalSSZInto(enc.buf[:32])
-			enc.outHasher.PutBytes(enc.buf[:32])
-		} else {
-			enc.outHasher.PutBytes(uint256Zero)
-		}
-		return
-	}
-	// Nope, dive into actual encoding
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -165,14 +140,6 @@ func EncodeUint256(enc *Encoder, n *uint256.Int) {
 // The blob is passed by pointer to avoid high stack copy costs and a potential
 // escape to the heap.
 func EncodeStaticBytes[T commonBytesLengths](enc *Encoder, blob *T) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		// The code below should have used `blob[:]`, alas Go's generics compiler
-		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-		enc.outHasher.PutBytes(unsafe.Slice(&(*blob)[0], len(*blob)))
-		return
-	}
-	// Nope, dive into actual encoding
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -190,12 +157,6 @@ func EncodeStaticBytes[T commonBytesLengths](enc *Encoder, blob *T) {
 
 // EncodeCheckedStaticBytes serializes a static binary blob.
 func EncodeCheckedStaticBytes(enc *Encoder, blob []byte) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		enc.outHasher.PutBytes(blob)
-		return
-	}
-	// Nope, dive into actual encoding
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -208,15 +169,7 @@ func EncodeCheckedStaticBytes(enc *Encoder, blob []byte) {
 }
 
 // EncodeDynamicBytesOffset serializes a dynamic binary blob.
-func EncodeDynamicBytesOffset(enc *Encoder, blob []byte, maxSize uint64) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		idx := enc.outHasher.Index()
-		enc.outHasher.Append(blob)
-		enc.outHasher.MerkleizeWithMixin(idx, uint64(len(blob)), (maxSize+31)/32)
-		return
-	}
-	// Nope, dive into actual encoding
+func EncodeDynamicBytesOffset(enc *Encoder, blob []byte) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -232,11 +185,6 @@ func EncodeDynamicBytesOffset(enc *Encoder, blob []byte, maxSize uint64) {
 
 // EncodeDynamicBytesContent is the lazy data writer for EncodeDynamicBytesOffset.
 func EncodeDynamicBytesContent(enc *Encoder, blob []byte) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		return
-	}
-	// Nope, dive into actual encoding
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -250,13 +198,6 @@ func EncodeDynamicBytesContent(enc *Encoder, blob []byte) {
 
 // EncodeStaticObject serializes a static ssz object.
 func EncodeStaticObject(enc *Encoder, obj StaticObject) {
-	if enc.outHasher != nil {
-		idx := enc.outHasher.Index()
-		obj.DefineSSZ(enc.codec)
-		enc.outHasher.Merkleize(idx)
-
-		return
-	}
 	if enc.err != nil {
 		return
 	}
@@ -265,15 +206,6 @@ func EncodeStaticObject(enc *Encoder, obj StaticObject) {
 
 // EncodeDynamicObjectOffset serializes a dynamic ssz object.
 func EncodeDynamicObjectOffset(enc *Encoder, obj DynamicObject) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		idx := enc.outHasher.Index()
-		obj.DefineSSZ(enc.codec)
-		enc.outHasher.Merkleize(idx)
-
-		return
-	}
-	// Nope, dive into actual encoding
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -289,11 +221,6 @@ func EncodeDynamicObjectOffset(enc *Encoder, obj DynamicObject) {
 
 // EncodeDynamicObjectContent is the lazy data writer for EncodeDynamicObjectOffset.
 func EncodeDynamicObjectContent(enc *Encoder, obj DynamicObject) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		return
-	}
-	// Nope, dive into actual encoding
 	if enc.err != nil {
 		return
 	}
@@ -303,14 +230,6 @@ func EncodeDynamicObjectContent(enc *Encoder, obj DynamicObject) {
 
 // EncodeArrayOfBits serializes a static array of (packed) bits.
 func EncodeArrayOfBits[T commonBitsLengths](enc *Encoder, bits *T) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		// The code below should have used `*bits[:]`, alas Go's generics compiler
-		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-		enc.outHasher.PutBytes(unsafe.Slice(&(*bits)[0], len(*bits)))
-		return
-	}
-	// Nope, dive into actual encoding
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -327,13 +246,7 @@ func EncodeArrayOfBits[T commonBitsLengths](enc *Encoder, bits *T) {
 }
 
 // EncodeSliceOfBitsOffset serializes a dynamic slice of (packed) bits.
-func EncodeSliceOfBitsOffset(enc *Encoder, bits bitfield.Bitlist, maxBits uint64) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		enc.outHasher.PutBitlist(bits, maxBits)
-		return
-	}
-	// Nope, dive into actual encoding
+func EncodeSliceOfBitsOffset(enc *Encoder, bits bitfield.Bitlist) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -349,11 +262,6 @@ func EncodeSliceOfBitsOffset(enc *Encoder, bits bitfield.Bitlist, maxBits uint64
 
 // EncodeSliceOfBitsContent is the lazy data writer for EncodeSliceOfBitsOffset.
 func EncodeSliceOfBitsContent(enc *Encoder, bits bitfield.Bitlist) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		return
-	}
-	// Nope, dive into actual encoding
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -375,15 +283,6 @@ func EncodeArrayOfUint64s[T commonUint64sLengths](enc *Encoder, ns *T) {
 	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 	nums := unsafe.Slice(&(*ns)[0], len(*ns))
 
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		idx := enc.outHasher.Index()
-		for _, n := range nums {
-			enc.outHasher.AppendUint64(n)
-		}
-		enc.outHasher.Merkleize(idx)
-		return
-	}
 	// Internally this method is essentially calling EncodeUint64 on all numbers
 	// in a loop. Practically, we've inlined that call to make things a *lot* faster.
 	if enc.outWriter != nil {
@@ -403,19 +302,7 @@ func EncodeArrayOfUint64s[T commonUint64sLengths](enc *Encoder, ns *T) {
 }
 
 // EncodeSliceOfUint64sOffset serializes a dynamic slice of uint64s.
-func EncodeSliceOfUint64sOffset[T ~uint64](enc *Encoder, ns []T, maxItems uint64) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		idx := enc.outHasher.Index()
-		for _, n := range ns {
-			enc.outHasher.AppendUint64((uint64)(n))
-		}
-		enc.outHasher.FillUpTo32()
-
-		numItems := uint64(len(ns))
-		enc.outHasher.MerkleizeWithMixin(idx, numItems, ssz.CalculateLimit(maxItems, numItems, 8))
-		return
-	}
+func EncodeSliceOfUint64sOffset[T ~uint64](enc *Encoder, ns []T) {
 	// Nope, dive into actual encoding
 	if enc.outWriter != nil {
 		if enc.err != nil {
@@ -434,11 +321,6 @@ func EncodeSliceOfUint64sOffset[T ~uint64](enc *Encoder, ns []T, maxItems uint64
 
 // EncodeSliceOfUint64sContent is the lazy data writer for EncodeSliceOfUint64sOffset.
 func EncodeSliceOfUint64sContent[T ~uint64](enc *Encoder, ns []T) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		return
-	}
-	// Nope, dive into actual encoding
 	if enc.outWriter != nil {
 		for _, n := range ns {
 			if enc.err != nil {
@@ -470,17 +352,6 @@ func EncodeArrayOfStaticBytes[T commonBytesArrayLengths[U], U commonBytesLengths
 // EncodeUnsafeArrayOfStaticBytes serializes a static array of static binary
 // blobs.
 func EncodeUnsafeArrayOfStaticBytes[T commonBytesLengths](enc *Encoder, blobs []T) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		idx := enc.outHasher.Index()
-		for i := 0; i < len(blobs); i++ {
-			// The code below should have used `blobs[i][:]`, alas Go's generics compiler
-			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-			enc.outHasher.PutBytes(unsafe.Slice(&blobs[i][0], len(blobs[i])))
-		}
-		enc.outHasher.Merkleize(idx)
-		return
-	}
 	// Internally this method is essentially calling EncodeStaticBytes on all
 	// the blobs in a loop. Practically, we've inlined that call to make things
 	// a *lot* faster.
@@ -506,17 +377,6 @@ func EncodeUnsafeArrayOfStaticBytes[T commonBytesLengths](enc *Encoder, blobs []
 // EncodeCheckedArrayOfStaticBytes serializes a static array of static binary
 // blobs.
 func EncodeCheckedArrayOfStaticBytes[T commonBytesLengths](enc *Encoder, blobs []T) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		idx := enc.outHasher.Index()
-		for i := 0; i < len(blobs); i++ {
-			// The code below should have used `blobs[i][:]`, alas Go's generics compiler
-			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-			enc.outHasher.PutBytes(unsafe.Slice(&blobs[i][0], len(blobs[i])))
-		}
-		enc.outHasher.Merkleize(idx)
-		return
-	}
 	// Internally this method is essentially calling EncodeStaticBytes on all
 	// the blobs in a loop. Practically, we've inlined that call to make things
 	// a *lot* faster.
@@ -540,19 +400,7 @@ func EncodeCheckedArrayOfStaticBytes[T commonBytesLengths](enc *Encoder, blobs [
 }
 
 // EncodeSliceOfStaticBytesOffset serializes a dynamic slice of static binary blobs.
-func EncodeSliceOfStaticBytesOffset[T commonBytesLengths](enc *Encoder, blobs []T, maxItems uint64) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		idx := enc.outHasher.Index()
-		for i := 0; i < len(blobs); i++ {
-			// The code below should have used `blobs[i][:]`, alas Go's generics compiler
-			// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
-			enc.outHasher.PutBytes(unsafe.Slice(&blobs[i][0], len(blobs[i])))
-		}
-		enc.outHasher.MerkleizeWithMixin(idx, uint64(len(blobs)), maxItems)
-		return
-	}
-	// Nope, dive into actual encoding
+func EncodeSliceOfStaticBytesOffset[T commonBytesLengths](enc *Encoder, blobs []T) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -570,10 +418,6 @@ func EncodeSliceOfStaticBytesOffset[T commonBytesLengths](enc *Encoder, blobs []
 
 // EncodeSliceOfStaticBytesContent is the lazy data writer for EncodeSliceOfStaticBytesOffset.
 func EncodeSliceOfStaticBytesContent[T commonBytesLengths](enc *Encoder, blobs []T) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		return
-	}
 	// Internally this method is essentially calling EncodeStaticBytes on all
 	// the blobs in a loop. Practically, we've inlined that call to make things
 	// a *lot* faster.
@@ -597,19 +441,7 @@ func EncodeSliceOfStaticBytesContent[T commonBytesLengths](enc *Encoder, blobs [
 }
 
 // EncodeSliceOfDynamicBytesOffset serializes a dynamic slice of dynamic binary blobs.
-func EncodeSliceOfDynamicBytesOffset(enc *Encoder, blobs [][]byte, maxItems uint64, maxSize uint64) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		idx := enc.outHasher.Index()
-		for _, blob := range blobs {
-			idx := enc.outHasher.Index()
-			enc.outHasher.AppendBytes32(blob)
-			enc.outHasher.MerkleizeWithMixin(idx, uint64(len(blob)), (maxSize+31)/32)
-		}
-		enc.outHasher.MerkleizeWithMixin(idx, uint64(len(blobs)), maxItems)
-		return
-	}
-	// Nope, dive into actual encoding
+func EncodeSliceOfDynamicBytesOffset(enc *Encoder, blobs [][]byte) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -627,10 +459,6 @@ func EncodeSliceOfDynamicBytesOffset(enc *Encoder, blobs [][]byte, maxItems uint
 
 // EncodeSliceOfDynamicBytesContent is the lazy data writer for EncodeSliceOfDynamicBytesOffset.
 func EncodeSliceOfDynamicBytesContent(enc *Encoder, blobs [][]byte) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		return
-	}
 	// Nope, dive into actual encoding
 	enc.offsetDynamics(uint32(4 * len(blobs)))
 
@@ -678,19 +506,7 @@ func EncodeSliceOfDynamicBytesContent(enc *Encoder, blobs [][]byte) {
 }
 
 // EncodeSliceOfStaticObjectsOffset serializes a dynamic slice of static ssz objects.
-func EncodeSliceOfStaticObjectsOffset[T StaticObject](enc *Encoder, objects []T, maxItems uint64) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		idx := enc.outHasher.Index()
-		for _, obj := range objects {
-			idx := enc.outHasher.Index()
-			obj.DefineSSZ(enc.codec)
-			enc.outHasher.Merkleize(idx)
-		}
-		enc.outHasher.MerkleizeWithMixin(idx, uint64(len(objects)), maxItems)
-		return
-	}
-	// Nope, dive into actual encoding
+func EncodeSliceOfStaticObjectsOffset[T StaticObject](enc *Encoder, objects []T) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -708,11 +524,6 @@ func EncodeSliceOfStaticObjectsOffset[T StaticObject](enc *Encoder, objects []T,
 
 // EncodeSliceOfStaticObjectsContent is the lazy data writer for EncodeSliceOfStaticObjectsOffset.
 func EncodeSliceOfStaticObjectsContent[T StaticObject](enc *Encoder, objects []T) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		return
-	}
-	// Nope, dive into actual encoding
 	for _, obj := range objects {
 		if enc.err != nil {
 			return
@@ -722,19 +533,7 @@ func EncodeSliceOfStaticObjectsContent[T StaticObject](enc *Encoder, objects []T
 }
 
 // EncodeSliceOfDynamicObjectsOffset serializes a dynamic slice of dynamic ssz objects.
-func EncodeSliceOfDynamicObjectsOffset[T DynamicObject](enc *Encoder, objects []T, maxItems uint64) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		idx := enc.outHasher.Index()
-		for _, obj := range objects {
-			idx := enc.outHasher.Index()
-			obj.DefineSSZ(enc.codec)
-			enc.outHasher.Merkleize(idx)
-		}
-		enc.outHasher.MerkleizeWithMixin(idx, uint64(len(objects)), maxItems)
-		return
-	}
-	// Nope, dive into actual encoding
+func EncodeSliceOfDynamicObjectsOffset[T DynamicObject](enc *Encoder, objects []T) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -752,11 +551,6 @@ func EncodeSliceOfDynamicObjectsOffset[T DynamicObject](enc *Encoder, objects []
 
 // EncodeSliceOfDynamicObjectsContent is the lazy data writer for EncodeSliceOfDynamicObjectsOffset.
 func EncodeSliceOfDynamicObjectsContent[T DynamicObject](enc *Encoder, objects []T) {
-	// Short circuit if we're hashing
-	if enc.outHasher != nil {
-		return
-	}
-	// Nope, dive into actual encoding
 	enc.offsetDynamics(uint32(4 * len(objects)))
 
 	// Inline:

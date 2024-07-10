@@ -15,8 +15,8 @@ import (
 	"github.com/prysmaticlabs/go-bitfield"
 )
 
-// Decoder is a wrapper around an io.Reader to implement dense SSZ decoding. It
-// has the following behaviors:
+// Decoder is a wrapper around an io.Reader or a []byte buffer to implement SSZ
+// decoding in a streaming or buffered way. It has the following behaviors:
 //
 //  1. The decoder does not buffer, simply reads from the wrapped input stream
 //     directly. If you need buffering, that is up to you.
@@ -26,6 +26,26 @@ import (
 //     is no expectation (in general) for failure, user code can be denser if
 //     error checking is done at the end. Internally, of course, an error will
 //     halt all future input operations.
+//
+// Internally there are a few implementation details that maintainers need to be
+// aware of when modifying the code:
+//
+//  1. The decoder supports two modes of operation: streaming and buffered. Any
+//     high level Go code would achieve that with two decoder types implementing
+//     a common interface. Unfortunately, the DecodeXYZ methods are using Go's
+//     generic system, which is not supported on struct/interface *methods*. As
+//     such, `Decoder.DecodeUint64s[T ~uint64](ns []T)` style methods cannot be
+//     used, only `DecodeUint64s[T ~uint64](end *Decoder, ns []T)`. The latter
+//     form then requires each method internally to do some soft of type cast to
+//     handle different decoder implementations. To avoid runtime type asserts,
+//     we've opted for a combo decoder with 2 possible outputs and switching on
+//     which one is set. Elegant? No. Fast? Yes.
+//
+//  2. A lot of code snippets are repeated (e.g. encoding the offset, which is
+//     the exact same for all the different types, yet the code below has them
+//     copied verbatim). Unfortunately the Go compiler doesn't inline functions
+//     aggressively enough (neither does it allow explicitly directing it to),
+//     and in such tight loops, extra calls matter on performance.
 type Decoder struct {
 	inReader io.Reader // Underlying input stream to read from (streaming mode)
 	inRead   uint32    // Bytes already consumed from the reader (streaming mode)

@@ -10,9 +10,6 @@ import (
 	"io"
 	"sync"
 	"unsafe"
-
-	ssz "github.com/ferranbt/fastssz"
-	"github.com/prysmaticlabs/gohashtree"
 )
 
 // Hash is a Merkle hash of an ssz object.
@@ -76,10 +73,8 @@ var decoderPool = sync.Pool{
 // without hitting Go's GC constantly.
 var hasherPool = sync.Pool{
 	New: func() any {
-		codec := &Codec{enc: &Encoder{
-			outHasher: ssz.NewHasherWithHashFn(gohashtree.HashByteSlice),
-		}}
-		codec.enc.codec = codec
+		codec := &Codec{has: new(Hasher)}
+		codec.has.codec = codec
 		return codec
 	},
 }
@@ -210,13 +205,13 @@ func DecodeFromBytes(blob []byte, obj Object) error {
 func Merkleize(obj Object) (Hash, error) {
 	codec := hasherPool.Get().(*Codec)
 	defer hasherPool.Put(codec)
-	defer codec.enc.outHasher.Reset()
+	defer codec.has.Reset()
 
-	idx := codec.enc.outHasher.Index()
+	idx := codec.has.Index()
 	obj.DefineSSZ(codec)
-	codec.enc.outHasher.Merkleize(idx)
+	codec.has.Merkleize(idx)
 
-	return codec.enc.outHasher.HashRoot()
+	return codec.has.HashRoot()
 }
 
 // Size retrieves the size of a ssz object, independent if it's a static or a
