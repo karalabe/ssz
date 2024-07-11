@@ -206,7 +206,7 @@ func Merkleize(obj Object) [32]byte {
 
 	idx := len(codec.has.scratch)
 	obj.DefineSSZ(codec)
-	codec.has.merkleize(idx)
+	codec.has.merkleize(idx, 0)
 
 	return codec.has.hash()
 }

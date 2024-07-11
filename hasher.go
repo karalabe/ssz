@@ -7,8 +7,7 @@ package ssz
 import (
 	"crypto/sha256"
 	"encoding/binary"
-	"fmt"
-	"math/bits"
+	bitops "math/bits"
 	"unsafe"
 
 	"github.com/holiman/uint256"
@@ -22,7 +21,20 @@ var (
 	hasherBoolTrue  = []byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 	hasherUint64Pad = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 	hasherZeroChunk = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+
+	// hasherZeroCache is a pre-computed table of all-zero sub-trie hashing
+	hasherZeroCache [65][32]byte
 )
+
+func init() {
+	var buf [64]byte
+	for i := 0; i < len(hasherZeroCache)-1; i++ {
+		copy(buf[:32], hasherZeroCache[i][:])
+		copy(buf[32:], hasherZeroCache[i][:])
+
+		hasherZeroCache[i+1] = sha256.Sum256(buf[:])
+	}
+}
 
 // Hash is a Merkle hash of an ssz object.
 type Hash [32]byte
@@ -31,8 +43,9 @@ type Hash [32]byte
 type Hasher struct {
 	scratch []byte // Scratch space for not-yet-hashed writes
 
-	codec *Codec   // Self-referencing to pass DefineSSZ calls through (API trick)
-	buf   [32]byte // Integer conversion buffer
+	codec  *Codec   // Self-referencing to pass DefineSSZ calls through (API trick)
+	buf    [32]byte // Integer conversion buffer
+	bitbuf []byte   // Bitlist conversion buffer (
 }
 
 // HashBool hashes a boolean.
@@ -89,14 +102,14 @@ func HashDynamicBytes(h *Hasher, blob []byte, maxSize uint64) {
 func HashStaticObject(h *Hasher, obj StaticObject) {
 	pos := len(h.scratch)
 	obj.DefineSSZ(h.codec)
-	h.merkleize(pos)
+	h.merkleize(pos, 0)
 }
 
 // HashDynamicObject hashes a dynamic ssz object.
 func HashDynamicObject(h *Hasher, obj DynamicObject) {
 	pos := len(h.scratch)
 	obj.DefineSSZ(h.codec)
-	h.merkleize(pos)
+	h.merkleize(pos, 0)
 }
 
 // HashArrayOfBits hashes a static array of (packed) bits.
@@ -108,7 +121,27 @@ func HashArrayOfBits[T commonBitsLengths](h *Hasher, bits *T) {
 
 // HashSliceOfBits hashes a dynamic slice of (packed) bits.
 func HashSliceOfBits(h *Hasher, bits bitfield.Bitlist, maxBits uint64) {
-	h.PutBitlist(bits, maxBits)
+	// Parse the bit-list into a hashable representation
+	var (
+		msb  = uint8(bitops.Len8(bits[len(bits)-1])) - 1
+		size = uint64((len(bits)-1)<<3 + int(msb))
+	)
+	h.bitbuf = append(h.bitbuf[:0], bits...)
+	h.bitbuf[len(h.bitbuf)-1] &^= uint8(1 << msb)
+
+	newLen := len(h.bitbuf)
+	for i := len(h.bitbuf) - 1; i >= 0; i-- {
+		if h.bitbuf[i] != 0x00 {
+			break
+		}
+		newLen = i
+	}
+	h.bitbuf = h.bitbuf[:newLen]
+
+	// Merkleize the content with mixed in length
+	pos := len(h.scratch)
+	h.appendBytesChunks(h.bitbuf)
+	h.merkleizeWithMixin(pos, size, (maxBits+255)/256)
 }
 
 // HashArrayOfUint64s hashes a static array of uint64s.
@@ -126,7 +159,7 @@ func HashArrayOfUint64s[T commonUint64sLengths](h *Hasher, ns *T) {
 		binary.LittleEndian.PutUint64(h.buf[:8], n)
 		h.scratch = append(h.scratch, h.buf[:8]...)
 	}
-	h.merkleize(pos)
+	h.merkleize(pos, 0)
 }
 
 // HashSliceOfUint64s hashes a dynamic slice of uint64s.
@@ -158,7 +191,7 @@ func HashUnsafeArrayOfStaticBytes[T commonBytesLengths](h *Hasher, blobs []T) {
 		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 		h.hashBytes(unsafe.Slice(&blobs[i][0], len(blobs[i])))
 	}
-	h.merkleize(pos)
+	h.merkleize(pos, 0)
 }
 
 // HashCheckedArrayOfStaticBytes hashes a static array of static binary blobs.
@@ -169,7 +202,7 @@ func HashCheckedArrayOfStaticBytes[T commonBytesLengths](h *Hasher, blobs []T) {
 		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 		h.hashBytes(unsafe.Slice(&blobs[i][0], len(blobs[i])))
 	}
-	h.merkleize(pos)
+	h.merkleize(pos, 0)
 }
 
 // HashSliceOfStaticBytes hashes a dynamic slice of static binary blobs.
@@ -200,7 +233,7 @@ func HashSliceOfStaticObjects[T StaticObject](h *Hasher, objects []T, maxItems u
 	for _, obj := range objects {
 		pos := len(h.scratch)
 		obj.DefineSSZ(h.codec)
-		h.merkleize(pos)
+		h.merkleize(pos, 0)
 	}
 	h.merkleizeWithMixin(pos, uint64(len(objects)), maxItems)
 }
@@ -211,7 +244,7 @@ func HashSliceOfDynamicObjects[T DynamicObject](h *Hasher, objects []T, maxItems
 	for _, obj := range objects {
 		pos := len(h.scratch)
 		obj.DefineSSZ(h.codec)
-		h.merkleize(pos)
+		h.merkleize(pos, 0)
 	}
 	h.merkleizeWithMixin(pos, uint64(len(objects)), maxItems)
 }
@@ -225,7 +258,7 @@ func (h *Hasher) hashBytes(b []byte) {
 	}
 	pos := len(h.scratch)
 	h.appendBytesChunks(b)
-	h.merkleize(pos)
+	h.merkleize(pos, 0)
 }
 
 // appendBytesChunks appends the blob padded to the 32 byte chunk size.
@@ -243,161 +276,62 @@ func (h *Hasher) hash() [32]byte {
 	return hash
 }
 
-var zeroHashes [65][32]byte
-var zeroHashLevels map[string]int
-
-func init() {
-	zeroHashLevels = make(map[string]int)
-	zeroHashLevels[string(make([]byte, 32))] = 0
-
-	tmp := [64]byte{}
-	for i := 0; i < 64; i++ {
-		copy(tmp[:32], zeroHashes[i][:])
-		copy(tmp[32:], zeroHashes[i][:])
-		zeroHashes[i+1] = sha256.Sum256(tmp[:])
-		zeroHashLevels[string(zeroHashes[i+1][:])] = i + 1
-	}
-}
-
 // Reset resets the Hasher obj
 func (h *Hasher) Reset() {
 	h.scratch = h.scratch[:0]
 }
 
-func (h *Hasher) FillUpTo32() {
-	// pad zero bytes to the left
-	if rest := len(h.scratch) % 32; rest != 0 {
-		h.scratch = append(h.scratch, hasherZeroChunk[:32-rest]...)
+// merkleize hashes everything in the scratch space from the starting position,
+// adhering to the requested chunk limit for dynamic data types, or the data
+// limit for static ones (chunks == 0).
+func (h *Hasher) merkleize(offset int, chunks uint64) {
+	// If the data size is zero and static hashing (chunks == 0) or singleton
+	// chunking (chunk == 1) was requested, return all zeroes.
+	size := len(h.scratch) - offset
+	if size == 0 && chunks < 2 {
+		h.scratch = append(h.scratch[:offset], hasherZeroChunk...)
+		return
 	}
-}
-
-func parseBitlist(dst, buf []byte) ([]byte, uint64) {
-	msb := uint8(bits.Len8(buf[len(buf)-1])) - 1
-	size := uint64(8*(len(buf)-1) + int(msb))
-
-	dst = append(dst, buf...)
-	dst[len(dst)-1] &^= uint8(1 << msb)
-
-	newLen := len(dst)
-	for i := len(dst) - 1; i >= 0; i-- {
-		if dst[i] != 0x00 {
-			break
+	// If no chunk limit was specified and the data is not empty, use needed
+	// number of chunks. Special case having only one chunk.
+	need := uint64((size + 31) / 32)
+	if chunks == 0 {
+		chunks = need
+	}
+	if chunks == 1 && need == 1 {
+		h.scratch = h.scratch[:offset+32]
+		return
+	}
+	// Many chunks needed, need to recursively compute the hash of the tree
+	depth := uint8(bitops.Len64(chunks - 1))
+	if size == 0 {
+		h.scratch = append(h.scratch[:offset], hasherZeroCache[depth][:]...)
+		return
+	}
+	for i := uint8(0); i < depth; i++ {
+		chunks := (len(h.scratch) - offset) >> 5
+		if chunks&0x1 == 1 {
+			h.scratch = append(h.scratch, hasherZeroCache[i][:]...)
+			chunks++
 		}
-		newLen = i
+		gohashtree.HashByteSlice(h.scratch[offset:], h.scratch[offset:])
+		h.scratch = h.scratch[:offset+(chunks<<4)]
 	}
-	res := dst[:newLen]
-	return res, size
-}
-
-// PutBitlist appends a ssz bitlist
-func (h *Hasher) PutBitlist(bb []byte, maxSize uint64) {
-	var size uint64
-	tmp := make([]byte, 0, len(bb))
-	tmp, size = parseBitlist(tmp, bb)
-
-	// merkleize the content with mix in length
-	indx := len(h.scratch)
-	h.appendBytesChunks(tmp)
-	h.merkleizeWithMixin(indx, size, (maxSize+255)/256)
-}
-
-// merkleize hashes everything in the scratch space from the starting position.
-func (h *Hasher) merkleize(pos int) {
-	// merkleizeImpl will expand the `input` by 32 bytes if some hashing depth
-	// hits an odd chunk length. But if we're at the end of `h.scratch` already,
-	// appending to `input` will allocate a new buffer, *not* expand `h.scratch`,
-	// so the next invocation will realloc, over and over and over. We can pre-
-	// emptively cater for that by ensuring that an extra 32 bytes is always
-	// available.
-	if len(h.scratch) == cap(h.scratch) {
-		h.scratch = append(h.scratch, hasherZeroChunk...)
-		h.scratch = h.scratch[:len(h.scratch)-len(hasherZeroChunk)]
-	}
-	input := h.scratch[pos:]
-
-	// merkleize the input
-	input = h.merkleizeImpl(input[:0], input, 0)
-	h.scratch = append(h.scratch[:pos], input...)
 }
 
 // merkleizeWithMixin hashes everything in the scratch space from the starting
 // position, also mixing in the size of the dynamic slice of data.
-func (h *Hasher) merkleizeWithMixin(pos int, num, limit uint64) {
-	h.FillUpTo32()
-	input := h.scratch[pos:]
-
-	// merkleize the input
-	input = h.merkleizeImpl(input[:0], input, limit)
-
-	binary.LittleEndian.PutUint64(h.buf[:8], num)
-	input = append(input, h.buf[:8]...)
-	input = append(input, hasherUint64Pad...)
-
-	// input is of the form [<input><size>] of 64 bytes
-	gohashtree.HashByteSlice(input, input)
-	h.scratch = append(h.scratch[:pos], input[:32]...)
-}
-
-func nextPowerOfTwo(v uint64) uint {
-	v--
-	v |= v >> 1
-	v |= v >> 2
-	v |= v >> 4
-	v |= v >> 8
-	v |= v >> 16
-	v++
-	return uint(v)
-}
-
-func getDepth(d uint64) uint8 {
-	if d <= 1 {
-		return 0
+func (h *Hasher) merkleizeWithMixin(pos int, size uint64, limit uint64) {
+	// Fill the scratch space up to a chunk boundary
+	if rest := len(h.scratch) % 32; rest != 0 {
+		h.scratch = append(h.scratch, hasherZeroChunk[:32-rest]...)
 	}
-	i := nextPowerOfTwo(d)
-	return 64 - uint8(bits.LeadingZeros(i)) - 1
-}
+	h.merkleize(pos, limit)
 
-func (h *Hasher) merkleizeImpl(dst []byte, input []byte, limit uint64) []byte {
-	// count is the number of 32 byte chunks from the input, after right-padding
-	// with zeroes to the next multiple of 32 bytes when the input is not aligned
-	// to a multiple of 32 bytes.
-	count := uint64((len(input) + 31) / 32)
-	if limit == 0 {
-		limit = count
-	} else if count > limit {
-		panic(fmt.Sprintf("BUG: count '%d' higher than limit '%d'", count, limit))
-	}
+	binary.LittleEndian.PutUint64(h.buf[:8], size)
+	h.scratch = append(h.scratch, h.buf[:8]...)
+	h.scratch = append(h.scratch, hasherUint64Pad...)
 
-	if limit == 0 {
-		return append(dst, hasherZeroChunk...)
-	}
-	if limit == 1 {
-		if count == 1 {
-			return append(dst, input[:32]...)
-		}
-		return append(dst, hasherZeroChunk...)
-	}
-
-	depth := getDepth(limit)
-	if len(input) == 0 {
-		return append(dst, zeroHashes[depth][:]...)
-	}
-
-	for i := uint8(0); i < depth; i++ {
-		layerLen := len(input) / 32
-		oddNodeLength := layerLen%2 == 1
-
-		if oddNodeLength {
-			// is odd length
-			input = append(input, zeroHashes[i][:]...)
-			layerLen++
-		}
-
-		outputLen := (layerLen / 2) * 32
-
-		gohashtree.HashByteSlice(input, input)
-		input = input[:outputLen]
-	}
-
-	return append(dst, input...)
+	gohashtree.HashByteSlice(h.scratch[pos:], h.scratch[pos:])
+	h.scratch = h.scratch[:pos+32]
 }

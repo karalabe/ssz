@@ -56,6 +56,8 @@ func TestConsensusSpecs(t *testing.T) {
 	testConsensusSpecType[*types.BeaconBlockBodyDeneb](t, "BeaconBlockBody", "deneb", "eip7594")
 	testConsensusSpecType[*types.BeaconBlockHeader](t, "BeaconBlockHeader")
 	testConsensusSpecType[*types.BeaconState](t, "BeaconState", "phase0")
+	testConsensusSpecType[*types.BeaconStateCapella](t, "BeaconState", "capella")
+	testConsensusSpecType[*types.BeaconStateDeneb](t, "BeaconState", "deneb")
 	testConsensusSpecType[*types.BLSToExecutionChange](t, "BLSToExecutionChange")
 	testConsensusSpecType[*types.Checkpoint](t, "Checkpoint")
 	testConsensusSpecType[*types.Deposit](t, "Deposit")
