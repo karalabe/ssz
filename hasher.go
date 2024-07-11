@@ -8,12 +8,18 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	bitops "math/bits"
+	"runtime"
 	"unsafe"
 
 	"github.com/holiman/uint256"
 	"github.com/prysmaticlabs/go-bitfield"
 	"github.com/prysmaticlabs/gohashtree"
+	"golang.org/x/sync/errgroup"
 )
+
+// concurrencyThreshold is the data size above which a new sub-hasher is spun up
+// for each dynamic field instead of hashing sequentially.
+const concurrencyThreshold = 4096
 
 // Some helpers to avoid occasional allocations
 var (
@@ -36,12 +42,13 @@ func init() {
 	}
 }
 
-// Hash is a Merkle hash of an ssz object.
-type Hash [32]byte
-
 // Hasher is an SSZ Merkle Hash Root computer.
 type Hasher struct {
+	threads bool   // Whether threaded hashing is allowed or not
 	scratch []byte // Scratch space for not-yet-hashed writes
+
+	workers errgroup.Group // Concurrent hashers for large fields
+	barrier chan struct{}  // Channel blocking the workers from writing their results (avoids scratch space race)
 
 	codec  *Codec   // Self-referencing to pass DefineSSZ calls through (API trick)
 	buf    [32]byte // Integer conversion buffer
@@ -93,23 +100,68 @@ func HashCheckedStaticBytes(h *Hasher, blob []byte) {
 
 // HashDynamicBytes hashes a dynamic binary blob.
 func HashDynamicBytes(h *Hasher, blob []byte, maxSize uint64) {
-	pos := len(h.scratch)
-	h.scratch = append(h.scratch, blob...)
-	h.merkleizeWithMixin(pos, uint64(len(blob)), (maxSize+31)/32)
+	// If threading is disabled or the total size to hash is small, do it sequentially
+	if !h.threads || len(blob) < concurrencyThreshold {
+		// Only hashing bytes, operate in the current hasher context
+		pos := len(h.scratch)
+		h.scratch = append(h.scratch, blob...)
+		h.merkleizeWithMixin(pos, uint64(len(blob)), (maxSize+31)/32)
+		return
+	}
+	// Considerable size, hash the item concurrently
+	h.merkleizeConcurrent(func(ch *Hasher) {
+		ch.scratch = append(ch.scratch, blob...)
+		ch.merkleizeWithMixin(0, uint64(len(blob)), (maxSize+31)/32)
+	})
 }
 
 // HashStaticObject hashes a static ssz object.
 func HashStaticObject(h *Hasher, obj StaticObject) {
-	pos := len(h.scratch)
-	obj.DefineSSZ(h.codec)
-	h.merkleize(pos, 0)
+	// If threading is disabled, no need for a fresh context
+	if !h.threads {
+		pos := len(h.scratch)
+		obj.DefineSSZ(h.codec)
+		h.merkleize(pos, 0)
+		return
+	}
+	// If the total size to hash is small, do it sequentially
+	if Size(obj) < concurrencyThreshold {
+		h.merkleizeSequential(func(sh *Hasher) {
+			obj.DefineSSZ(sh.codec)
+			sh.merkleize(0, 0)
+		})
+		return
+	}
+	// Considerable size, hash the item concurrently
+	h.merkleizeConcurrent(func(ch *Hasher) {
+		obj.DefineSSZ(ch.codec)
+		ch.merkleize(0, 0)
+	})
 }
 
 // HashDynamicObject hashes a dynamic ssz object.
 func HashDynamicObject(h *Hasher, obj DynamicObject) {
-	pos := len(h.scratch)
-	obj.DefineSSZ(h.codec)
-	h.merkleize(pos, 0)
+	// If threading is disabled, no need for a fresh context
+	if !h.threads {
+		pos := len(h.scratch)
+		obj.DefineSSZ(h.codec)
+		h.merkleize(pos, 0)
+		return
+	}
+	// If the total size to hash is small, do it sequentially
+	if Size(obj) < concurrencyThreshold {
+		// Use a fresh hasher to avoid mixing child and sibling threads
+		h.merkleizeSequential(func(sh *Hasher) {
+			obj.DefineSSZ(sh.codec)
+			sh.merkleize(0, 0)
+		})
+		return
+	}
+	// Considerable size, hash the item concurrently
+	h.merkleizeConcurrent(func(ch *Hasher) {
+		obj.DefineSSZ(ch.codec)
+		ch.merkleize(0, 0)
+	})
 }
 
 // HashArrayOfBits hashes a static array of (packed) bits.
@@ -154,22 +206,48 @@ func HashArrayOfUint64s[T commonUint64sLengths](h *Hasher, ns *T) {
 	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 	nums := unsafe.Slice(&(*ns)[0], len(*ns))
 
-	pos := len(h.scratch)
-	for _, n := range nums {
-		binary.LittleEndian.PutUint64(h.buf[:8], n)
-		h.scratch = append(h.scratch, h.buf[:8]...)
+	// If the total size to hash is small, do it sequentially
+	if len(nums)*8 < concurrencyThreshold {
+		// Only hashing uints, operate in the current hasher context
+		pos := len(h.scratch)
+		for _, n := range nums {
+			binary.LittleEndian.PutUint64(h.buf[:8], n)
+			h.scratch = append(h.scratch, h.buf[:8]...)
+		}
+		h.merkleize(pos, 0)
+		return
 	}
-	h.merkleize(pos, 0)
+	// Considerable size, hash the item concurrently
+	h.merkleizeConcurrent(func(ch *Hasher) {
+		for _, n := range nums {
+			binary.LittleEndian.PutUint64(ch.buf[:8], n)
+			ch.scratch = append(ch.scratch, ch.buf[:8]...)
+		}
+		ch.merkleize(0, 0)
+	})
 }
 
 // HashSliceOfUint64s hashes a dynamic slice of uint64s.
 func HashSliceOfUint64s[T ~uint64](h *Hasher, ns []T, maxItems uint64) {
-	pos := len(h.scratch)
-	for _, n := range ns {
-		binary.LittleEndian.PutUint64(h.buf[:8], (uint64)(n))
-		h.scratch = append(h.scratch, h.buf[:8]...)
+	// If threading is disabled or the total size to hash is small, do it sequentially
+	if !h.threads || len(ns)*8 < concurrencyThreshold {
+		// Only hashing uints, operate in the current hasher context
+		pos := len(h.scratch)
+		for _, n := range ns {
+			binary.LittleEndian.PutUint64(h.buf[:8], (uint64)(n))
+			h.scratch = append(h.scratch, h.buf[:8]...)
+		}
+		h.merkleizeWithMixin(pos, uint64(len(ns)), (maxItems*8+31)/32)
+		return
 	}
-	h.merkleizeWithMixin(pos, uint64(len(ns)), (maxItems*8+31)/32)
+	// Considerable size, hash the item concurrently
+	h.merkleizeConcurrent(func(ch *Hasher) {
+		for _, n := range ns {
+			binary.LittleEndian.PutUint64(ch.buf[:8], (uint64)(n))
+			ch.scratch = append(ch.scratch, ch.buf[:8]...)
+		}
+		ch.merkleizeWithMixin(0, uint64(len(ns)), (maxItems*8+31)/32)
+	})
 }
 
 // HashArrayOfStaticBytes hashes a static array of static binary blobs.
@@ -229,22 +307,83 @@ func HashSliceOfDynamicBytes(h *Hasher, blobs [][]byte, maxItems uint64, maxSize
 
 // HashSliceOfStaticObjects hashes a dynamic slice of static ssz objects.
 func HashSliceOfStaticObjects[T StaticObject](h *Hasher, objects []T, maxItems uint64) {
-	pos := len(h.scratch)
-	for _, obj := range objects {
+	// If threading is disabled, no need for a fresh context
+	if !h.threads {
 		pos := len(h.scratch)
-		obj.DefineSSZ(h.codec)
-		h.merkleize(pos, 0)
+		for _, obj := range objects {
+			pos := len(h.scratch)
+			obj.DefineSSZ(h.codec)
+			h.merkleize(pos, 0)
+		}
+		h.merkleizeWithMixin(pos, uint64(len(objects)), maxItems)
+		return
 	}
-	h.merkleizeWithMixin(pos, uint64(len(objects)), maxItems)
+	// If the total size to hash is small, do it sequentially
+	if len(objects) == 0 || uint32(len(objects))*Size(objects[0]) < concurrencyThreshold {
+		pos := len(h.scratch)
+		for _, obj := range objects {
+			h.merkleizeSequential(func(sh *Hasher) {
+				obj.DefineSSZ(sh.codec)
+				sh.merkleize(0, 0)
+			})
+		}
+		h.merkleizeWithMixin(pos, uint64(len(objects)), maxItems)
+		return
+	}
+	// Considerable size, hash the items concurrently
+	h.merkleizeConcurrent(func(sliceHasher *Hasher) {
+		// Allocate a large enough scratch space for all the object hashes
+		for i := 0; i < len(objects); i++ {
+			sliceHasher.scratch = append(sliceHasher.scratch, hasherZeroChunk...)
+		}
+		// Split the slice into equal chunks and hash the objects concurrently
+		threads := min(runtime.NumCPU(), len(objects))
+		for i := 0; i < threads; i++ {
+			var (
+				start = len(objects) * i / threads
+				end   = len(objects) * (i + 1) / threads
+			)
+			sliceHasher.workers.Go(func() error {
+				for j := start; j < end; j++ {
+					// Use a fresh hasher to avoid mixing child and sibling threads
+					objHasher := hasherPool.Get().(*Codec)
+					objHasher.has.threads = true
+
+					objects[j].DefineSSZ(objHasher)
+					objHasher.has.merkleize(0, 0)
+
+					copy(sliceHasher.scratch[j*32:], objHasher.has.scratch[:32])
+
+					objHasher.has.Reset()
+					hasherPool.Put(objHasher)
+				}
+				return nil
+			})
+		}
+		sliceHasher.merkleizeWithMixin(0, uint64(len(objects)), maxItems)
+	})
 }
 
 // HashSliceOfDynamicObjects hashes a dynamic slice of dynamic ssz objects.
 func HashSliceOfDynamicObjects[T DynamicObject](h *Hasher, objects []T, maxItems uint64) {
+	// If threading is disabled, no need for a fresh context
+	if !h.threads {
+		pos := len(h.scratch)
+		for _, obj := range objects {
+			pos := len(h.scratch)
+			obj.DefineSSZ(h.codec)
+			h.merkleize(pos, 0)
+		}
+		h.merkleizeWithMixin(pos, uint64(len(objects)), maxItems)
+		return
+	}
+	// Threading enabled, we need a fresh context
 	pos := len(h.scratch)
 	for _, obj := range objects {
-		pos := len(h.scratch)
-		obj.DefineSSZ(h.codec)
-		h.merkleize(pos, 0)
+		h.merkleizeSequential(func(sh *Hasher) {
+			obj.DefineSSZ(sh.codec)
+			sh.merkleize(0, 0)
+		})
 	}
 	h.merkleizeWithMixin(pos, uint64(len(objects)), maxItems)
 }
@@ -279,12 +418,23 @@ func (h *Hasher) hash() [32]byte {
 // Reset resets the Hasher obj
 func (h *Hasher) Reset() {
 	h.scratch = h.scratch[:0]
+	h.barrier = nil
+	h.threads = false
 }
 
 // merkleize hashes everything in the scratch space from the starting position,
 // adhering to the requested chunk limit for dynamic data types, or the data
 // limit for static ones (chunks == 0).
 func (h *Hasher) merkleize(offset int, chunks uint64) {
+	// If the offset is 0, we are running the big outer hashing to sum up all
+	// the fields of the struct. Make sure any concurrent hasher is done at
+	// this point.
+	if offset == 0 {
+		if h.barrier != nil {
+			close(h.barrier)
+		}
+		h.workers.Wait()
+	}
 	// If the data size is zero and static hashing (chunks == 0) or singleton
 	// chunking (chunk == 1) was requested, return all zeroes.
 	size := len(h.scratch) - offset
@@ -334,4 +484,44 @@ func (h *Hasher) merkleizeWithMixin(pos int, size uint64, chunks uint64) {
 
 	gohashtree.HashByteSlice(h.scratch[pos:], h.scratch[pos:])
 	h.scratch = h.scratch[:pos+32]
+}
+
+// merkleizeSequential runs a merkle calculation on the same goroutine, but in
+// a nex hashing context.
+func (h *Hasher) merkleizeSequential(f func(sh *Hasher)) {
+	codec := hasherPool.Get().(*Codec)
+	defer hasherPool.Put(codec)
+	defer codec.has.Reset()
+
+	f(codec.has)
+	h.scratch = append(h.scratch, codec.has.scratch[:32]...)
+}
+
+// merkleizeConcurrent runs a merkle calculation on a separate goroutine, and in
+// a new haching context.
+func (h *Hasher) merkleizeConcurrent(f func(ch *Hasher)) {
+	// Make room for the results in the origin scratch space
+	position := len(h.scratch)
+	h.scratch = append(h.scratch, hasherZeroChunk...)
+
+	// If no concurrent hasher was started until now, initialize the barrier.
+	// This will be needed later to avoid the child hasher writing racely into
+	// the scratch space while the sequential hasher is expanding it.
+	if h.barrier == nil {
+		h.barrier = make(chan struct{})
+	}
+	// Schedule the concurrent hashing
+	h.workers.Go(func() error {
+		codec := hasherPool.Get().(*Codec)
+		defer hasherPool.Put(codec)
+		defer codec.has.Reset()
+
+		codec.has.threads = true
+		f(codec.has)
+
+		// Hashing done, wait on the barrier before writing to the scratch space
+		<-h.barrier
+		copy(h.scratch[position:], codec.has.scratch[:32])
+		return nil
+	})
 }

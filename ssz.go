@@ -198,15 +198,30 @@ func DecodeFromBytes(blob []byte, obj Object) error {
 	return err
 }
 
-// Merkleize computes the ssz merkle root of the object.
-func Merkleize(obj Object) [32]byte {
+// MerkleizeSequential computes the ssz merkle root of the object on a single
+// thread. This is useful for processing small objects reliably.
+func MerkleizeSequential(obj Object) [32]byte {
 	codec := hasherPool.Get().(*Codec)
 	defer hasherPool.Put(codec)
 	defer codec.has.Reset()
 
-	idx := len(codec.has.scratch)
 	obj.DefineSSZ(codec)
-	codec.has.merkleize(idx, 0)
+	codec.has.merkleize(0, 0)
+
+	return codec.has.hash()
+}
+
+// MerkleizeConcurrent computes the ssz merkle root of the object on concurrent
+// threads. This is useful for processing large objects, but may place a bigger
+// load on your CPU and GC.
+func MerkleizeConcurrent(obj Object) [32]byte {
+	codec := hasherPool.Get().(*Codec)
+	defer hasherPool.Put(codec)
+	defer codec.has.Reset()
+
+	codec.has.threads = true
+	obj.DefineSSZ(codec)
+	codec.has.merkleize(0, 0)
 
 	return codec.has.hash()
 }

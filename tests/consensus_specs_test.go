@@ -208,9 +208,13 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 				if size := ssz.Size(obj); size != uint32(len(inSSZ)) {
 					t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
 				}
-				hash := ssz.Merkleize(obj)
+				hash := ssz.MerkleizeSequential(obj)
 				if fmt.Sprintf("%#x", hash) != inRoot.Root {
-					t.Fatalf("merkle root mismatch: have %#x, want %s", hash, inRoot.Root)
+					t.Fatalf("sequential merkle root mismatch: have %#x, want %s", hash, inRoot.Root)
+				}
+				hash = ssz.MerkleizeConcurrent(obj)
+				if fmt.Sprintf("%#x", hash) != inRoot.Root {
+					t.Fatalf("concurrent merkle root mismatch: have %#x, want %s", hash, inRoot.Root)
 				}
 			})
 		}
@@ -322,7 +326,7 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 			}
 		}
 	})
-	b.Run(fmt.Sprintf("%s/merkleize", kind), func(b *testing.B) {
+	b.Run(fmt.Sprintf("%s/merkleize-sequential", kind), func(b *testing.B) {
 		obj := T(new(U))
 		if err := ssz.DecodeFromBytes(inSSZ, obj); err != nil {
 			b.Fatalf("failed to decode SSZ stream: %v", err)
@@ -332,7 +336,20 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			ssz.Merkleize(obj)
+			ssz.MerkleizeSequential(obj)
+		}
+	})
+	b.Run(fmt.Sprintf("%s/merkleize-concurrent", kind), func(b *testing.B) {
+		obj := T(new(U))
+		if err := ssz.DecodeFromBytes(inSSZ, obj); err != nil {
+			b.Fatalf("failed to decode SSZ stream: %v", err)
+		}
+		b.SetBytes(int64(len(inSSZ)))
+		b.ReportAllocs()
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			ssz.MerkleizeConcurrent(obj)
 		}
 	})
 }
