@@ -321,12 +321,12 @@ func (h *Hasher) merkleize(offset int, chunks uint64) {
 
 // merkleizeWithMixin hashes everything in the scratch space from the starting
 // position, also mixing in the size of the dynamic slice of data.
-func (h *Hasher) merkleizeWithMixin(pos int, size uint64, limit uint64) {
+func (h *Hasher) merkleizeWithMixin(pos int, size uint64, chunks uint64) {
 	// Fill the scratch space up to a chunk boundary
-	if rest := len(h.scratch) % 32; rest != 0 {
+	if rest := (len(h.scratch) - pos) & 0x1f; rest != 0 {
 		h.scratch = append(h.scratch, hasherZeroChunk[:32-rest]...)
 	}
-	h.merkleize(pos, limit)
+	h.merkleize(pos, chunks)
 
 	binary.LittleEndian.PutUint64(h.buf[:8], size)
 	h.scratch = append(h.scratch, h.buf[:8]...)

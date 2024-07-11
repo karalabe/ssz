@@ -1,3 +1,7 @@
+// ssz: Go Simple Serialize (SSZ) codec library
+// Copyright 2024 ssz Authors
+// SPDX-License-Identifier: BSD-3-Clause
+
 package tests
 
 import (
@@ -5,7 +9,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
-	"os"
 	"testing"
 
 	"github.com/karalabe/ssz"
@@ -97,22 +100,5 @@ func TestInvalidBoolean(t *testing.T) {
 	err = ssz.DecodeFromBytes(inSSZ, new(types.Validator))
 	if !errors.Is(err, ssz.ErrInvalidBoolean) {
 		t.Errorf("decode error mismatch: have %v, want %v", err, ssz.ErrInvalidBoolean)
-	}
-}
-
-func BenchmarkMainnetState(b *testing.B) {
-	blob, err := os.ReadFile("/Users/karalabe/Downloads/state.ssz")
-	if err != nil {
-		panic(err)
-	}
-	obj := new(types.BeaconStateDeneb)
-	if err := ssz.DecodeFromBytes(blob, obj); err != nil {
-		panic(err)
-	}
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		ssz.Merkleize(obj)
 	}
 }
