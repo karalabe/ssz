@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"testing"
 
@@ -20,6 +21,15 @@ func BenchmarkMainnetState(b *testing.B) {
 	}
 	fmt.Println(obj.Slot)
 
+	b.Run(fmt.Sprintf("beacon-state/%d-bytes/encode", len(blob)), func(b *testing.B) {
+		b.SetBytes(int64(len(blob)))
+		b.ReportAllocs()
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			ssz.EncodeToStream(io.Discard, obj)
+		}
+	})
 	b.Run(fmt.Sprintf("beacon-state/%d-bytes/decode", len(blob)), func(b *testing.B) {
 		obj := new(types.BeaconStateDeneb)
 

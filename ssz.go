@@ -205,10 +205,14 @@ func MerkleizeSequential(obj Object) [32]byte {
 	defer hasherPool.Put(codec)
 	defer codec.has.Reset()
 
+	codec.has.descendLayer()
 	obj.DefineSSZ(codec)
-	codec.has.merkleize(0, 0)
+	codec.has.ascendLayer(0)
 
-	return codec.has.hash()
+	if len(codec.has.chunks) != 1 {
+		panic(fmt.Sprintf("unfinished hashing: left %v", codec.has.depths))
+	}
+	return codec.has.chunks[0]
 }
 
 // MerkleizeConcurrent computes the ssz merkle root of the object on concurrent
@@ -220,10 +224,14 @@ func MerkleizeConcurrent(obj Object) [32]byte {
 	defer codec.has.Reset()
 
 	codec.has.threads = true
+	codec.has.descendLayer()
 	obj.DefineSSZ(codec)
-	codec.has.merkleize(0, 0)
+	codec.has.ascendLayer(0)
 
-	return codec.has.hash()
+	if len(codec.has.chunks) != 1 {
+		panic(fmt.Sprintf("unfinished hashing: left %v", codec.has.depths))
+	}
+	return codec.has.chunks[0]
 }
 
 // Size retrieves the size of a ssz object, independent if it's a static or a
