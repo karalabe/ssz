@@ -545,6 +545,12 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 			if err := ssz.DecodeFromBytes(inSSZ, obj); err != nil {
 				t.Fatalf("failed to decode buffer: %v", err)
 			}
+			// Sanity check that hashing and size retrieval works
+			hash1 := ssz.MerkleizeSequential(obj)
+			hash2 := ssz.MerkleizeConcurrent(obj)
+			if hash1 != hash2 {
+				t.Fatalf("sequential/concurrent hash mismatch: sequencial %x, concurrent %x", hash1, hash2)
+			}
 			if size := ssz.Size(obj); size != uint32(len(inSSZ)) {
 				t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
 			}
@@ -566,6 +572,12 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 			}
 			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err != nil {
 				t.Fatalf("failed to decode stream: %v", err)
+			}
+			// Sanity check that hashing and size retrieval works
+			hash1 := ssz.MerkleizeSequential(obj)
+			hash2 := ssz.MerkleizeConcurrent(obj)
+			if hash1 != hash2 {
+				t.Fatalf("sequential/concurrent hash mismatch: sequencial %x, concurrent %x", hash1, hash2)
 			}
 			if size := ssz.Size(obj); size != uint32(len(inSSZ)) {
 				t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
@@ -593,6 +605,11 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 				t.Fatalf("re-encoded stream from used object mismatch: have %x, want %x, common prefix %d, have left %x, want left %x",
 					blob, inSSZ, len(prefix), blob.Bytes()[len(prefix):], inSSZ[len(prefix):])
 			}
+			hash1 := ssz.MerkleizeSequential(obj)
+			hash2 := ssz.MerkleizeConcurrent(obj)
+			if hash1 != hash2 {
+				t.Fatalf("sequential/concurrent hash mismatch: sequencial %x, concurrent %x", hash1, hash2)
+			}
 			if size := ssz.Size(obj); size != uint32(len(inSSZ)) {
 				t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
 			}
@@ -612,6 +629,11 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 				prefix := commonPrefix(bin, inSSZ)
 				t.Fatalf("re-encoded buffer from used object mismatch: have %x, want %x, common prefix %d, have left %x, want left %x",
 					blob, inSSZ, len(prefix), bin[len(prefix):], inSSZ[len(prefix):])
+			}
+			hash1 = ssz.MerkleizeSequential(obj)
+			hash2 = ssz.MerkleizeConcurrent(obj)
+			if hash1 != hash2 {
+				t.Fatalf("sequential/concurrent hash mismatch: sequencial %x, concurrent %x", hash1, hash2)
 			}
 			if size := ssz.Size(obj); size != uint32(len(inSSZ)) {
 				t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
