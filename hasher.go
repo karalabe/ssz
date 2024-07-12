@@ -22,7 +22,6 @@ const hasherBatch = 8 // *MUST* be power of 2
 var (
 	hasherBoolFalse = [32]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 	hasherBoolTrue  = [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	hasherUint64Pad = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 	// hasherZeroCache is a pre-computed table of all-zero sub-trie hashing
 	hasherZeroCache [65][32]byte
@@ -69,9 +68,9 @@ func HashBool[T ~bool](h *Hasher, v T) {
 
 // HashUint64 hashes a uint64.
 func HashUint64[T ~uint64](h *Hasher, n T) {
-	var buf [32]byte
-	binary.LittleEndian.PutUint64(buf[:], uint64(n))
-	h.insertChunk(buf)
+	var buffer [32]byte
+	binary.LittleEndian.PutUint64(buffer[:], uint64(n))
+	h.insertChunk(buffer)
 }
 
 // HashUint256 hashes a uint256.
@@ -478,14 +477,14 @@ func (h *Hasher) ascendLayer(capacity uint64) {
 func (h *Hasher) ascendMixinLayer(size uint64, chunks uint64) {
 	// If no items have been added, there's nothing to ascend out of. Fix that
 	// corner-case here.
+	var buffer [32]byte
 	if size == 0 {
-		h.insertChunk([32]byte{})
+		h.insertChunk(buffer)
 	}
 	h.ascendLayer(chunks) // data content
 
-	var buf [32]byte
-	binary.LittleEndian.PutUint64(buf[:8], size)
-	h.insertChunk(buf)
+	binary.LittleEndian.PutUint64(buffer[:8], size)
+	h.insertChunk(buffer)
 
 	h.ascendLayer(0) // length mixin
 }
