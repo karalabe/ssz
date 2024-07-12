@@ -8,15 +8,21 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	bitops "math/bits"
+	"runtime"
 	"unsafe"
 
 	"github.com/holiman/uint256"
 	"github.com/prysmaticlabs/go-bitfield"
 	"github.com/prysmaticlabs/gohashtree"
+	"golang.org/x/sync/errgroup"
 )
 
 // hasherBatch is the number of chunks to batch up before calling the hasher.
 const hasherBatch = 8 // *MUST* be power of 2
+
+// concurrencyThreshold is the data size above which a new sub-hasher is spun up
+// for each dynamic field instead of hashing sequentially.
+const concurrencyThreshold = 65536
 
 // Some helpers to avoid occasional allocations
 var (
@@ -60,9 +66,9 @@ type groupStats struct {
 // HashBool hashes a boolean.
 func HashBool[T ~bool](h *Hasher, v T) {
 	if !v {
-		h.insertChunk(hasherBoolFalse)
+		h.insertChunk(hasherBoolFalse, 0)
 	} else {
-		h.insertChunk(hasherBoolTrue)
+		h.insertChunk(hasherBoolTrue, 0)
 	}
 }
 
@@ -70,7 +76,7 @@ func HashBool[T ~bool](h *Hasher, v T) {
 func HashUint64[T ~uint64](h *Hasher, n T) {
 	var buffer [32]byte
 	binary.LittleEndian.PutUint64(buffer[:], uint64(n))
-	h.insertChunk(buffer)
+	h.insertChunk(buffer, 0)
 }
 
 // HashUint256 hashes a uint256.
@@ -81,7 +87,7 @@ func HashUint256(h *Hasher, n *uint256.Int) {
 	if n != nil {
 		n.MarshalSSZInto(buffer[:])
 	}
-	h.insertChunk(buffer)
+	h.insertChunk(buffer, 0)
 }
 
 // HashStaticBytes hashes a static binary blob.
@@ -149,7 +155,7 @@ func HashSliceOfBits(h *Hasher, bits bitfield.Bitlist, maxBits uint64) {
 	// Merkleize the content with mixed in length
 	h.descendMixinLayer()
 	if len(h.bitbuf) == 0 && size > 0 {
-		h.insertChunk([32]byte{})
+		h.insertChunk([32]byte{}, 0)
 	} else {
 		h.insertBlobChunks(h.bitbuf)
 	}
@@ -174,7 +180,7 @@ func HashArrayOfUint64s[T commonUint64sLengths](h *Hasher, ns *T) {
 		binary.LittleEndian.PutUint64(buffer[16:], nums[2])
 		binary.LittleEndian.PutUint64(buffer[24:], nums[3])
 
-		h.insertChunk(buffer)
+		h.insertChunk(buffer, 0)
 		nums = nums[4:]
 	}
 	if len(nums) > 0 {
@@ -182,7 +188,7 @@ func HashArrayOfUint64s[T commonUint64sLengths](h *Hasher, ns *T) {
 		for i := 0; i < len(nums); i++ {
 			binary.LittleEndian.PutUint64(buffer[i<<3:], nums[i])
 		}
-		h.insertChunk(buffer)
+		h.insertChunk(buffer, 0)
 	}
 	h.ascendLayer(0)
 }
@@ -199,7 +205,7 @@ func HashSliceOfUint64s[T ~uint64](h *Hasher, ns []T, maxItems uint64) {
 		binary.LittleEndian.PutUint64(buffer[16:], uint64(nums[2]))
 		binary.LittleEndian.PutUint64(buffer[24:], uint64(nums[3]))
 
-		h.insertChunk(buffer)
+		h.insertChunk(buffer, 0)
 		nums = nums[4:]
 	}
 	if len(nums) > 0 {
@@ -207,7 +213,7 @@ func HashSliceOfUint64s[T ~uint64](h *Hasher, ns []T, maxItems uint64) {
 		for i := 0; i < len(nums); i++ {
 			binary.LittleEndian.PutUint64(buffer[i<<3:], uint64(nums[i]))
 		}
-		h.insertChunk(buffer)
+		h.insertChunk(buffer, 0)
 	}
 	h.ascendMixinLayer(uint64(len(ns)), (maxItems*8+31)/32)
 }
@@ -270,12 +276,60 @@ func HashSliceOfDynamicBytes(h *Hasher, blobs [][]byte, maxItems uint64, maxSize
 // HashSliceOfStaticObjects hashes a dynamic slice of static ssz objects.
 func HashSliceOfStaticObjects[T StaticObject](h *Hasher, objects []T, maxItems uint64) {
 	h.descendMixinLayer()
-	for _, obj := range objects {
-		h.descendLayer()
-		obj.DefineSSZ(h.codec)
-		h.ascendLayer(0)
+	defer h.ascendMixinLayer(uint64(len(objects)), maxItems)
+
+	// If threading is disabled, or hashing nothing, do it sequentially
+	if !h.threads || len(objects) == 0 || len(objects)*int(Size(objects[0])) < concurrencyThreshold {
+		for _, obj := range objects {
+			h.descendLayer()
+			obj.DefineSSZ(h.codec)
+			h.ascendLayer(0)
+		}
+		return
 	}
-	h.ascendMixinLayer(uint64(len(objects)), maxItems)
+	// Split the slice into equal chunks and hash the objects concurrently. The
+	// splits will in theory be objects // threads. In practice, we need powers
+	// of 2, otherwise child hashers wouldn't be able to collapse their tasks
+	// into a single sub-root. Going for the biggest power of two that can be
+	// served by exactly N threads is a problem, because we can end up with N/2-1
+	// threads idling at worse. To avoid starvation, we're splitting across a
+	// higher thead count than cores.
+	var workers errgroup.Group
+	workers.SetLimit(runtime.NumCPU())
+
+	var (
+		splits  = min(4*runtime.NumCPU(), len(objects))
+		subtask = max(1<<bitops.Len(uint(len(objects)/splits)), 1)
+
+		resultChunks = make([][32]byte, (len(objects)+subtask-1)/subtask)
+		resultDepths = make([]int8, (len(objects)+subtask-1)/subtask)
+	)
+	for i := 0; i < len(resultChunks); i++ {
+		worker := i // Take care, closure
+
+		workers.Go(func() error {
+			codec := hasherPool.Get().(*Codec)
+			defer hasherPool.Put(codec)
+			defer codec.has.Reset()
+			codec.has.threads = true
+
+			for i := worker * subtask; i < (worker+1)*subtask && i < len(objects); i++ {
+				codec.has.descendLayer()
+				objects[i].DefineSSZ(codec)
+				codec.has.ascendLayer(0)
+			}
+			codec.has.balanceLayer()
+
+			resultChunks[worker] = codec.has.chunks[0]
+			resultDepths[worker] = codec.has.groups[0].depth
+			return nil
+		})
+	}
+	// Wait for all the hashers to finish and aggregate the results
+	workers.Wait()
+	for i := 0; i < len(resultChunks); i++ {
+		h.insertChunk(resultChunks[i], resultDepths[i])
+	}
 }
 
 // HashSliceOfDynamicObjects hashes a dynamic slice of dynamic ssz objects.
@@ -296,7 +350,7 @@ func (h *Hasher) hashBytes(blob []byte) {
 	if len(blob) <= 32 {
 		var buffer [32]byte
 		copy(buffer[:], blob)
-		h.insertChunk(buffer)
+		h.insertChunk(buffer, 0)
 		return
 	}
 	// Otherwise hash it as its own tree
@@ -306,20 +360,20 @@ func (h *Hasher) hashBytes(blob []byte) {
 }
 
 // insertChunk adds a chunk to the accumulators, collapsing matching pairs.
-func (h *Hasher) insertChunk(chunk [32]byte) {
+func (h *Hasher) insertChunk(chunk [32]byte, depth int8) {
 	// Insert the chunk into the accumulator
 	h.chunks = append(h.chunks, chunk)
 
 	// If the depth tracker is at the leaf level, bump the leaf count
 	groups := len(h.groups)
-	if groups > 0 && h.groups[groups-1].layer == h.layer && h.groups[groups-1].depth == 0 {
-		h.groups[groups-1].chunks++
+	if groups > 0 && h.groups[groups-1].layer == h.layer && h.groups[groups-1].depth == depth {
+		h.groups[groups-1].chunks += 1
 	} else {
 		// New leaf group, create it and early return. Nothing to hash with only
 		// one leaf in our chunk list.
 		h.groups = append(h.groups, groupStats{
 			layer:  h.layer,
-			depth:  0,
+			depth:  depth,
 			chunks: 1,
 		})
 		return
@@ -368,13 +422,13 @@ func (h *Hasher) insertBlobChunks(blob []byte) {
 	var buffer [32]byte
 	for len(blob) >= 32 {
 		copy(buffer[:], blob)
-		h.insertChunk(buffer)
+		h.insertChunk(buffer, 0)
 		blob = blob[32:]
 	}
 	if len(blob) > 0 {
 		buffer = [32]byte{}
 		copy(buffer[:], blob)
-		h.insertChunk(buffer)
+		h.insertChunk(buffer, 0)
 	}
 }
 
@@ -394,6 +448,47 @@ func (h *Hasher) descendMixinLayer() {
 // collapsing anything unblocked. The capacity param controls how many chunks
 // a dynamic list is expected to be composed of at maximum (0 == only balance).
 func (h *Hasher) ascendLayer(capacity uint64) {
+	// Before even considering extending the layer to capacity, balance any
+	// partial sub-tries to their completion.
+	h.balanceLayer()
+
+	// Last group was reduced to a single root hash. If the capacity used during
+	// hashing it was less than what the container slot required, keep expanding
+	// it with empty sibling tries.
+	for {
+		groups := len(h.groups)
+
+		// If we've used up the required capacity, stop expanding
+		group := h.groups[groups-1]
+		if (1 << group.depth) >= capacity {
+			break
+		}
+		// Last group requires expansion, hash in a new empty sibling trie
+		h.chunks = append(h.chunks, hasherZeroCache[group.depth])
+
+		chunks := len(h.chunks)
+		gohashtree.HashChunks(h.chunks[chunks-2:], h.chunks[chunks-2:])
+		h.chunks = h.chunks[:chunks-1]
+
+		h.groups[groups-1].depth++
+	}
+	// Ascend from the previous hashing layer
+	h.layer--
+
+	chunks := len(h.chunks)
+	root := h.chunks[chunks-1]
+	h.chunks = h.chunks[:chunks-1]
+
+	groups := len(h.groups)
+	h.groups = h.groups[:groups-1]
+
+	h.insertChunk(root, 0)
+}
+
+// balanceLayer can be used to take a partial hashing result of an unbalanced
+// trie and append enough empty chunks (virtually) at the end to collapse it
+// down to a single root.
+func (h *Hasher) balanceLayer() {
 	// If the layer is incomplete, append in zero chunks. First up, before even
 	// caring about maximum length, we must balance the tree (i.e. reduce it to
 	// a single root hash).
@@ -439,37 +534,6 @@ func (h *Hasher) ascendLayer(capacity uint64) {
 		// or depth level, update the tail and see if more balancing is needed
 		h.groups[groups-1] = group
 	}
-	// Last group was reduced to a single root hash. If the capacity used during
-	// hashing it was less than what the container slot required, keep expanding
-	// it with empty sibling tries.
-	for {
-		groups := len(h.groups)
-
-		// If we've used up the required capacity, stop expanding
-		group := h.groups[groups-1]
-		if (1 << group.depth) >= capacity {
-			break
-		}
-		// Last group requires expansion, hash in a new empty sibling trie
-		h.chunks = append(h.chunks, hasherZeroCache[group.depth])
-
-		chunks := len(h.chunks)
-		gohashtree.HashChunks(h.chunks[chunks-2:], h.chunks[chunks-2:])
-		h.chunks = h.chunks[:chunks-1]
-
-		h.groups[groups-1].depth++
-	}
-	// Ascend from the previous hashing layer
-	h.layer--
-
-	chunks := len(h.chunks)
-	root := h.chunks[chunks-1]
-	h.chunks = h.chunks[:chunks-1]
-
-	groups := len(h.groups)
-	h.groups = h.groups[:groups-1]
-
-	h.insertChunk(root)
 }
 
 // ascendMixinLayer is similar to ascendLayer, but actually ascends one for the
@@ -479,12 +543,12 @@ func (h *Hasher) ascendMixinLayer(size uint64, chunks uint64) {
 	// corner-case here.
 	var buffer [32]byte
 	if size == 0 {
-		h.insertChunk(buffer)
+		h.insertChunk(buffer, 0)
 	}
 	h.ascendLayer(chunks) // data content
 
 	binary.LittleEndian.PutUint64(buffer[:8], size)
-	h.insertChunk(buffer)
+	h.insertChunk(buffer, 0)
 
 	h.ascendLayer(0) // length mixin
 }
