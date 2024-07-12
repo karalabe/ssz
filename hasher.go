@@ -15,6 +15,9 @@ import (
 	"github.com/prysmaticlabs/gohashtree"
 )
 
+// hasherBatch is the number of chunks to batch up before calling the hasher.
+const hasherBatch = 8 // *MUST* be power of 2
+
 // Some helpers to avoid occasional allocations
 var (
 	hasherBoolFalse = [32]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
@@ -39,13 +42,21 @@ func init() {
 type Hasher struct {
 	threads bool // Whether threaded hashing is allowed or not
 
-	chunks [][32]byte // Scratch space for in-progress hashing chunks
-	depths [][2]int8  // Depth of the individual chunks (layer / chunk)
-	layer  int8       // Layer depth being hasher now
+	chunks [][32]byte   // Scratch space for in-progress hashing chunks
+	groups []groupStats // Hashing progress tracking for the chunk groups
+	layer  int8         // Layer depth being hasher now
 
 	codec  *Codec   // Self-referencing to pass DefineSSZ calls through (API trick)
 	buf    [32]byte // Integer conversion buffer
 	bitbuf []byte   // Bitlist conversion buffer (
+}
+
+// groupStats is a metadata structure tracking the stats of a same-level group
+// of data chunks waiting to be hashed.
+type groupStats struct {
+	layer  int8 // Layer this chunk group is from
+	depth  int8 // Depth this chunk group is from
+	chunks int8 // Number of chunks in this group
 }
 
 // HashBool hashes a boolean.
@@ -60,7 +71,7 @@ func HashBool[T ~bool](h *Hasher, v T) {
 // HashUint64 hashes a uint64.
 func HashUint64[T ~uint64](h *Hasher, n T) {
 	h.buf = [32]byte{}
-	binary.LittleEndian.PutUint64(h.buf[:], (uint64)(n))
+	binary.LittleEndian.PutUint64(h.buf[:], uint64(n))
 	h.insertChunk(h.buf)
 }
 
@@ -182,10 +193,10 @@ func HashSliceOfUint64s[T ~uint64](h *Hasher, ns []T, maxItems uint64) {
 	h.descendMixinLayer()
 	nums := ns
 	for len(nums) > 4 {
-		binary.LittleEndian.PutUint64(h.buf[:], (uint64)(nums[0]))
-		binary.LittleEndian.PutUint64(h.buf[8:], (uint64)(nums[1]))
-		binary.LittleEndian.PutUint64(h.buf[16:], (uint64)(nums[2]))
-		binary.LittleEndian.PutUint64(h.buf[24:], (uint64)(nums[3]))
+		binary.LittleEndian.PutUint64(h.buf[:], uint64(nums[0]))
+		binary.LittleEndian.PutUint64(h.buf[8:], uint64(nums[1]))
+		binary.LittleEndian.PutUint64(h.buf[16:], uint64(nums[2]))
+		binary.LittleEndian.PutUint64(h.buf[24:], uint64(nums[3]))
 
 		h.insertChunk(h.buf)
 		nums = nums[4:]
@@ -193,7 +204,7 @@ func HashSliceOfUint64s[T ~uint64](h *Hasher, ns []T, maxItems uint64) {
 	if len(nums) > 0 {
 		h.buf = [32]byte{}
 		for i := 0; i < len(nums); i++ {
-			binary.LittleEndian.PutUint64(h.buf[i<<3:], (uint64)(nums[i]))
+			binary.LittleEndian.PutUint64(h.buf[i<<3:], uint64(nums[i]))
 		}
 		h.insertChunk(h.buf)
 	}
@@ -295,18 +306,58 @@ func (h *Hasher) hashBytes(blob []byte) {
 
 // insertChunk adds a chunk to the accumulators, collapsing matching pairs.
 func (h *Hasher) insertChunk(chunk [32]byte) {
+	// Insert the chunk into the accumulator
 	h.chunks = append(h.chunks, chunk)
-	h.depths = append(h.depths, [2]int8{h.layer, 0})
-	//fmt.Println("+++", h.depths, "...", h.layer)
 
-	for n := len(h.depths); n > 1 && h.depths[n-1] == h.depths[n-2]; n-- {
-		gohashtree.HashChunks(h.chunks[n-2:], h.chunks[n-2:])
-		h.depths[n-2][1]++
+	// If the depth tracker is at the leaf level, bump the leaf count
+	groups := len(h.groups)
+	if groups > 0 && h.groups[groups-1].layer == h.layer && h.groups[groups-1].depth == 0 {
+		h.groups[groups-1].chunks++
+	} else {
+		// New leaf group, create it and early return. Nothing to hash with only
+		// one leaf in our chunk list.
+		h.groups = append(h.groups, groupStats{
+			layer:  h.layer,
+			depth:  0,
+			chunks: 1,
+		})
+		return
+	}
+	// Leaf counter incremented, if not yet enough for a hashing round, return
+	group := h.groups[groups-1]
+	if group.chunks != hasherBatch {
+		return
+	}
+	for {
+		// We've reached **exactly** the batch number of chunks. Note, we're adding
+		// them one by one, so can't all of a sudden overshoot. Hash the next batch
+		// of chunks and update the trackers.
+		chunks := len(h.chunks)
+		gohashtree.HashChunks(h.chunks[chunks-hasherBatch:], h.chunks[chunks-hasherBatch:])
+		h.chunks = h.chunks[:chunks-hasherBatch/2]
 
-		h.chunks = h.chunks[:n-1]
-		h.depths = h.depths[:n-1]
+		group.depth++
+		group.chunks /= 2
 
-		//fmt.Println("---", h.depths, "...", h.layer)
+		// The last group tracker we've just hashed needs to be either updated to
+		// the new level count, or merged into the previous one if they share all
+		// the layer/depth params.
+		if groups > 1 {
+			prev := h.groups[groups-2]
+			if prev.layer == group.layer && prev.depth == group.depth {
+				// Two groups can be merged, will trigger a new collapse round
+				prev.chunks += group.chunks
+				group = prev
+
+				h.groups = h.groups[:groups-1]
+				groups--
+				continue
+			}
+		}
+		// Either have a single group, or the previous is from a different layer
+		// or depth level, update the tail and return
+		h.groups[groups-1] = group
+		return
 	}
 }
 
@@ -330,55 +381,88 @@ func (h *Hasher) insertBlobChunks(blob []byte) {
 func (h *Hasher) descendLayer() {
 	// Descend into the next hashing layer
 	h.layer++
-	//fmt.Println("^^^", h.depths, "...", h.layer)
 }
 
 // ascendLayer terminates a hashing layer, moving the result up one level and
-// collapsing anything unblocked. The chunks param controls how many chunks a
-// dynamic list is expected to me composed of at maximum (0 == only balance).
-func (h *Hasher) ascendLayer(chunks uint64) {
-	// If the layer is incomplete, append in zero chunks
+// collapsing anything unblocked. The capacity param controls how many chunks
+// a dynamic list is expected to be composed of at maximum (0 == only balance).
+func (h *Hasher) ascendLayer(capacity uint64) {
+	// If the layer is incomplete, append in zero chunks. First up, before even
+	// caring about maximum length, we must balance the tree (i.e. reduce it to
+	// a single root hash).
 	for {
-		// If there's only the root chunk left of this layer, check if we've
-		// expanded to the required number of chunks and terminate if so.
-		n := len(h.depths)
-		if (n == 1 || h.depths[n-1][0] != h.depths[n-2][0]) && (1<<h.depths[n-1][1]) >= chunks {
+		groups := len(h.groups)
+
+		// If the last layer was reduced to one root, we've balanced the tree
+		// and can proceed to any expansion if needed
+		group := h.groups[groups-1]
+		if group.chunks == 1 {
+			if groups == 1 || h.groups[groups-2].layer != group.layer {
+				break
+			}
+		}
+		// Either group has multiple chunks still, or there are multiple entire
+		// groups in this layer. Either way, we need to collapse this group into
+		// the previous one and then see.
+		if group.chunks&0x1 == 1 {
+			// Group unbalanced, expand with a zero sub-trie
+			h.chunks = append(h.chunks, hasherZeroCache[group.depth])
+			group.chunks++
+		}
+		chunks := len(h.chunks)
+		gohashtree.HashChunks(h.chunks[chunks-int(group.chunks):], h.chunks[chunks-int(group.chunks):])
+		h.chunks = h.chunks[:chunks-int(group.chunks)/2]
+
+		group.depth++
+		group.chunks /= 2
+
+		// The last group tracker we've just hashed needs to be either updated to
+		// the new level count, or merged into the previous one if they share all
+		// the layer/depth params.
+		if groups > 1 {
+			prev := h.groups[groups-2]
+			if prev.layer == group.layer && prev.depth == group.depth {
+				// Two groups can be merged, may trigger a new collapse round
+				h.groups[groups-2].chunks += group.chunks
+				h.groups = h.groups[:groups-1]
+				continue
+			}
+		}
+		// Either have a single group, or the previous is from a different layer
+		// or depth level, update the tail and see if more balancing is needed
+		h.groups[groups-1] = group
+	}
+	// Last group was reduced to a single root hash. If the capacity used during
+	// hashing it was less than what the container slot required, keep expanding
+	// it with empty sibling tries.
+	for {
+		groups := len(h.groups)
+
+		// If we've used up the required capacity, stop expanding
+		group := h.groups[groups-1]
+		if (1 << group.depth) >= capacity {
 			break
 		}
-		// Either the layer is not yet balanced, or extensions are needed. Append
-		// an empty chunk, collapse it and try again.
-		h.chunks = append(h.chunks, hasherZeroCache[h.depths[n-1][1]])
-		h.depths = append(h.depths, [2]int8{h.layer, h.depths[n-1][1]})
-		//fmt.Println("***", h.depths, "...", h.layer)
+		// Last group requires expansion, hash in a new empty sibling trie
+		h.chunks = append(h.chunks, hasherZeroCache[group.depth])
 
-		for n := len(h.depths); n > 1 && h.depths[n-1] == h.depths[n-2]; n-- {
-			gohashtree.HashChunks(h.chunks[n-2:], h.chunks[n-2:])
-			h.depths[n-2][1]++
+		chunks := len(h.chunks)
+		gohashtree.HashChunks(h.chunks[chunks-2:], h.chunks[chunks-2:])
+		h.chunks = h.chunks[:chunks-1]
 
-			h.chunks = h.chunks[:n-1]
-			h.depths = h.depths[:n-1]
-
-			//fmt.Println("---", h.depths, "...", h.layer)
-		}
+		h.groups[groups-1].depth++
 	}
 	// Ascend from the previous hashing layer
 	h.layer--
 
-	n := len(h.depths)
-	h.depths[n-1][0]--
-	h.depths[n-1][1] = 0
-	//fmt.Println("vvv", h.depths, "...", h.layer)
+	chunks := len(h.chunks)
+	root := h.chunks[chunks-1]
+	h.chunks = h.chunks[:chunks-1]
 
-	// Collapse anything that has been unblocks
-	for ; n > 1 && h.depths[n-1] == h.depths[n-2]; n-- {
-		gohashtree.HashChunks(h.chunks[n-2:], h.chunks[n-2:])
-		h.depths[n-2][1]++
+	groups := len(h.groups)
+	h.groups = h.groups[:groups-1]
 
-		h.chunks = h.chunks[:n-1]
-		h.depths = h.depths[:n-1]
-
-		//fmt.Println("---", h.depths)
-	}
+	h.insertChunk(root)
 }
 
 // descendMixinLayer is similar to descendLayer, but actually descends two at the
@@ -408,6 +492,6 @@ func (h *Hasher) ascendMixinLayer(size uint64, chunks uint64) {
 // Reset resets the Hasher obj
 func (h *Hasher) Reset() {
 	h.chunks = h.chunks[:0]
-	h.depths = h.depths[:0]
+	h.groups = h.groups[:0]
 	h.threads = false
 }
