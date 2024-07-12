@@ -46,9 +46,8 @@ type Hasher struct {
 	groups []groupStats // Hashing progress tracking for the chunk groups
 	layer  int8         // Layer depth being hasher now
 
-	codec  *Codec   // Self-referencing to pass DefineSSZ calls through (API trick)
-	buf    [32]byte // Integer conversion buffer
-	bitbuf []byte   // Bitlist conversion buffer (
+	codec  *Codec // Self-referencing to pass DefineSSZ calls through (API trick)
+	bitbuf []byte // Bitlist conversion buffer
 }
 
 // groupStats is a metadata structure tracking the stats of a same-level group
@@ -70,21 +69,20 @@ func HashBool[T ~bool](h *Hasher, v T) {
 
 // HashUint64 hashes a uint64.
 func HashUint64[T ~uint64](h *Hasher, n T) {
-	h.buf = [32]byte{}
-	binary.LittleEndian.PutUint64(h.buf[:], uint64(n))
-	h.insertChunk(h.buf)
+	var buf [32]byte
+	binary.LittleEndian.PutUint64(buf[:], uint64(n))
+	h.insertChunk(buf)
 }
 
 // HashUint256 hashes a uint256.
 //
 // Note, a nil pointer is hashed as zero.
 func HashUint256(h *Hasher, n *uint256.Int) {
+	var buffer [32]byte
 	if n != nil {
-		n.MarshalSSZInto(h.buf[:])
-		h.insertChunk(h.buf)
-	} else {
-		h.insertChunk([32]byte{})
+		n.MarshalSSZInto(buffer[:])
 	}
+	h.insertChunk(buffer)
 }
 
 // HashStaticBytes hashes a static binary blob.
@@ -169,21 +167,23 @@ func HashArrayOfUint64s[T commonUint64sLengths](h *Hasher, ns *T) {
 	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 	nums := unsafe.Slice(&(*ns)[0], len(*ns))
 	h.descendLayer()
-	for len(nums) > 4 {
-		binary.LittleEndian.PutUint64(h.buf[:], nums[0])
-		binary.LittleEndian.PutUint64(h.buf[8:], nums[1])
-		binary.LittleEndian.PutUint64(h.buf[16:], nums[2])
-		binary.LittleEndian.PutUint64(h.buf[24:], nums[3])
 
-		h.insertChunk(h.buf)
+	var buffer [32]byte
+	for len(nums) > 4 {
+		binary.LittleEndian.PutUint64(buffer[:], nums[0])
+		binary.LittleEndian.PutUint64(buffer[8:], nums[1])
+		binary.LittleEndian.PutUint64(buffer[16:], nums[2])
+		binary.LittleEndian.PutUint64(buffer[24:], nums[3])
+
+		h.insertChunk(buffer)
 		nums = nums[4:]
 	}
 	if len(nums) > 0 {
-		h.buf = [32]byte{}
+		buffer = [32]byte{}
 		for i := 0; i < len(nums); i++ {
-			binary.LittleEndian.PutUint64(h.buf[i<<3:], nums[i])
+			binary.LittleEndian.PutUint64(buffer[i<<3:], nums[i])
 		}
-		h.insertChunk(h.buf)
+		h.insertChunk(buffer)
 	}
 	h.ascendLayer(0)
 }
@@ -192,21 +192,23 @@ func HashArrayOfUint64s[T commonUint64sLengths](h *Hasher, ns *T) {
 func HashSliceOfUint64s[T ~uint64](h *Hasher, ns []T, maxItems uint64) {
 	h.descendMixinLayer()
 	nums := ns
-	for len(nums) > 4 {
-		binary.LittleEndian.PutUint64(h.buf[:], uint64(nums[0]))
-		binary.LittleEndian.PutUint64(h.buf[8:], uint64(nums[1]))
-		binary.LittleEndian.PutUint64(h.buf[16:], uint64(nums[2]))
-		binary.LittleEndian.PutUint64(h.buf[24:], uint64(nums[3]))
 
-		h.insertChunk(h.buf)
+	var buffer [32]byte
+	for len(nums) > 4 {
+		binary.LittleEndian.PutUint64(buffer[:], uint64(nums[0]))
+		binary.LittleEndian.PutUint64(buffer[8:], uint64(nums[1]))
+		binary.LittleEndian.PutUint64(buffer[16:], uint64(nums[2]))
+		binary.LittleEndian.PutUint64(buffer[24:], uint64(nums[3]))
+
+		h.insertChunk(buffer)
 		nums = nums[4:]
 	}
 	if len(nums) > 0 {
-		h.buf = [32]byte{}
+		buffer = [32]byte{}
 		for i := 0; i < len(nums); i++ {
-			binary.LittleEndian.PutUint64(h.buf[i<<3:], uint64(nums[i]))
+			binary.LittleEndian.PutUint64(buffer[i<<3:], uint64(nums[i]))
 		}
-		h.insertChunk(h.buf)
+		h.insertChunk(buffer)
 	}
 	h.ascendMixinLayer(uint64(len(ns)), (maxItems*8+31)/32)
 }
@@ -293,9 +295,9 @@ func HashSliceOfDynamicObjects[T DynamicObject](h *Hasher, objects []T, maxItems
 func (h *Hasher) hashBytes(blob []byte) {
 	// If the blob is small, accumulate as a single chunk
 	if len(blob) <= 32 {
-		h.buf = [32]byte{}
-		copy(h.buf[:], blob)
-		h.insertChunk(h.buf)
+		var buffer [32]byte
+		copy(buffer[:], blob)
+		h.insertChunk(buffer)
 		return
 	}
 	// Otherwise hash it as its own tree
@@ -364,23 +366,29 @@ func (h *Hasher) insertChunk(chunk [32]byte) {
 // insertBlobChunks splits up the blob into 32 byte chunks and adds them to the
 // accumulators, collapsing matching pairs.
 func (h *Hasher) insertBlobChunks(blob []byte) {
+	var buffer [32]byte
 	for len(blob) >= 32 {
-		copy(h.buf[:], blob)
-		h.insertChunk(h.buf)
+		copy(buffer[:], blob)
+		h.insertChunk(buffer)
 		blob = blob[32:]
 	}
 	if len(blob) > 0 {
-		h.buf = [32]byte{}
-		copy(h.buf[:], blob)
-		h.insertChunk(h.buf)
+		buffer = [32]byte{}
+		copy(buffer[:], blob)
+		h.insertChunk(buffer)
 	}
 }
 
 // descendLayer starts a new hashing layer, acting as a barrier to prevent the
 // chunks from being collapsed into previous pending ones.
 func (h *Hasher) descendLayer() {
-	// Descend into the next hashing layer
 	h.layer++
+}
+
+// descendMixinLayer is similar to descendLayer, but actually descends two at the
+// same time, using the outer for mixing in a list length during ascent.
+func (h *Hasher) descendMixinLayer() {
+	h.layer += 2
 }
 
 // ascendLayer terminates a hashing layer, moving the result up one level and
@@ -465,13 +473,6 @@ func (h *Hasher) ascendLayer(capacity uint64) {
 	h.insertChunk(root)
 }
 
-// descendMixinLayer is similar to descendLayer, but actually descends two at the
-// same time, using the outer for mixing in a list length during ascent.
-func (h *Hasher) descendMixinLayer() {
-	h.descendLayer() // length mixin
-	h.descendLayer() // data content
-}
-
 // ascendMixinLayer is similar to ascendLayer, but actually ascends one for the
 // data content, and then mixes in the provided length and ascends once more.
 func (h *Hasher) ascendMixinLayer(size uint64, chunks uint64) {
@@ -482,9 +483,9 @@ func (h *Hasher) ascendMixinLayer(size uint64, chunks uint64) {
 	}
 	h.ascendLayer(chunks) // data content
 
-	h.buf = [32]byte{}
-	binary.LittleEndian.PutUint64(h.buf[:8], size)
-	h.insertChunk(h.buf)
+	var buf [32]byte
+	binary.LittleEndian.PutUint64(buf[:8], size)
+	h.insertChunk(buf)
 
 	h.ascendLayer(0) // length mixin
 }
