@@ -49,7 +49,7 @@ type Hasher struct {
 
 	chunks [][32]byte   // Scratch space for in-progress hashing chunks
 	groups []groupStats // Hashing progress tracking for the chunk groups
-	layer  int8         // Layer depth being hasher now
+	layer  int          // Layer depth being hasher now
 
 	codec  *Codec // Self-referencing to pass DefineSSZ calls through (API trick)
 	bitbuf []byte // Bitlist conversion buffer
@@ -58,9 +58,9 @@ type Hasher struct {
 // groupStats is a metadata structure tracking the stats of a same-level group
 // of data chunks waiting to be hashed.
 type groupStats struct {
-	layer  int8 // Layer this chunk group is from
-	depth  int8 // Depth this chunk group is from
-	chunks int8 // Number of chunks in this group
+	layer  int // Layer this chunk group is from
+	depth  int // Depth this chunk group is from
+	chunks int // Number of chunks in this group
 }
 
 // HashBool hashes a boolean.
@@ -302,7 +302,7 @@ func HashSliceOfStaticObjects[T StaticObject](h *Hasher, objects []T, maxItems u
 		subtask = max(1<<bitops.Len(uint(len(objects)/splits)), 1)
 
 		resultChunks = make([][32]byte, (len(objects)+subtask-1)/subtask)
-		resultDepths = make([]int8, (len(objects)+subtask-1)/subtask)
+		resultDepths = make([]int, (len(objects)+subtask-1)/subtask)
 	)
 	for i := 0; i < len(resultChunks); i++ {
 		worker := i // Take care, closure
@@ -360,14 +360,14 @@ func (h *Hasher) hashBytes(blob []byte) {
 }
 
 // insertChunk adds a chunk to the accumulators, collapsing matching pairs.
-func (h *Hasher) insertChunk(chunk [32]byte, depth int8) {
+func (h *Hasher) insertChunk(chunk [32]byte, depth int) {
 	// Insert the chunk into the accumulator
 	h.chunks = append(h.chunks, chunk)
 
 	// If the depth tracker is at the leaf level, bump the leaf count
 	groups := len(h.groups)
 	if groups > 0 && h.groups[groups-1].layer == h.layer && h.groups[groups-1].depth == depth {
-		h.groups[groups-1].chunks += 1
+		h.groups[groups-1].chunks++
 	} else {
 		// New leaf group, create it and early return. Nothing to hash with only
 		// one leaf in our chunk list.
@@ -392,7 +392,7 @@ func (h *Hasher) insertChunk(chunk [32]byte, depth int8) {
 		h.chunks = h.chunks[:chunks-hasherBatch/2]
 
 		group.depth++
-		group.chunks /= 2
+		group.chunks >>= 1
 
 		// The last group tracker we've just hashed needs to be either updated to
 		// the new level count, or merged into the previous one if they share all
@@ -404,13 +404,13 @@ func (h *Hasher) insertChunk(chunk [32]byte, depth int8) {
 				prev.chunks += group.chunks
 				group = prev
 
-				h.groups = h.groups[:groups-1]
 				groups--
 				continue
 			}
 		}
 		// Either have a single group, or the previous is from a different layer
 		// or depth level, update the tail and return
+		h.groups = h.groups[:groups]
 		h.groups[groups-1] = group
 		return
 	}
@@ -496,11 +496,10 @@ func (h *Hasher) balanceLayer() {
 		groups := len(h.groups)
 
 		// If the last layer was reduced to one root, we've balanced the tree
-		// and can proceed to any expansion if needed
 		group := h.groups[groups-1]
 		if group.chunks == 1 {
 			if groups == 1 || h.groups[groups-2].layer != group.layer {
-				break
+				return
 			}
 		}
 		// Either group has multiple chunks still, or there are multiple entire
@@ -513,10 +512,10 @@ func (h *Hasher) balanceLayer() {
 		}
 		chunks := len(h.chunks)
 		gohashtree.HashChunks(h.chunks[chunks-int(group.chunks):], h.chunks[chunks-int(group.chunks):])
-		h.chunks = h.chunks[:chunks-int(group.chunks)/2]
+		h.chunks = h.chunks[:chunks-int(group.chunks)>>1]
 
 		group.depth++
-		group.chunks /= 2
+		group.chunks >>= 1
 
 		// The last group tracker we've just hashed needs to be either updated to
 		// the new level count, or merged into the previous one if they share all
