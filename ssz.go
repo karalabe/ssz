@@ -256,13 +256,7 @@ func TreeSequential(obj Object) *TreeNode {
 	codec := treererPool.Get().(*Codec)
 	defer treererPool.Put(codec)
 	defer codec.tre.Reset()
-
 	obj.DefineSSZ(codec)
-	fmt.Println("LEAVES", len(codec.tre.leaves), "leaves", codec.tre.leaves)
-	fmt.Println("Printing all leaves:")
-	for i, leaf := range codec.tre.leaves {
-		fmt.Printf("Leaf %d: %x\n", i, leaf.Hash)
-	}
 	return codec.tre.GetRoot()
 }
 

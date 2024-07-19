@@ -27,7 +27,6 @@ type Treerer struct {
 	leaves []*TreeNode // Leaf nodes of the tree
 
 	codec *Codec // Self-referencing to pass DefineSSZ calls through (API trick)
-	// bitbuf []byte // Bitlist conversion buffer
 }
 
 // NewTreerer creates a new Treerer instance
@@ -241,13 +240,6 @@ func (t *Treerer) Reset() {
 	t.root = nil
 	t.leaves = t.leaves[:0]
 	t.threads = false
-}
-
-// GetRoot returns the root hash of the Merkle tree
-func (t *Treerer) GetRoot() *TreeNode {
-	fmt.Println("Getting root", "len leaves", len(t.leaves))
-	t.balanceAndBuildTree()
-	return t.root
 }
 
 // PrintTree prints the Merkle tree structure
