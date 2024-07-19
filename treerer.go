@@ -33,8 +33,8 @@ type Treerer struct {
 // This is useful for processing small objects with stable runtime and O(1) GC
 // guarantees.
 func TreeSequential(obj Object) *TreeNode {
-	codec := treePool.Get().(*Codec)
-	defer treePool.Put(codec)
+	codec := treererPool.Get().(*Codec)
+	defer treererPool.Put(codec)
 	defer codec.tre.Reset()
 
 	obj.DefineSSZ(codec)

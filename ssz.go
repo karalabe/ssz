@@ -76,9 +76,9 @@ var hasherPool = sync.Pool{
 	},
 }
 
-// hasherPool is a pool of SSZ hashers to reuse some tiny internal helpers
+// treererPool is a pool of SSZ hashers to reuse some tiny internal helpers
 // without hitting Go's GC constantly.
-var treePool = sync.Pool{
+var treererPool = sync.Pool{
 	New: func() any {
 		codec := &Codec{tre: new(Treerer), has: new(Hasher), enc: new(Encoder)}
 		codec.has.codec = codec
