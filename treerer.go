@@ -10,12 +10,11 @@ import (
 
 // TreeNode represents a node in the Merkle tree
 type TreeNode struct {
-	Hash     [32]byte
-	Left     *TreeNode
-	Right    *TreeNode
-	IsLeaf   bool
-	Depth    int
-	LayerNum int
+	Hash   [32]byte
+	Left   *TreeNode
+	Right  *TreeNode
+	IsLeaf bool
+	Depth  int
 }
 
 // Treerer is a Merkle Tree generator.
@@ -117,10 +116,9 @@ func TreeifyDynamicBytes(tre *Treerer, blob []byte, maxSize uint64) {
 func (t *Treerer) insertLeaf(hash [32]byte, depth int) {
 	fmt.Printf("Inserting leaf: depth=%d, layer=%d\n", depth, t.layer)
 	leaf := &TreeNode{
-		Hash:     hash,
-		IsLeaf:   true,
-		Depth:    depth,
-		LayerNum: t.layer,
+		Hash:   hash,
+		IsLeaf: true,
+		Depth:  depth,
 	}
 	t.leaves = append(t.leaves, leaf)
 }
@@ -136,13 +134,12 @@ func (t *Treerer) balanceAndBuildTree() {
 			if i+1 < len(t.leaves) {
 				right = t.leaves[i+1]
 			} else {
-				right = &TreeNode{Hash: hasherZeroCache[left.Depth], Depth: left.Depth, LayerNum: left.LayerNum}
+				right = &TreeNode{Hash: hasherZeroCache[left.Depth], Depth: left.Depth}
 			}
 			parent := &TreeNode{
-				Left:     left,
-				Right:    right,
-				Depth:    left.Depth + 1,
-				LayerNum: left.LayerNum - 1,
+				Left:  left,
+				Right: right,
+				Depth: left.Depth + 1,
 			}
 			parent.Hash = sha256.Sum256(append(left.Hash[:], right.Hash[:]...))
 			nextLevel = append(nextLevel, parent)
@@ -176,28 +173,4 @@ func (t *Treerer) GetRoot() [32]byte {
 	}
 	fmt.Printf("Returning root hash: %x\n", t.root.Hash)
 	return t.root.Hash
-}
-
-// SetThreads sets whether threaded hashing is allowed or not
-func (t *Treerer) SetThreads(threads bool) {
-	fmt.Printf("Setting threads to: %v\n", threads)
-	t.threads = threads
-}
-
-// GetThreads returns whether threaded hashing is allowed or not
-func (t *Treerer) GetThreads() bool {
-	fmt.Printf("Getting threads: %v\n", t.threads)
-	return t.threads
-}
-
-// SetLayer sets the current layer depth being processed
-func (t *Treerer) SetLayer(layer int) {
-	fmt.Printf("Setting layer to: %d\n", layer)
-	t.layer = layer
-}
-
-// GetLayer returns the current layer depth being processed
-func (t *Treerer) GetLayer() int {
-	fmt.Printf("Getting layer: %d\n", t.layer)
-	return t.layer
 }
