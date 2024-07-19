@@ -79,9 +79,6 @@ func DefineBool[T ~bool](c *Codec, v *T) {
 	if c.tre != nil {
 		TreeifyBool(c.tre, *v)
 	}
-	if c.tre != nil {
-		TreeifyBool(c.tre, *v)
-	}
 }
 
 // DefineUint64 defines the next field as a uint64.
