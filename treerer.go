@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"strings"
-	"unsafe"
 
 	"github.com/holiman/uint256"
 )
@@ -82,29 +81,6 @@ func TreeifyUint256(t *Treerer, value *uint256.Int) {
 		value.MarshalSSZInto(hash[:])
 	}
 	t.insertLeaf(hash)
-}
-
-// TreeifyStaticBytes creates a new leaf node with the Merkle root hash of the given static bytes
-func TreeifyStaticBytes[T commonBytesLengths](tre *Treerer, blob *T) {
-	fmt.Printf("TreeifyStaticBytes: blob length=%d\n", len(*blob))
-	hasher := tre.codec.has
-	hasher.hashBytes(unsafe.Slice(&(*blob)[0], len(*blob)))
-	hasher.balanceLayer()
-	root := hasher.chunks[len(hasher.chunks)-1]
-	hasher.Reset()
-	tre.insertLeaf(root)
-}
-
-// TreeifyDynamicBytes creates a new leaf node with the Merkle root hash of the given dynamic bytes
-func TreeifyDynamicBytes(tre *Treerer, blob []byte, maxSize uint64) {
-	fmt.Printf("TreeifyDynamicBytes: blob length=%d, maxSize=%d\n", len(blob), maxSize)
-	hasher := tre.codec.has
-	hasher.descendMixinLayer()
-	hasher.insertBlobChunks(blob)
-	hasher.ascendMixinLayer(uint64(len(blob)), (maxSize+31)/32)
-	root := hasher.chunks[len(hasher.chunks)-1]
-	hasher.Reset()
-	tre.insertLeaf(root)
 }
 
 // insertLeaf adds a new leaf node to the tree
