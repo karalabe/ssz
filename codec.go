@@ -125,10 +125,6 @@ func DefineUint256(c *Codec, n **uint256.Int) {
 // DefineStaticBytes defines the next field as static binary blob. This method
 // can be used for byte arrays.
 func DefineStaticBytes[T commonBytesLengths](c *Codec, blob *T) {
-	if c.tre != nil {
-		TreeifyStaticBytes(c.tre, blob)
-		return
-	}
 	if c.enc != nil {
 		EncodeStaticBytes(c.enc, blob)
 		return

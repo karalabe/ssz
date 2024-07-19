@@ -249,6 +249,28 @@ func HashConcurrent(obj Object) [32]byte {
 	return codec.has.chunks[0]
 }
 
+// TreeSequential computes the ssz merkle tree of the object on a single thread.
+// This is useful for processing small objects with stable runtime and O(1) GC
+// guarantees.
+func TreeSequential(obj Object) *TreeNode {
+	codec := treererPool.Get().(*Codec)
+	defer treererPool.Put(codec)
+	defer codec.tre.Reset()
+
+	obj.DefineSSZ(codec)
+	fmt.Println("LEAVES", len(codec.tre.leaves), "leaves", codec.tre.leaves)
+	fmt.Println("Printing all leaves:")
+	for i, leaf := range codec.tre.leaves {
+		fmt.Printf("Leaf %d: %x\n", i, leaf.Hash)
+	}
+	return codec.tre.GetRoot()
+}
+
+// TreeConcurrent computes the SSZ Merkle tree of the object on a multiple threads.
+func TreeConcurrent(obj Object) *TreeNode {
+	panic("not implemented yet")
+}
+
 // Size retrieves the size of a ssz object, independent if it's a static or a
 // dynamic one.
 func Size(obj Object) uint32 {

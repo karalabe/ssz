@@ -5,8 +5,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"strings"
+	"unsafe"
 
 	"github.com/holiman/uint256"
+	"github.com/prysmaticlabs/go-bitfield"
 )
 
 // TreeNode represents a node in the Merkle tree
@@ -26,23 +28,6 @@ type Treerer struct {
 
 	codec *Codec // Self-referencing to pass DefineSSZ calls through (API trick)
 	// bitbuf []byte // Bitlist conversion buffer
-}
-
-// TreeSequential computes the ssz merkle tree of the object on a single thread.
-// This is useful for processing small objects with stable runtime and O(1) GC
-// guarantees.
-func TreeSequential(obj Object) *TreeNode {
-	codec := treererPool.Get().(*Codec)
-	defer treererPool.Put(codec)
-	defer codec.tre.Reset()
-
-	obj.DefineSSZ(codec)
-	fmt.Println("LEAVES", len(codec.tre.leaves), "leaves", codec.tre.leaves)
-	fmt.Println("Printing all leaves:")
-	for i, leaf := range codec.tre.leaves {
-		fmt.Printf("Leaf %d: %x\n", i, leaf.Hash)
-	}
-	return codec.tre.GetRoot()
 }
 
 // NewTreerer creates a new Treerer instance
@@ -81,6 +66,130 @@ func TreeifyUint256(t *Treerer, value *uint256.Int) {
 		value.MarshalSSZInto(hash[:])
 	}
 	t.insertLeaf(hash)
+}
+
+// TreeifyStaticBytes creates a new leaf node for a byte slice
+func TreeifyStaticBytes(t *Treerer, value []byte) {
+	panic("not implemented")
+}
+
+// TreeifyCheckedStaticBytes creates a new leaf node for a static byte slice
+func TreeifyCheckedStaticBytes(t *Treerer, value []byte) {
+	panic("not implemented")
+}
+
+// TreeifyDynamicBytes creates a new leaf node for a dynamic byte slice
+func TreeifyDynamicBytes(t *Treerer, value []byte) {
+	panic("not implemented")
+}
+
+// TreeifyCheckedDynamicBytes creates a new leaf node for a checked dynamic byte slice
+func TreeifyCheckedDynamicBytes(t *Treerer, value []byte) {
+	panic("not implemented")
+}
+
+// TreeifyStaticObject creates a new leaf node for a static object
+func TreeifyStaticObject(t *Treerer, obj StaticObject) {
+	panic("not implemented")
+}
+
+// TreeifyDynamicObject creates a new leaf node for a dynamic object
+func TreeifyDynamicObject(t *Treerer, obj DynamicObject) {
+	panic("not implemented")
+}
+
+// TreeifyArrayOfBits computes the hash of an array of bits
+func TreeifyArrayOfBits(bits []bool) [32]byte {
+	panic("not implemented")
+}
+
+// TreeifySliceOfBits creates a new leaf node for a bitlist
+func TreeifySliceOfBits(h *Hasher, bits bitfield.Bitlist, maxBits uint64) {
+	panic("not implemented")
+}
+
+// TreeifyArrayOfUint64s creates leaf nodes for an array of uint64 values
+func TreeifyArrayOfUint64s[T commonUint64sLengths](t *Treerer, ns *T) {
+	nums := unsafe.Slice(&(*ns)[0], len(*ns))
+	var buffer [32]byte
+
+	for len(nums) > 0 {
+		for i := 0; i < 4 && i < len(nums); i++ {
+			binary.LittleEndian.PutUint64(buffer[i*8:], nums[i])
+		}
+		t.insertLeaf(buffer)
+		if len(nums) > 4 {
+			nums = nums[4:]
+		} else {
+			break
+		}
+	}
+}
+
+// TreeifySliceOfUint64s creates leaf nodes for a slice of uint64 values
+func TreeifySliceOfUint64s[T ~uint64](t *Treerer, ns []T, maxItems uint64) {
+	var buffer [32]byte
+
+	for len(ns) > 0 {
+		for i := 0; i < 4 && i < len(ns); i++ {
+			binary.LittleEndian.PutUint64(buffer[i*8:], uint64(ns[i]))
+		}
+		t.insertLeaf(buffer)
+		if len(ns) > 4 {
+			ns = ns[4:]
+		} else {
+			break
+		}
+	}
+
+	// Add length mix-in
+	binary.LittleEndian.PutUint64(buffer[:8], uint64(len(ns)))
+	for i := 8; i < 32; i++ {
+		buffer[i] = 0
+	}
+	t.insertLeaf(buffer)
+
+	// Pad with zero nodes if necessary
+	zeroNode := [32]byte{}
+	for uint64(len(t.leaves)) < (maxItems+3)/4+1 {
+		t.insertLeaf(zeroNode)
+	}
+}
+
+// TreeifyArrayOfStaticBytes creates leaf nodes for a static array of static binary blobs.
+func TreeifyArrayOfStaticBytes[T commonBytesArrayLengths[U], U commonBytesLengths](t *Treerer, blobs *T) {
+	panic("not implemented")
+}
+
+// TreeifyUnsafeArrayOfStaticBytes creates leaf nodes for a static array of static binary blobs.
+func TreeifyUnsafeArrayOfStaticBytes[T commonBytesLengths](t *Treerer, blobs []T) {
+	panic("not implemented")
+}
+
+// TreeifyCheckedArrayOfStaticBytes creates leaf nodes for a static array of static binary blobs.
+func TreeifyCheckedArrayOfStaticBytes[T commonBytesLengths](t *Treerer, blobs []T) {
+	panic("not implemented")
+}
+
+// TreeifySliceOfStaticBytes creates leaf nodes for a dynamic slice of static binary blobs.
+func TreeifySliceOfStaticBytes[T commonBytesLengths](t *Treerer, blobs []T, maxItems uint64) {
+	panic("not implemented")
+}
+
+// TreeifySliceOfDynamicBytes creates leaf nodes for a dynamic slice of dynamic binary blobs.
+func TreeifySliceOfDynamicBytes(t *Treerer, blobs [][]byte, maxItems uint64, maxSize uint64) {
+	panic("not implemented")
+}
+
+// TreeifySliceOfStaticObjects creates leaf nodes for a dynamic slice of static ssz objects.
+func TreeifySliceOfStaticObjects[T StaticObject](t *Treerer, objects []T, maxItems uint64) {
+	panic("not implemented")
+}
+
+// GetRoot returns the root of the Merkle tree
+func (t *Treerer) GetRoot() *TreeNode {
+	t.balanceAndBuildTree()
+	return t.root
 }
 
 // insertLeaf adds a new leaf node to the tree
