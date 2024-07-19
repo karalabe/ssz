@@ -2,7 +2,9 @@ package ssz
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
+	"strings"
 	"unsafe"
 
 	"github.com/holiman/uint256"
@@ -14,7 +16,6 @@ type TreeNode struct {
 	Left   *TreeNode
 	Right  *TreeNode
 	IsLeaf bool
-	Depth  int
 }
 
 // Treerer is a Merkle Tree generator.
@@ -23,7 +24,6 @@ type Treerer struct {
 
 	root   *TreeNode   // Root of the Merkle tree
 	leaves []*TreeNode // Leaf nodes of the tree
-	layer  int         // Current layer depth being processed
 
 	codec *Codec // Self-referencing to pass DefineSSZ calls through (API trick)
 	// bitbuf []byte // Bitlist conversion buffer
@@ -32,18 +32,18 @@ type Treerer struct {
 // TreeSequential computes the ssz merkle tree of the object on a single thread.
 // This is useful for processing small objects with stable runtime and O(1) GC
 // guarantees.
-func TreeSequential(obj Object) *Treerer {
+func TreeSequential(obj Object) *TreeNode {
 	codec := treePool.Get().(*Codec)
 	defer treePool.Put(codec)
 	defer codec.tre.Reset()
 
-	codec.enc.outBuffer, codec.enc.err = make([]byte, 4000), nil
-
-	codec.tre.Reset()
-
 	obj.DefineSSZ(codec)
-
-	return codec.tre
+	fmt.Println("LEAVES", len(codec.tre.leaves), "leaves", codec.tre.leaves)
+	fmt.Println("Printing all leaves:")
+	for i, leaf := range codec.tre.leaves {
+		fmt.Printf("Leaf %d: %x\n", i, leaf.Hash)
+	}
+	return codec.tre.GetRoot()
 }
 
 // NewTreerer creates a new Treerer instance
@@ -52,7 +52,6 @@ func NewTreerer(cdc *Codec) *Treerer {
 	return &Treerer{
 		threads: false,
 		leaves:  make([]*TreeNode, 0),
-		layer:   0,
 		codec:   cdc,
 	}
 }
@@ -64,16 +63,15 @@ func TreeifyBool[T ~bool](t *Treerer, value T) {
 	if value {
 		hash[0] = 1
 	}
-	t.insertLeaf(hash, 0)
+	t.insertLeaf(hash)
 }
 
 // TreeifyUint64 creates a new leaf node for a uint64 value
 func TreeifyUint64[T ~uint64](t *Treerer, value T) {
 	fmt.Printf("TreeifyUint64: value=%d\n", value)
 	var hash [32]byte
-	EncodeUint64(t.codec.enc, uint64(value))
-	copy(hash[:], t.codec.enc.buf[:])
-	t.insertLeaf(hash, 0)
+	binary.LittleEndian.PutUint64(hash[:8], uint64(value))
+	t.insertLeaf(hash)
 }
 
 // TreeifyUint256 creates a new leaf node for a uint256 value
@@ -83,7 +81,7 @@ func TreeifyUint256(t *Treerer, value *uint256.Int) {
 	if value != nil {
 		value.MarshalSSZInto(hash[:])
 	}
-	t.insertLeaf(hash, 0)
+	t.insertLeaf(hash)
 }
 
 // TreeifyStaticBytes creates a new leaf node with the Merkle root hash of the given static bytes
@@ -94,7 +92,7 @@ func TreeifyStaticBytes[T commonBytesLengths](tre *Treerer, blob *T) {
 	hasher.balanceLayer()
 	root := hasher.chunks[len(hasher.chunks)-1]
 	hasher.Reset()
-	tre.insertLeaf(root, int(tre.layer))
+	tre.insertLeaf(root)
 }
 
 // TreeifyDynamicBytes creates a new leaf node with the Merkle root hash of the given dynamic bytes
@@ -106,16 +104,16 @@ func TreeifyDynamicBytes(tre *Treerer, blob []byte, maxSize uint64) {
 	hasher.ascendMixinLayer(uint64(len(blob)), (maxSize+31)/32)
 	root := hasher.chunks[len(hasher.chunks)-1]
 	hasher.Reset()
-	tre.insertLeaf(root, int(tre.layer))
+	tre.insertLeaf(root)
 }
 
 // insertLeaf adds a new leaf node to the tree
-func (t *Treerer) insertLeaf(hash [32]byte, depth int) {
-	fmt.Printf("Inserting leaf: depth=%d, layer=%d\n", depth, t.layer)
+func (t *Treerer) insertLeaf(hash [32]byte) {
+	fmt.Printf("Inserting leaf\n")
+	fmt.Println("Inserting leaf", hash, "len leaves", len(t.leaves))
 	leaf := &TreeNode{
 		Hash:   hash,
 		IsLeaf: true,
-		Depth:  depth,
 	}
 	t.leaves = append(t.leaves, leaf)
 }
@@ -131,12 +129,11 @@ func (t *Treerer) balanceAndBuildTree() {
 			if i+1 < len(t.leaves) {
 				right = t.leaves[i+1]
 			} else {
-				right = &TreeNode{Hash: hasherZeroCache[left.Depth], Depth: left.Depth}
+				right = &TreeNode{Hash: hasherZeroCache[0]}
 			}
 			parent := &TreeNode{
 				Left:  left,
 				Right: right,
-				Depth: left.Depth + 1,
 			}
 			parent.Hash = sha256.Sum256(append(left.Hash[:], right.Hash[:]...))
 			nextLevel = append(nextLevel, parent)
@@ -159,14 +156,35 @@ func (t *Treerer) Reset() {
 	t.root = nil
 	t.leaves = t.leaves[:0]
 	t.threads = false
-	t.layer = 0
 }
 
 // GetRoot returns the root hash of the Merkle tree
 func (t *Treerer) GetRoot() *TreeNode {
-
+	fmt.Println("Getting root", "len leaves", len(t.leaves))
 	t.balanceAndBuildTree()
-
-	// fmt.Printf("Returning root hash: %x\n", t.root.Hash)
 	return t.root
+}
+
+// PrintTree prints the Merkle tree structure
+func PrintTree(root *TreeNode) {
+	fmt.Println("Printing Merkle Tree:")
+	if root == nil {
+		fmt.Println("Tree is empty")
+		return
+	}
+	printNode(root, 0)
+}
+
+func printNode(node *TreeNode, level int) {
+	if node == nil {
+		return
+	}
+
+	indent := strings.Repeat("  ", level)
+	fmt.Printf("%sValue: %x\n", indent, node.Hash)
+
+	if node.Left != nil || node.Right != nil {
+		printNode(node.Left, level+1)
+		printNode(node.Right, level+1)
+	}
 }

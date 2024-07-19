@@ -65,6 +65,10 @@ func (c *Codec) DefineTreerer(impl func(tre *Treerer)) {
 
 // DefineBool defines the next field as a 1 byte boolean.
 func DefineBool[T ~bool](c *Codec, v *T) {
+	if c.tre != nil {
+		TreeifyBool(c.tre, *v)
+		return
+	}
 	if c.enc != nil {
 		EncodeBool(c.enc, *v)
 		return
@@ -76,9 +80,7 @@ func DefineBool[T ~bool](c *Codec, v *T) {
 	if c.has != nil {
 		HashBool(c.has, *v)
 	}
-	if c.tre != nil {
-		TreeifyBool(c.tre, *v)
-	}
+
 }
 
 // DefineUint64 defines the next field as a uint64.
