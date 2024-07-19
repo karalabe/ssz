@@ -76,6 +76,19 @@ var hasherPool = sync.Pool{
 	},
 }
 
+// hasherPool is a pool of SSZ hashers to reuse some tiny internal helpers
+// without hitting Go's GC constantly.
+var treePool = sync.Pool{
+	New: func() any {
+		codec := &Codec{tre: new(Treerer), has: new(Hasher), enc: new(Encoder)}
+		codec.has.codec = codec
+		codec.tre.codec = codec
+		codec.enc.codec = codec
+
+		return codec
+	},
+}
+
 // EncodeToStream serializes the object into a data stream. Do not use this
 // method with a bytes.Buffer to write into a []byte slice, as that will do
 // double the byte copying. For that use case, use EncodeToBytes instead.
