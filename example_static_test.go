@@ -51,8 +51,8 @@ func ExampleTreeerSymmetricObject() {
 		Amount:    789,
 	}
 
-	treeNode := ssz.TreeSequential(withdrawal)
-	fmt.Println("ROOT", treeNode.)
+	treeNode := ssz.TreeSequential(withdrawal).GetRoot()
+	fmt.Println("ROOT", treeNode)
 	// fmt.Printf("Root hash: %#x\n", root.Value)
 	// fmt.Printf("Left child hash: %#x\n", root.Left.Hash)
 	// fmt.Printf("Right child hash: %#x\n", root.Right.Hash)

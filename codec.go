@@ -83,6 +83,10 @@ func DefineBool[T ~bool](c *Codec, v *T) {
 
 // DefineUint64 defines the next field as a uint64.
 func DefineUint64[T ~uint64](c *Codec, n *T) {
+	if c.tre != nil {
+		TreeifyUint64(c.tre, *n)
+		return
+	}
 	if c.enc != nil {
 		EncodeUint64(c.enc, *n)
 		return
@@ -94,14 +98,14 @@ func DefineUint64[T ~uint64](c *Codec, n *T) {
 	if c.has != nil {
 		HashUint64(c.has, *n)
 	}
-	if c.tre != nil {
-		TreeifyUint64(c.tre, *n)
-	}
-
 }
 
 // DefineUint256 defines the next field as a uint256.
 func DefineUint256(c *Codec, n **uint256.Int) {
+	if c.tre != nil {
+		TreeifyUint256(c.tre, *n)
+		return
+	}
 	if c.enc != nil {
 		EncodeUint256(c.enc, *n)
 		return
@@ -114,14 +118,15 @@ func DefineUint256(c *Codec, n **uint256.Int) {
 		HashUint256(c.has, *n)
 	}
 
-	if c.tre != nil {
-		TreeifyUint256(c.tre, *n)
-	}
 }
 
 // DefineStaticBytes defines the next field as static binary blob. This method
 // can be used for byte arrays.
 func DefineStaticBytes[T commonBytesLengths](c *Codec, blob *T) {
+	if c.tre != nil {
+		TreeifyStaticBytes(c.tre, blob)
+		return
+	}
 	if c.enc != nil {
 		EncodeStaticBytes(c.enc, blob)
 		return
@@ -132,9 +137,6 @@ func DefineStaticBytes[T commonBytesLengths](c *Codec, blob *T) {
 	}
 	if c.has != nil {
 		HashStaticBytes(c.has, blob)
-	}
-	if c.tre != nil {
-		TreeifyStaticBytes(c.tre, blob)
 	}
 
 }

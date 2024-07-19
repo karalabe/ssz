@@ -32,7 +32,7 @@ type Treerer struct {
 // TreeSequential computes the ssz merkle tree of the object on a single thread.
 // This is useful for processing small objects with stable runtime and O(1) GC
 // guarantees.
-func TreeSequential(obj Object) *TreeNode {
+func TreeSequential(obj Object) *Treerer {
 	codec := treePool.Get().(*Codec)
 	defer treePool.Put(codec)
 	defer codec.tre.Reset()
@@ -43,10 +43,7 @@ func TreeSequential(obj Object) *TreeNode {
 
 	obj.DefineSSZ(codec)
 
-	if codec.tre.root == nil {
-		panic("unfinished tree construction: no root node")
-	}
-	return codec.tre.root
+	return codec.tre
 }
 
 // NewTreerer creates a new Treerer instance
@@ -166,11 +163,10 @@ func (t *Treerer) Reset() {
 }
 
 // GetRoot returns the root hash of the Merkle tree
-func (t *Treerer) GetRoot() [32]byte {
-	if t.root == nil {
-		fmt.Println("Root is nil, building tree")
-		t.balanceAndBuildTree()
-	}
-	fmt.Printf("Returning root hash: %x\n", t.root.Hash)
-	return t.root.Hash
+func (t *Treerer) GetRoot() *TreeNode {
+
+	t.balanceAndBuildTree()
+
+	// fmt.Printf("Returning root hash: %x\n", t.root.Hash)
+	return t.root
 }
