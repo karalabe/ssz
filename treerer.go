@@ -42,11 +42,11 @@ func NewTreerer(cdc *Codec) *Treerer {
 // TreeifyBool creates a new leaf node for a boolean value
 func TreeifyBool[T ~bool](t *Treerer, value T) {
 	fmt.Printf("TreeifyBool: value=%v\n", value)
-	var hash [32]byte
+	var v [32]byte
 	if value {
-		hash[0] = 1
+		v[0] = 1
 	}
-	t.insertLeaf(hash)
+	t.insertLeaf(v)
 }
 
 // TreeifyUint64 creates a new leaf node for a uint64 value
@@ -69,14 +69,15 @@ func TreeifyUint256(t *Treerer, value *uint256.Int) {
 
 // TreeifyStaticBytes creates a new leaf node for a byte slice
 func TreeifyStaticBytes[T commonBytesLengths](t *Treerer, blob *T) {
-	// TODO: THIS IS INCORRECT AND IS A HACK TO GET WITHDRAWAL RUNNING
-	fmt.Printf("TreeifyStaticBytes: blob length=%d\n", len(*blob))
-	hasher := t.codec.has
-	hasher.hashBytes(unsafe.Slice(&(*blob)[0], len(*blob)))
-	hasher.balanceLayer()
-	root := hasher.chunks[len(hasher.chunks)-1]
-	hasher.Reset()
-	t.insertLeaf(root)
+	var buffer [32]byte
+	// The code below should have used `blob[:]`, alas Go's generics compiler
+	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+	bz := unsafe.Slice(&(*blob)[0], len(*blob))
+	for len(bz) >= 32 {
+		copy(buffer[:], bz)
+		t.insertLeaf(buffer)
+		bz = bz[32:]
+	}
 }
 
 // TreeifyCheckedStaticBytes creates a new leaf node for a static byte slice
@@ -253,6 +254,16 @@ func (t *Treerer) GetRoot() *TreeNode {
 	return t.root
 }
 
+// Reset resets the Treerer obj
+func (t *Treerer) Reset() {
+	fmt.Println("Resetting Treerer")
+	if t == nil {
+		return
+	}
+	t.root = nil
+	t.leaves = t.leaves[:0]
+}
+
 // insertLeaf adds a new leaf node to the tree
 func (t *Treerer) insertLeaf(hash [32]byte) {
 	fmt.Printf("Inserting leaf\n")
@@ -291,17 +302,6 @@ func (t *Treerer) balanceAndBuildTree() {
 		t.root = t.leaves[0]
 		fmt.Println("Tree root set")
 	}
-}
-
-// Reset resets the Treerer obj
-func (t *Treerer) Reset() {
-	fmt.Println("Resetting Treerer")
-	if t == nil {
-		return
-	}
-	t.root = nil
-	t.leaves = t.leaves[:0]
-	t.threads = false
 }
 
 // PrintTree prints the Merkle tree structure
