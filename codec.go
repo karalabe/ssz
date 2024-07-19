@@ -80,7 +80,6 @@ func DefineBool[T ~bool](c *Codec, v *T) {
 	if c.has != nil {
 		HashBool(c.has, *v)
 	}
-
 }
 
 // DefineUint64 defines the next field as a uint64.
@@ -119,12 +118,16 @@ func DefineUint256(c *Codec, n **uint256.Int) {
 	if c.has != nil {
 		HashUint256(c.has, *n)
 	}
-
 }
 
 // DefineStaticBytes defines the next field as static binary blob. This method
 // can be used for byte arrays.
 func DefineStaticBytes[T commonBytesLengths](c *Codec, blob *T) {
+	if c.tre != nil {
+		TreeifyStaticBytes(c.tre, blob)
+		return
+	}
+
 	if c.enc != nil {
 		EncodeStaticBytes(c.enc, blob)
 		return
@@ -136,13 +139,16 @@ func DefineStaticBytes[T commonBytesLengths](c *Codec, blob *T) {
 	if c.has != nil {
 		HashStaticBytes(c.has, blob)
 	}
-
 }
 
 // DefineCheckedStaticBytes defines the next field as static binary blob. This
 // method can be used for plain byte slices, which is more expensive, since it
 // needs runtime size validation.
 func DefineCheckedStaticBytes(c *Codec, blob *[]byte, size uint64) {
+	if c.tre != nil {
+		TreeifyCheckedStaticBytes(c.tre, *blob, size)
+		return
+	}
 	if c.enc != nil {
 		EncodeCheckedStaticBytes(c.enc, *blob)
 		return
@@ -154,11 +160,14 @@ func DefineCheckedStaticBytes(c *Codec, blob *[]byte, size uint64) {
 	if c.has != nil {
 		HashCheckedStaticBytes(c.has, *blob)
 	}
-
 }
 
 // DefineDynamicBytesOffset defines the next field as dynamic binary blob.
 func DefineDynamicBytesOffset(c *Codec, blob *[]byte, maxSize uint64) {
+	if c.tre != nil {
+		TreeifyDynamicBytesOffset(c.tre, *blob, maxSize)
+		return
+	}
 	if c.enc != nil {
 		EncodeDynamicBytesOffset(c.enc, *blob)
 		return
@@ -174,6 +183,10 @@ func DefineDynamicBytesOffset(c *Codec, blob *[]byte, maxSize uint64) {
 
 // DefineDynamicBytesContent defines the next field as dynamic binary blob.
 func DefineDynamicBytesContent(c *Codec, blob *[]byte, maxSize uint64) {
+	if c.tre != nil {
+		TreeifyDynamicBytesContent(c.tre, *blob, maxSize)
+		return
+	}
 	if c.enc != nil {
 		EncodeDynamicBytesContent(c.enc, *blob)
 		return
@@ -187,6 +200,10 @@ func DefineDynamicBytesContent(c *Codec, blob *[]byte, maxSize uint64) {
 
 // DefineStaticObject defines the next field as a static ssz object.
 func DefineStaticObject[T newableStaticObject[U], U any](c *Codec, obj *T) {
+	if c.tre != nil {
+		TreeifyStaticObject(c.tre, *obj)
+		return
+	}
 	if c.enc != nil {
 		EncodeStaticObject(c.enc, *obj)
 		return
@@ -202,6 +219,10 @@ func DefineStaticObject[T newableStaticObject[U], U any](c *Codec, obj *T) {
 
 // DefineDynamicObjectOffset defines the next field as a dynamic ssz object.
 func DefineDynamicObjectOffset[T newableDynamicObject[U], U any](c *Codec, obj *T) {
+	if c.tre != nil {
+		TreeifyDynamicObjectOffset(c.tre, *obj)
+		return
+	}
 	if c.enc != nil {
 		EncodeDynamicObjectOffset(c.enc, *obj)
 		return
@@ -217,6 +238,10 @@ func DefineDynamicObjectOffset[T newableDynamicObject[U], U any](c *Codec, obj *
 
 // DefineDynamicObjectContent defines the next field as a dynamic ssz object.
 func DefineDynamicObjectContent[T newableDynamicObject[U], U any](c *Codec, obj *T) {
+	if c.tre != nil {
+		TreeifyDynamicObjectContent(c.tre, *obj)
+		return
+	}
 	if c.enc != nil {
 		EncodeDynamicObjectContent(c.enc, *obj)
 		return
@@ -230,6 +255,10 @@ func DefineDynamicObjectContent[T newableDynamicObject[U], U any](c *Codec, obj 
 
 // DefineArrayOfBits defines the next field as a static array of (packed) bits.
 func DefineArrayOfBits[T commonBitsLengths](c *Codec, bits *T, size uint64) {
+	if c.tre != nil {
+		TreeifyArrayOfBits(c.tre, bits)
+		return
+	}
 	if c.enc != nil {
 		EncodeArrayOfBits(c.enc, bits)
 		return
@@ -245,6 +274,10 @@ func DefineArrayOfBits[T commonBitsLengths](c *Codec, bits *T, size uint64) {
 
 // DefineSliceOfBitsOffset defines the next field as a dynamic slice of (packed) bits.
 func DefineSliceOfBitsOffset(c *Codec, bits *bitfield.Bitlist, maxBits uint64) {
+	if c.tre != nil {
+		TreeifySliceOfBitsOffset(c.tre, *bits, maxBits)
+		return
+	}
 	if c.enc != nil {
 		EncodeSliceOfBitsOffset(c.enc, *bits)
 		return
@@ -260,6 +293,10 @@ func DefineSliceOfBitsOffset(c *Codec, bits *bitfield.Bitlist, maxBits uint64) {
 
 // DefineSliceOfBitsContent defines the next field as a dynamic slice of (packed) bits.
 func DefineSliceOfBitsContent(c *Codec, bits *bitfield.Bitlist, maxBits uint64) {
+	if c.tre != nil {
+		TreeifySliceOfBitsContent(c.tre, *bits, maxBits)
+		return
+	}
 	if c.enc != nil {
 		EncodeSliceOfBitsContent(c.enc, *bits)
 		return
@@ -273,6 +310,10 @@ func DefineSliceOfBitsContent(c *Codec, bits *bitfield.Bitlist, maxBits uint64) 
 
 // DefineArrayOfUint64s defines the next field as a static array of uint64s.
 func DefineArrayOfUint64s[T commonUint64sLengths](c *Codec, ns *T) {
+	if c.tre != nil {
+		TreeifyArrayOfUint64s(c.tre, ns)
+		return
+	}
 	if c.enc != nil {
 		EncodeArrayOfUint64s(c.enc, ns)
 		return
@@ -288,6 +329,10 @@ func DefineArrayOfUint64s[T commonUint64sLengths](c *Codec, ns *T) {
 
 // DefineSliceOfUint64sOffset defines the next field as a dynamic slice of uint64s.
 func DefineSliceOfUint64sOffset[T ~uint64](c *Codec, ns *[]T, maxItems uint64) {
+	if c.tre != nil {
+		TreeifySliceOfUint64sOffset(c.tre, *ns, maxItems)
+		return
+	}
 	if c.enc != nil {
 		EncodeSliceOfUint64sOffset(c.enc, *ns)
 		return
@@ -303,6 +348,10 @@ func DefineSliceOfUint64sOffset[T ~uint64](c *Codec, ns *[]T, maxItems uint64) {
 
 // DefineSliceOfUint64sContent defines the next field as a dynamic slice of uint64s.
 func DefineSliceOfUint64sContent[T ~uint64](c *Codec, ns *[]T, maxItems uint64) {
+	if c.tre != nil {
+		TreeifySliceOfUint64sContent(c.tre, *ns, maxItems)
+		return
+	}
 	if c.enc != nil {
 		EncodeSliceOfUint64sContent(c.enc, *ns)
 		return
@@ -317,6 +366,10 @@ func DefineSliceOfUint64sContent[T ~uint64](c *Codec, ns *[]T, maxItems uint64) 
 // DefineArrayOfStaticBytes defines the next field as a static array of static
 // binary blobs.
 func DefineArrayOfStaticBytes[T commonBytesArrayLengths[U], U commonBytesLengths](c *Codec, blobs *T) {
+	if c.tre != nil {
+		TreeifyArrayOfStaticBytes[T, U](c.tre, blobs)
+		return
+	}
 	if c.enc != nil {
 		EncodeArrayOfStaticBytes[T, U](c.enc, blobs)
 		return
@@ -335,6 +388,10 @@ func DefineArrayOfStaticBytes[T commonBytesArrayLengths[U], U commonBytesLengths
 // will crash if provided a slice of a non-array. Its purpose is to get around
 // Go's generics limitations in generated code (use DefineArrayOfStaticBytes).
 func DefineUnsafeArrayOfStaticBytes[T commonBytesLengths](c *Codec, blobs []T) {
+	if c.tre != nil {
+		TreeifyUnsafeArrayOfStaticBytes(c.tre, blobs)
+		return
+	}
 	if c.enc != nil {
 		EncodeUnsafeArrayOfStaticBytes(c.enc, blobs)
 		return
@@ -352,6 +409,10 @@ func DefineUnsafeArrayOfStaticBytes[T commonBytesLengths](c *Codec, blobs []T) {
 // static binary blobs. This method can be used for plain slices of byte arrays,
 // which is more expensive since it needs runtime size validation.
 func DefineCheckedArrayOfStaticBytes[T commonBytesLengths](c *Codec, blobs *[]T, size uint64) {
+	if c.tre != nil {
+		TreeifyCheckedArrayOfStaticBytes(c.tre, *blobs, size)
+		return
+	}
 	if c.enc != nil {
 		EncodeCheckedArrayOfStaticBytes(c.enc, *blobs)
 		return
@@ -368,6 +429,10 @@ func DefineCheckedArrayOfStaticBytes[T commonBytesLengths](c *Codec, blobs *[]T,
 // DefineSliceOfStaticBytesOffset defines the next field as a dynamic slice of static
 // binary blobs.
 func DefineSliceOfStaticBytesOffset[T commonBytesLengths](c *Codec, bytes *[]T, maxItems uint64) {
+	if c.tre != nil {
+		TreeifySliceOfStaticBytesOffset(c.tre, *bytes, maxItems)
+		return
+	}
 	if c.enc != nil {
 		EncodeSliceOfStaticBytesOffset(c.enc, *bytes)
 		return
@@ -384,6 +449,10 @@ func DefineSliceOfStaticBytesOffset[T commonBytesLengths](c *Codec, bytes *[]T, 
 // DefineSliceOfStaticBytesContent defines the next field as a dynamic slice of static
 // binary blobs.
 func DefineSliceOfStaticBytesContent[T commonBytesLengths](c *Codec, blobs *[]T, maxItems uint64) {
+	if c.tre != nil {
+		TreeifySliceOfStaticBytesContent(c.tre, *blobs, maxItems)
+		return
+	}
 	if c.enc != nil {
 		EncodeSliceOfStaticBytesContent(c.enc, *blobs)
 		return
@@ -398,6 +467,10 @@ func DefineSliceOfStaticBytesContent[T commonBytesLengths](c *Codec, blobs *[]T,
 // DefineSliceOfDynamicBytesOffset defines the next field as a dynamic slice of dynamic
 // binary blobs.
 func DefineSliceOfDynamicBytesOffset(c *Codec, blobs *[][]byte, maxItems uint64, maxSize uint64) {
+	if c.tre != nil {
+		TreeifySliceOfDynamicBytesOffset(c.tre, *blobs, maxItems, maxSize)
+		return
+	}
 	if c.enc != nil {
 		EncodeSliceOfDynamicBytesOffset(c.enc, *blobs)
 		return
@@ -414,6 +487,13 @@ func DefineSliceOfDynamicBytesOffset(c *Codec, blobs *[][]byte, maxItems uint64,
 // DefineSliceOfDynamicBytesContent defines the next field as a dynamic slice of dynamic
 // binary blobs.
 func DefineSliceOfDynamicBytesContent(c *Codec, blobs *[][]byte, maxItems uint64, maxSize uint64) {
+	if c.tre != nil {
+		TreeifySliceOfDynamicBytesContent(c.tre, *blobs, maxItems, maxSize)
+	}
+
+	if c.tre != nil {
+		TreeifySliceOfDynamicBytesContent(c.tre, *blobs, maxItems, maxSize)
+	}
 	if c.enc != nil {
 		EncodeSliceOfDynamicBytesContent(c.enc, *blobs)
 		return
@@ -428,6 +508,11 @@ func DefineSliceOfDynamicBytesContent(c *Codec, blobs *[][]byte, maxItems uint64
 // DefineSliceOfStaticObjectsOffset defines the next field as a dynamic slice of static
 // ssz objects.
 func DefineSliceOfStaticObjectsOffset[T newableStaticObject[U], U any](c *Codec, objects *[]T, maxItems uint64) {
+	if c.tre != nil {
+		TreeifySliceOfStaticObjectsOffset(c.tre, *objects, maxItems)
+		return
+	}
+
 	if c.enc != nil {
 		EncodeSliceOfStaticObjectsOffset(c.enc, *objects)
 		return
@@ -444,6 +529,11 @@ func DefineSliceOfStaticObjectsOffset[T newableStaticObject[U], U any](c *Codec,
 // DefineSliceOfStaticObjectsContent defines the next field as a dynamic slice of static
 // ssz objects.
 func DefineSliceOfStaticObjectsContent[T newableStaticObject[U], U any](c *Codec, objects *[]T, maxItems uint64) {
+	if c.tre != nil {
+		TreeifySliceOfStaticObjectsContent(c.tre, *objects, maxItems)
+		return
+
+	}
 	if c.enc != nil {
 		EncodeSliceOfStaticObjectsContent(c.enc, *objects)
 		return
@@ -458,6 +548,10 @@ func DefineSliceOfStaticObjectsContent[T newableStaticObject[U], U any](c *Codec
 // DefineSliceOfDynamicObjectsOffset defines the next field as a dynamic slice of dynamic
 // ssz objects.
 func DefineSliceOfDynamicObjectsOffset[T newableDynamicObject[U], U any](c *Codec, objects *[]T, maxItems uint64) {
+	if c.tre != nil {
+		TreeifySliceOfDynamicObjectsOffset(c.tre, *objects, maxItems)
+	}
+
 	if c.enc != nil {
 		EncodeSliceOfDynamicObjectsOffset(c.enc, *objects)
 		return
@@ -474,6 +568,11 @@ func DefineSliceOfDynamicObjectsOffset[T newableDynamicObject[U], U any](c *Code
 // DefineSliceOfDynamicObjectsContent defines the next field as a dynamic slice of dynamic
 // ssz objects.
 func DefineSliceOfDynamicObjectsContent[T newableDynamicObject[U], U any](c *Codec, objects *[]T, maxItems uint64) {
+	if c.tre != nil {
+		TreeifySliceOfDynamicObjectsContent(c.tre, *objects, maxItems)
+		return
+	}
+
 	if c.enc != nil {
 		EncodeSliceOfDynamicObjectsContent(c.enc, *objects)
 		return

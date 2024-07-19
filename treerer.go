@@ -68,22 +68,34 @@ func TreeifyUint256(t *Treerer, value *uint256.Int) {
 }
 
 // TreeifyStaticBytes creates a new leaf node for a byte slice
-func TreeifyStaticBytes(t *Treerer, value []byte) {
-	panic("not implemented")
+func TreeifyStaticBytes[T commonBytesLengths](t *Treerer, blob *T) {
+	// TODO: THIS IS INCORRECT AND IS A HACK TO GET WITHDRAWAL RUNNING
+	fmt.Printf("TreeifyStaticBytes: blob length=%d\n", len(*blob))
+	hasher := t.codec.has
+	hasher.hashBytes(unsafe.Slice(&(*blob)[0], len(*blob)))
+	hasher.balanceLayer()
+	root := hasher.chunks[len(hasher.chunks)-1]
+	hasher.Reset()
+	t.insertLeaf(root)
 }
 
 // TreeifyCheckedStaticBytes creates a new leaf node for a static byte slice
-func TreeifyCheckedStaticBytes(t *Treerer, value []byte) {
+func TreeifyCheckedStaticBytes(t *Treerer, value []byte, size uint64) {
 	panic("not implemented")
 }
 
 // TreeifyDynamicBytes creates a new leaf node for a dynamic byte slice
-func TreeifyDynamicBytes(t *Treerer, value []byte) {
+func TreeifyDynamicBytesContent(t *Treerer, value []byte, maxSize uint64) {
+	panic("not implemented")
+}
+
+// TreeifyDynamicBytesOffset creates a new leaf node for a dynamic byte slice with an offset
+func TreeifyDynamicBytesOffset(t *Treerer, value []byte, maxSize uint64) {
 	panic("not implemented")
 }
 
 // TreeifyCheckedDynamicBytes creates a new leaf node for a checked dynamic byte slice
-func TreeifyCheckedDynamicBytes(t *Treerer, value []byte) {
+func TreeifyCheckedDynamicBytes[T commonBytesLengths](t *Treerer, value *T) {
 	panic("not implemented")
 }
 
@@ -93,17 +105,47 @@ func TreeifyStaticObject(t *Treerer, obj StaticObject) {
 }
 
 // TreeifyDynamicObject creates a new leaf node for a dynamic object
-func TreeifyDynamicObject(t *Treerer, obj DynamicObject) {
+func TreeifyDynamicObjectContent(t *Treerer, obj DynamicObject) {
+	panic("not implemented")
+}
+
+// TreeifyDynamicObjectOffset creates a new leaf node for a dynamic object with an offset
+func TreeifyDynamicObjectOffset(t *Treerer, obj DynamicObject) {
 	panic("not implemented")
 }
 
 // TreeifyArrayOfBits computes the hash of an array of bits
-func TreeifyArrayOfBits(bits []bool) [32]byte {
+func TreeifyArrayOfBits[T commonBitsLengths](t *Treerer, bits *T) [32]byte {
+	panic("not implemented")
+}
+
+// TreeifySliceOfBitsOffset creates a new leaf node for a bitlist with an offset
+func TreeifySliceOfBitsOffset(t *Treerer, bits bitfield.Bitlist, maxSize uint64) {
 	panic("not implemented")
 }
 
 // TreeifySliceOfBits creates a new leaf node for a bitlist
-func TreeifySliceOfBits(h *Hasher, bits bitfield.Bitlist, maxBits uint64) {
+func TreeifySliceOfBitsContent(t *Treerer, bits bitfield.Bitlist, maxBits uint64) {
+	panic("not implemented")
+}
+
+// TreeifySliceOfUint64sOffset creates leaf nodes for a slice of uint64 values with an offset
+func TreeifySliceOfUint64sOffset[T ~uint64](t *Treerer, ns []T, maxItems uint64) {
+	panic("not implemented")
+}
+
+// TreeifySliceOfUint64sContent creates leaf nodes for a slice of uint64 values
+func TreeifySliceOfUint64sContent[T ~uint64](t *Treerer, ns []T, maxItems uint64) {
+	panic("not implemented")
+}
+
+// TreeifySliceOfDynamicObjectsOffset creates leaf nodes for a slice of dynamic objects with an offset
+func TreeifySliceOfDynamicObjectsOffset[T newableDynamicObject[U], U any](t *Treerer, objs []T, maxItems uint64) {
+	panic("not implemented")
+}
+
+// TreeifySliceOfDynamicObjectsContent creates leaf nodes for a slice of dynamic objects
+func TreeifySliceOfDynamicObjectsContent[T newableDynamicObject[U], U any](t *Treerer, objs []T, maxItems uint64) {
 	panic("not implemented")
 }
 
@@ -166,12 +208,27 @@ func TreeifyUnsafeArrayOfStaticBytes[T commonBytesLengths](t *Treerer, blobs []T
 }
 
 // TreeifyCheckedArrayOfStaticBytes creates leaf nodes for a static array of static binary blobs.
-func TreeifyCheckedArrayOfStaticBytes[T commonBytesLengths](t *Treerer, blobs []T) {
+func TreeifyCheckedArrayOfStaticBytes[T commonBytesLengths](t *Treerer, blobs []T, size uint64) {
 	panic("not implemented")
 }
 
-// TreeifySliceOfStaticBytes creates leaf nodes for a dynamic slice of static binary blobs.
-func TreeifySliceOfStaticBytes[T commonBytesLengths](t *Treerer, blobs []T, maxItems uint64) {
+// TreeifySliceOfStaticBytesContent creates leaf nodes for a dynamic slice of static binary blobs.
+func TreeifySliceOfStaticBytesContent[T commonBytesLengths](t *Treerer, blobs []T, maxItems uint64) {
+	panic("not implemented")
+}
+
+// TreeifySliceOfStaticBytesOffset creates leaf nodes for a dynamic slice of static binary blobs.
+func TreeifySliceOfStaticBytesOffset[T commonBytesLengths](t *Treerer, blobs []T, maxItems uint64) {
+	panic("not implemented")
+}
+
+// TreeifySliceOfDynamicBytesOffset creates leaf nodes for a dynamic slice of dynamic binary blobs.
+func TreeifySliceOfDynamicBytesOffset(t *Treerer, blobs [][]byte, maxItems uint64, maxSize uint64) {
+	panic("not implemented")
+}
+
+// TreeifySliceOfDynamicBytesContent creates leaf nodes for a dynamic slice of dynamic binary blobs.
+func TreeifySliceOfDynamicBytesContent(t *Treerer, blobs [][]byte, maxItems uint64, maxSize uint64) {
 	panic("not implemented")
 }
 
@@ -181,7 +238,12 @@ func TreeifySliceOfDynamicBytes(t *Treerer, blobs [][]byte, maxItems uint64, max
 }
 
 // TreeifySliceOfStaticObjects creates leaf nodes for a dynamic slice of static ssz objects.
-func TreeifySliceOfStaticObjects[T StaticObject](t *Treerer, objects []T, maxItems uint64) {
+func TreeifySliceOfStaticObjectsContent[T StaticObject](t *Treerer, objects []T, maxItems uint64) {
+	panic("not implemented")
+}
+
+// TreeifySliceOfStaticObjectsOffset creates leaf nodes for a dynamic slice of static ssz objects.
+func TreeifySliceOfStaticObjectsOffset[T StaticObject](t *Treerer, objects []T, maxItems uint64) {
 	panic("not implemented")
 }
 
