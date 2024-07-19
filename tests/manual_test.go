@@ -21,7 +21,7 @@ func BenchmarkMainnetState(b *testing.B) {
 	if err := ssz.DecodeFromBytes(blob, obj); err != nil {
 		panic(err)
 	}
-	hash := ssz.MerkleizeSequential(obj)
+	hash := ssz.HashSequential(obj)
 
 	b.Run(fmt.Sprintf("beacon-state/%d-bytes/encode", len(blob)), func(b *testing.B) {
 		b.SetBytes(int64(len(blob)))
@@ -49,7 +49,7 @@ func BenchmarkMainnetState(b *testing.B) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			if ssz.MerkleizeSequential(obj) != hash {
+			if ssz.HashSequential(obj) != hash {
 				panic("hash mismatch")
 			}
 		}
@@ -60,7 +60,7 @@ func BenchmarkMainnetState(b *testing.B) {
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			if ssz.MerkleizeConcurrent(obj) != hash {
+			if ssz.HashConcurrent(obj) != hash {
 				panic("hash mismatch")
 			}
 		}

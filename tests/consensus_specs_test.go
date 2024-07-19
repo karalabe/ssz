@@ -208,11 +208,11 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 				if size := ssz.Size(obj); size != uint32(len(inSSZ)) {
 					t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
 				}
-				hash := ssz.MerkleizeSequential(obj)
+				hash := ssz.HashSequential(obj)
 				if fmt.Sprintf("%#x", hash) != inRoot.Root {
 					t.Fatalf("sequential merkle root mismatch: have %#x, want %s", hash, inRoot.Root)
 				}
-				hash = ssz.MerkleizeConcurrent(obj)
+				hash = ssz.HashConcurrent(obj)
 				if fmt.Sprintf("%#x", hash) != inRoot.Root {
 					t.Fatalf("concurrent merkle root mismatch: have %#x, want %s", hash, inRoot.Root)
 				}
@@ -336,7 +336,7 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			ssz.MerkleizeSequential(obj)
+			ssz.HashSequential(obj)
 		}
 	})
 	b.Run(fmt.Sprintf("%s/merkleize-concurrent", kind), func(b *testing.B) {
@@ -349,7 +349,7 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			ssz.MerkleizeConcurrent(obj)
+			ssz.HashConcurrent(obj)
 		}
 	})
 }
@@ -546,8 +546,8 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 				t.Fatalf("failed to decode buffer: %v", err)
 			}
 			// Sanity check that hashing and size retrieval works
-			hash1 := ssz.MerkleizeSequential(obj)
-			hash2 := ssz.MerkleizeConcurrent(obj)
+			hash1 := ssz.HashSequential(obj)
+			hash2 := ssz.HashConcurrent(obj)
 			if hash1 != hash2 {
 				t.Fatalf("sequential/concurrent hash mismatch: sequencial %x, concurrent %x", hash1, hash2)
 			}
@@ -574,8 +574,8 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 				t.Fatalf("failed to decode stream: %v", err)
 			}
 			// Sanity check that hashing and size retrieval works
-			hash1 := ssz.MerkleizeSequential(obj)
-			hash2 := ssz.MerkleizeConcurrent(obj)
+			hash1 := ssz.HashSequential(obj)
+			hash2 := ssz.HashConcurrent(obj)
 			if hash1 != hash2 {
 				t.Fatalf("sequential/concurrent hash mismatch: sequencial %x, concurrent %x", hash1, hash2)
 			}
@@ -605,8 +605,8 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 				t.Fatalf("re-encoded stream from used object mismatch: have %x, want %x, common prefix %d, have left %x, want left %x",
 					blob, inSSZ, len(prefix), blob.Bytes()[len(prefix):], inSSZ[len(prefix):])
 			}
-			hash1 := ssz.MerkleizeSequential(obj)
-			hash2 := ssz.MerkleizeConcurrent(obj)
+			hash1 := ssz.HashSequential(obj)
+			hash2 := ssz.HashConcurrent(obj)
 			if hash1 != hash2 {
 				t.Fatalf("sequential/concurrent hash mismatch: sequencial %x, concurrent %x", hash1, hash2)
 			}
@@ -630,8 +630,8 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 				t.Fatalf("re-encoded buffer from used object mismatch: have %x, want %x, common prefix %d, have left %x, want left %x",
 					blob, inSSZ, len(prefix), bin[len(prefix):], inSSZ[len(prefix):])
 			}
-			hash1 = ssz.MerkleizeSequential(obj)
-			hash2 = ssz.MerkleizeConcurrent(obj)
+			hash1 = ssz.HashSequential(obj)
+			hash2 = ssz.HashConcurrent(obj)
 			if hash1 != hash2 {
 				t.Fatalf("sequential/concurrent hash mismatch: sequencial %x, concurrent %x", hash1, hash2)
 			}

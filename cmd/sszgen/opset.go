@@ -90,7 +90,7 @@ func (p *parseContext) resolveBitlistOpset(tags *sizeTag) (opset, error) {
 	}
 	return &opsetDynamic{
 		"SizeSliceOfBits({{.Field}})",
-		"DefineSliceOfBitsOffset({{.Codec}}, &{{.Field}})",
+		fmt.Sprintf("DefineSliceOfBitsOffset({{.Codec}}, &{{.Field}}, %d)", tags.limit[0]),  // inject bit-cap directly
 		fmt.Sprintf("DefineSliceOfBitsContent({{.Codec}}, &{{.Field}}, %d)", tags.limit[0]), // inject bit-cap directly
 		"EncodeSliceOfBitsOffset({{.Codec}}, &{{.Field}})",
 		fmt.Sprintf("EncodeSliceOfBitsContent({{.Codec}}, &{{.Field}}, %d)", tags.limit[0]), // inject bit-cap directly
@@ -233,7 +233,7 @@ func (p *parseContext) resolveSliceOpset(typ types.Type, tags *sizeTag) (opset, 
 			}
 			return &opsetDynamic{
 				"SizeDynamicBytes({{.Field}})",
-				"DefineDynamicBytesOffset({{.Codec}}, &{{.Field}})",
+				"DefineDynamicBytesOffset({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
 				"DefineDynamicBytesContent({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
 				"EncodeDynamicBytesOffset({{.Codec}}, &{{.Field}})",
 				"EncodeDynamicBytesContent({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
@@ -268,7 +268,7 @@ func (p *parseContext) resolveSliceOpset(typ types.Type, tags *sizeTag) (opset, 
 			}
 			return &opsetDynamic{
 				"SizeSliceOfUint64s({{.Field}})",
-				"DefineSliceOfUint64sOffset({{.Codec}}, &{{.Field}})",
+				"DefineSliceOfUint64sOffset({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
 				"DefineSliceOfUint64sContent({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
 				"EncodeSliceOfUint64sOffset({{.Codec}}, &{{.Field}})",
 				"EncodeSliceOfUint64sContent({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
@@ -290,7 +290,7 @@ func (p *parseContext) resolveSliceOpset(typ types.Type, tags *sizeTag) (opset, 
 			}
 			return &opsetDynamic{
 				"SizeSliceOfStaticObjects({{.Field}})",
-				"DefineSliceOfStaticObjectsOffset({{.Codec}}, &{{.Field}})",
+				"DefineSliceOfStaticObjectsOffset({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
 				"DefineSliceOfStaticObjectsContent({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
 				"EncodeSliceOfStaticObjectsOffset({{.Codec}}, &{{.Field}})",
 				"EncodeSliceOfStaticObjectsContent({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
@@ -308,7 +308,7 @@ func (p *parseContext) resolveSliceOpset(typ types.Type, tags *sizeTag) (opset, 
 			}
 			return &opsetDynamic{
 				"SizeSliceOfDynamicObjects({{.Field}})",
-				"DefineSliceOfDynamicObjectsOffset({{.Codec}}, &{{.Field}})",
+				"DefineSliceOfDynamicObjectsOffset({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
 				"DefineSliceOfDynamicObjectsContent({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
 				"EncodeSliceOfDynamicObjectsOffset({{.Codec}}, &{{.Field}})",
 				"EncodeSliceOfDynamicObjectsContent({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
@@ -364,7 +364,7 @@ func (p *parseContext) resolveSliceOfArrayOpset(typ types.Type, innerSize int, t
 			}
 			return &opsetDynamic{
 				"SizeSliceOfStaticBytes({{.Field}})",
-				"DefineSliceOfStaticBytesOffset({{.Codec}}, &{{.Field}})",
+				"DefineSliceOfStaticBytesOffset({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
 				"DefineSliceOfStaticBytesContent({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
 				"EncodeSliceOfStaticBytesOffset({{.Codec}}, &{{.Field}})",
 				"EncodeSliceOfStaticBytesContent({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
@@ -399,7 +399,7 @@ func (p *parseContext) resolveSliceOfSliceOpset(typ types.Type, tags *sizeTag) (
 				}
 				return &opsetDynamic{
 					"SizeSliceOfDynamicBytes({{.Field}})",
-					"DefineSliceOfDynamicBytesOffset({{.Codec}}, &{{.Field}})",
+					"DefineSliceOfDynamicBytesOffset({{.Codec}}, &{{.Field}}, {{.MaxItems}}, {{.MaxSize}})",
 					"DefineSliceOfDynamicBytesContent({{.Codec}}, &{{.Field}}, {{.MaxItems}}, {{.MaxSize}})",
 					"EncodeSliceOfDynamicBytesOffset({{.Codec}}, &{{.Field}})",
 					"EncodeSliceOfDynamicBytesContent({{.Codec}}, &{{.Field}}, {{.MaxItems}}, {{.MaxSize}})",
