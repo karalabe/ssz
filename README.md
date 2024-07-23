@@ -2,7 +2,7 @@
 
 # Simple Serialize (SSZ)... v15
 
-[![API Reference](https://pkg.go.dev/badge/github.com/karalabe/ssz)](https://pkg.go.dev/github.com/karalabe/ssz?tab=doc) [![Build Status](https://github.com/karalabe/ssz/actions/workflows/tests.yml/badge.svg)](https://github.com/karalabe/ssz/actions/workflows/tests.yml)
+[![API Reference](https://pkg.go.dev/badge/github.com/karalabe/ssz)](https://pkg.go.dev/github.com/karalabe/ssz?tab=doc) [![Build Status](https://github.com/karalabe/ssz/actions/workflows/tests.yml/badge.svg)](https://github.com/karalabe/ssz/actions/workflows/tests.yml) [![Code Coverage](https://codecov.io/github/karalabe/ssz/graph/badge.svg?token=9KCBB3OB24)](https://codecov.io/github/karalabe/ssz)
 
 Package `ssz` provides a zero-allocation, opinionated toolkit for working with Ethereum's [Simple Serialize (SSZ)](https://github.com/ethereum/consensus-specs/blob/dev/ssz/simple-serialize.md) format through Go. The focus is on code maintainability, only secondarily striving towards raw performance.
 
