@@ -15,6 +15,9 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
+    - name: Enable long paths on git checkouts
+      run: git config --global core.longpaths true
+
     - uses: actions/checkout@v4
       with:
         submodules: 'true'
