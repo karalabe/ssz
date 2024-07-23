@@ -5,6 +5,8 @@
 package ssz
 
 import (
+	"math/big"
+
 	"github.com/holiman/uint256"
 	"github.com/prysmaticlabs/go-bitfield"
 )
@@ -88,6 +90,19 @@ func DefineUint256(c *Codec, n **uint256.Int) {
 		return
 	}
 	HashUint256(c.has, *n)
+}
+
+// DefineUint256BigInt defines the next field as a uint256.
+func DefineUint256BigInt(c *Codec, n **big.Int) {
+	if c.enc != nil {
+		EncodeUint256BigInt(c.enc, *n)
+		return
+	}
+	if c.dec != nil {
+		DecodeUint256BigInt(c.dec, n)
+		return
+	}
+	HashUint256BigInt(c.has, *n)
 }
 
 // DefineStaticBytes defines the next field as static binary blob. This method

@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math/big"
 	"math/bits"
 	"unsafe"
 
@@ -58,8 +59,9 @@ type Decoder struct {
 
 	err error // Any write error to halt future encoding calls
 
-	codec *Codec   // Self-referencing to pass DefineSSZ calls through (API trick)
-	buf   [32]byte // Integer conversion buffer
+	codec  *Codec      // Self-referencing to pass DefineSSZ calls through (API trick)
+	buf    [32]byte    // Integer conversion buffer
+	bufInt uint256.Int // Big.Int conversion buffer (not pointer, alloc free)
 
 	length  uint32   // Message length being decoded
 	lengths []uint32 // Stack of lengths from outer calls
@@ -151,6 +153,31 @@ func DecodeUint256(dec *Decoder, n **uint256.Int) {
 			*n = new(uint256.Int)
 		}
 		(*n).UnmarshalSSZ(dec.inBuffer[:32])
+		dec.inBuffer = dec.inBuffer[32:]
+	}
+}
+
+// DecodeUint256BigInt parses a uint256 into a big.Int.
+func DecodeUint256BigInt(dec *Decoder, n **big.Int) {
+	if dec.err != nil {
+		return
+	}
+	if dec.inReader != nil {
+		_, dec.err = io.ReadFull(dec.inReader, dec.buf[:32])
+		if dec.err != nil {
+			return
+		}
+		dec.inRead += 32
+
+		dec.bufInt.UnmarshalSSZ(dec.buf[:32])
+		*n = dec.bufInt.ToBig() // TODO(karalabe): make this alloc free (https://github.com/holiman/uint256/pull/177)
+	} else {
+		if len(dec.inBuffer) < 32 {
+			dec.err = io.ErrUnexpectedEOF
+			return
+		}
+		dec.bufInt.UnmarshalSSZ(dec.inBuffer[:32])
+		*n = dec.bufInt.ToBig() // TODO(karalabe): make this alloc free (https://github.com/holiman/uint256/pull/177)
 		dec.inBuffer = dec.inBuffer[32:]
 	}
 }

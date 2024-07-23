@@ -38,7 +38,7 @@ func parseTags(input string) (bool, *sizeTag, error) {
 			}
 		}
 	)
-	for _, tag := range strings.Split(input, " ") {
+	for _, tag := range strings.Fields(input) {
 		parts := strings.Split(tag, ":")
 		if len(parts) != 2 {
 			return false, nil, fmt.Errorf("invalid tag %s", tag)

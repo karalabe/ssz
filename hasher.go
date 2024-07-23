@@ -7,6 +7,7 @@ package ssz
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"math/big"
 	bitops "math/bits"
 	"runtime"
 	"unsafe"
@@ -86,6 +87,19 @@ func HashUint256(h *Hasher, n *uint256.Int) {
 	var buffer [32]byte
 	if n != nil {
 		n.MarshalSSZInto(buffer[:])
+	}
+	h.insertChunk(buffer, 0)
+}
+
+// HashUint256BigInt hashes a big.Int as uint256.
+//
+// Note, a nil pointer is hashed as zero.
+func HashUint256BigInt(h *Hasher, n *big.Int) {
+	var buffer [32]byte
+	if n != nil {
+		var bufint uint256.Int // No pointer, alloc free
+		bufint.SetFromBig(n)
+		bufint.MarshalSSZInto(buffer[:])
 	}
 	h.insertChunk(buffer, 0)
 }

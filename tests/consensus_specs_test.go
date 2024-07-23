@@ -87,6 +87,7 @@ func TestConsensusSpecs(t *testing.T) {
 	testConsensusSpecType[*types.Withdrawal](t, "Withdrawal")
 
 	// Add some API variations to test different codec implementations
+	testConsensusSpecType[*types.ExecutionPayloadVariation](t, "ExecutionPayload", "bellatrix")
 	testConsensusSpecType[*types.HistoricalBatchVariation](t, "HistoricalBatch")
 	testConsensusSpecType[*types.WithdrawalVariation](t, "Withdrawal")
 
@@ -224,6 +225,8 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 // BenchmarkConsensusSpecs iterates over all the (supported) consensus SSZ types and
 // runs the encoding/decoding/hashing benchmark round.
 func BenchmarkConsensusSpecs(b *testing.B) {
+	benchmarkConsensusSpecType[*types.ExecutionPayloadVariation](b, "bellatrix", "ExecutionPayload")
+
 	benchmarkConsensusSpecType[*types.AggregateAndProof](b, "deneb", "AggregateAndProof")
 	benchmarkConsensusSpecType[*types.Attestation](b, "deneb", "Attestation")
 	benchmarkConsensusSpecType[*types.AttestationData](b, "deneb", "AttestationData")
@@ -440,9 +443,6 @@ func FuzzConsensusSpecsFork(f *testing.F) {
 func FuzzConsensusSpecsHistoricalBatch(f *testing.F) {
 	fuzzConsensusSpecType[*types.HistoricalBatch](f, "HistoricalBatch")
 }
-func FuzzConsensusSpecsHistoricalBatchVariation(f *testing.F) {
-	fuzzConsensusSpecType[*types.HistoricalBatchVariation](f, "HistoricalBatch")
-}
 func FuzzConsensusSpecsHistoricalSummary(f *testing.F) {
 	fuzzConsensusSpecType[*types.HistoricalSummary](f, "HistoricalSummary")
 }
@@ -478,6 +478,13 @@ func FuzzConsensusSpecsVoluntaryExit(f *testing.F) {
 }
 func FuzzConsensusSpecsWithdrawal(f *testing.F) {
 	fuzzConsensusSpecType[*types.Withdrawal](f, "Withdrawal")
+}
+
+func FuzzConsensusSpecsExecutionPayloadVariation(f *testing.F) {
+	fuzzConsensusSpecType[*types.ExecutionPayloadVariation](f, "ExecutionPayload")
+}
+func FuzzConsensusSpecsHistoricalBatchVariation(f *testing.F) {
+	fuzzConsensusSpecType[*types.HistoricalBatchVariation](f, "HistoricalBatch")
 }
 func FuzzConsensusSpecsWithdrawalVariation(f *testing.F) {
 	fuzzConsensusSpecType[*types.WithdrawalVariation](f, "Withdrawal")

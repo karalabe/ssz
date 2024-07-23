@@ -7,6 +7,7 @@ package ssz
 import (
 	"encoding/binary"
 	"io"
+	"math/big"
 	"unsafe"
 
 	"github.com/holiman/uint256"
@@ -68,9 +69,11 @@ type Encoder struct {
 	outWriter io.Writer // Underlying output stream to write into (streaming mode)
 	outBuffer []byte    // Underlying output stream to write into (buffered mode)
 
-	err   error    // Any write error to halt future encoding calls
-	codec *Codec   // Self-referencing to pass DefineSSZ calls through (API trick)
-	buf   [32]byte // Integer conversion buffer
+	err   error  // Any write error to halt future encoding calls
+	codec *Codec // Self-referencing to pass DefineSSZ calls through (API trick)
+
+	buf    [32]byte    // Integer conversion buffer
+	bufInt uint256.Int // Big.Int conversion buffer (not pointer, alloc free)
 
 	offset uint32 // Offset tracker for dynamic fields
 }
@@ -128,6 +131,33 @@ func EncodeUint256(enc *Encoder, n *uint256.Int) {
 	} else {
 		if n != nil {
 			n.MarshalSSZInto(enc.outBuffer)
+		} else {
+			copy(enc.outBuffer, uint256Zero)
+		}
+		enc.outBuffer = enc.outBuffer[32:]
+	}
+}
+
+// EncodeUint256BigInt serializes a big.Ing as uint256.
+//
+// Note, a nil pointer is serialized as zero.
+// Note, an overflow will be silently dropped.
+func EncodeUint256BigInt(enc *Encoder, n *big.Int) {
+	if enc.outWriter != nil {
+		if enc.err != nil {
+			return
+		}
+		if n != nil {
+			enc.bufInt.SetFromBig(n)
+			enc.bufInt.MarshalSSZInto(enc.buf[:32])
+			_, enc.err = enc.outWriter.Write(enc.buf[:32])
+		} else {
+			_, enc.err = enc.outWriter.Write(uint256Zero)
+		}
+	} else {
+		if n != nil {
+			enc.bufInt.SetFromBig(n)
+			enc.bufInt.MarshalSSZInto(enc.outBuffer)
 		} else {
 			copy(enc.outBuffer, uint256Zero)
 		}

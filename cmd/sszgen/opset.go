@@ -436,6 +436,22 @@ func (p *parseContext) resolvePointerOpset(typ *types.Pointer, tags *sizeTag) (o
 			[]int{32},
 		}, nil
 	}
+	if isBigInt(typ.Elem()) {
+		if tags != nil {
+			if tags.limit != nil {
+				return nil, fmt.Errorf("big.Int (uint256) basic type cannot have ssz-max tag")
+			}
+			if len(tags.size) != 1 || tags.size[0] != 32 {
+				return nil, fmt.Errorf("big.Int (uint256) basic type tag conflict: filed is [32] bytes, tag wants %v", tags.size)
+			}
+		}
+		return &opsetStatic{
+			"DefineUint256BigInt({{.Codec}}, &{{.Field}})",
+			"EncodeUint256BigInt({{.Codec}}, &{{.Field}})",
+			"DecodeUint256BigInt({{.Codec}}, &{{.Field}})",
+			[]int{32},
+		}, nil
+	}
 	if types.Implements(typ, p.staticObjectIface) {
 		if tags != nil {
 			return nil, fmt.Errorf("static object type cannot have any ssz tags")

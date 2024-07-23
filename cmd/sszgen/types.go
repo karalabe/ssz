@@ -36,7 +36,7 @@ func (p *parseContext) makeContainer(named *types.Named, typ *types.Struct) (*ss
 		}
 		ignore, tags, err := parseTags(typ.Tag(i))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to parse field %s.%s tags: %v", named.Obj().Name(), f.Name(), err)
 		}
 		if ignore {
 			continue
