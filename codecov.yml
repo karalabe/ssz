@@ -11,8 +11,8 @@ component_management:
     - component_id: package_ssz
       name: ssz
       paths:
-        - *
+        - "*"
     - component_id: command_sszgen
       name: sszgen
       paths:
-        - cmd/sszgen/**
+        - "cmd/sszgen/**"
