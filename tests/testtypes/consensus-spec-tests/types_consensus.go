@@ -42,6 +42,8 @@ import (
 //go:generate go run -cover ../../../cmd/sszgen -type ExecutionPayloadDeneb -out gen_execution_payload_deneb_ssz.go
 //go:generate go run -cover ../../../cmd/sszgen -type ExecutionPayloadHeaderDeneb -out gen_execution_payload_header_deneb_ssz.go
 //go:generate go run -cover ../../../cmd/sszgen -type BeaconState -out gen_beacon_state_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type BeaconStateAltair -out gen_beacon_state_altair_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type BeaconStateBellatrix -out gen_beacon_state_bellatrix_ssz.go
 //go:generate go run -cover ../../../cmd/sszgen -type BeaconStateCapella -out gen_beacon_state_capella_ssz.go
 //go:generate go run -cover ../../../cmd/sszgen -type BeaconStateDeneb -out gen_beacon_state_deneb_ssz.go
 //go:generate go run -cover ../../../cmd/sszgen -type BeaconBlockBody -out gen_beacon_block_body_ssz.go
@@ -194,6 +196,61 @@ type BeaconState struct {
 	PreviousJustifiedCheckpoint *Checkpoint
 	CurrentJustifiedCheckpoint  *Checkpoint
 	FinalizedCheckpoint         *Checkpoint
+}
+
+type BeaconStateAltair struct {
+	GenesisTime                 uint64
+	GenesisValidatorsRoot       []byte `ssz-size:"32"`
+	Slot                        uint64
+	Fork                        *Fork
+	LatestBlockHeader           *BeaconBlockHeader
+	BlockRoots                  [8192][32]byte
+	StateRoots                  [8192][32]byte
+	HistoricalRoots             [][32]byte `ssz-max:"16777216"`
+	Eth1Data                    *Eth1Data
+	Eth1DataVotes               []*Eth1Data `ssz-max:"2048"`
+	Eth1DepositIndex            uint64
+	Validators                  []*Validator `ssz-max:"1099511627776"`
+	Balances                    []uint64     `ssz-max:"1099511627776"`
+	RandaoMixes                 [65536][32]byte
+	Slashings                   [8192]uint64
+	PreviousEpochParticipation  []byte  `ssz-max:"1099511627776"`
+	CurrentEpochParticipation   []byte  `ssz-max:"1099511627776"`
+	JustificationBits           [1]byte `ssz-size:"4" ssz:"bits"`
+	PreviousJustifiedCheckpoint *Checkpoint
+	CurrentJustifiedCheckpoint  *Checkpoint
+	FinalizedCheckpoint         *Checkpoint
+	InactivityScores            []uint64 `ssz-max:"1099511627776"`
+	CurrentSyncCommittee        *SyncCommittee
+	NextSyncCommittee           *SyncCommittee
+}
+
+type BeaconStateBellatrix struct {
+	GenesisTime                  uint64
+	GenesisValidatorsRoot        [32]byte
+	Slot                         uint64
+	Fork                         *Fork
+	LatestBlockHeader            *BeaconBlockHeader
+	BlockRoots                   [8192][32]byte
+	StateRoots                   [8192][32]byte
+	HistoricalRoots              [][32]byte `ssz-max:"16777216"`
+	Eth1Data                     *Eth1Data
+	Eth1DataVotes                []*Eth1Data `ssz-max:"2048"`
+	Eth1DepositIndex             uint64
+	Validators                   []*Validator `ssz-max:"1099511627776"`
+	Balances                     []uint64     `ssz-max:"1099511627776"`
+	RandaoMixes                  [65536][32]byte
+	Slashings                    [8192]uint64
+	PreviousEpochParticipation   []byte  `ssz-max:"1099511627776"`
+	CurrentEpochParticipation    []byte  `ssz-max:"1099511627776"`
+	JustificationBits            [1]byte `ssz-size:"4" ssz:"bits"`
+	PreviousJustifiedCheckpoint  *Checkpoint
+	CurrentJustifiedCheckpoint   *Checkpoint
+	FinalizedCheckpoint          *Checkpoint
+	InactivityScores             []uint64 `ssz-max:"1099511627776"`
+	CurrentSyncCommittee         *SyncCommittee
+	NextSyncCommittee            *SyncCommittee
+	LatestExecutionPayloadHeader *ExecutionPayloadHeader
 }
 
 type BeaconStateCapella struct {

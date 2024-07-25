@@ -12,10 +12,7 @@ func (obj *ExecutionPayloadMonolith) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size
 		size += 4
 	}
 	if sizer.Fork() >= ssz.ForkDeneb {
-		size += 8
-	}
-	if sizer.Fork() >= ssz.ForkDeneb {
-		size += 8
+		size += 8 + 8
 	}
 	if fixed {
 		return size
@@ -25,7 +22,6 @@ func (obj *ExecutionPayloadMonolith) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size
 	if sizer.Fork() >= ssz.ForkCapella {
 		size += ssz.SizeSliceOfStaticObjects(sizer, obj.Withdrawals)
 	}
-
 	return size
 }
 
@@ -50,9 +46,7 @@ func (obj *ExecutionPayloadMonolith) DefineSSZ(codec *ssz.Codec) {
 		ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.Withdrawals, 16) // Offset (14) -   Withdrawals -   4 bytes
 	}
 	if codec.Fork() >= ssz.ForkDeneb {
-		ssz.DefineUint64(codec, &obj.BlobGasUsed) // Field  (15) -   BlobGasUsed -   8 bytes
-	}
-	if codec.Fork() >= ssz.ForkDeneb {
+		ssz.DefineUint64(codec, &obj.BlobGasUsed)   // Field  (15) -   BlobGasUsed -   8 bytes
 		ssz.DefineUint64(codec, &obj.ExcessBlobGas) // Field  (16) - ExcessBlobGas -   8 bytes
 	}
 

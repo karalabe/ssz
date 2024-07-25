@@ -103,16 +103,20 @@ func generateStaticSizeAccumulator(w io.Writer, ctx *genContext, typ *sszContain
 			fmt.Fprintf(w, " + ")
 		case typ.forks[i] == "" && typ.forks[i-1] != "":
 			fmt.Fprintf(w, "\n	size += ")
-		case typ.forks[i] != "" && i > 0:
+		case typ.forks[i] != "" && i > 0 && typ.forks[i-1] != typ.forks[i]:
 			fmt.Fprintf(w, "\n")
 		}
 		if typ.forks[i] != "" {
-			if typ.forks[i][0] == '!' {
-				fmt.Fprintf(w, "	if sizer.Fork() < ssz.Fork%s {\n", typ.forks[i][1:])
+			if i == 0 || typ.forks[i] != typ.forks[i-1] {
+				if typ.forks[i][0] == '!' {
+					fmt.Fprintf(w, "	if sizer.Fork() < ssz.Fork%s {\n", typ.forks[i][1:])
+				} else {
+					fmt.Fprintf(w, "	if sizer.Fork() >= ssz.Fork%s {\n", typ.forks[i])
+				}
+				fmt.Fprintf(w, "		size += ")
 			} else {
-				fmt.Fprintf(w, "	if sizer.Fork() >= ssz.Fork%s {\n", typ.forks[i])
+				fmt.Fprintf(w, " + ")
 			}
-			fmt.Fprintf(w, "		size += ")
 		}
 		switch t := typ.opsets[i].(type) {
 		case *opsetStatic:
@@ -135,7 +139,7 @@ func generateStaticSizeAccumulator(w io.Writer, ctx *genContext, typ *sszContain
 		case *opsetDynamic:
 			fmt.Fprintf(w, "%d", offsetBytes)
 		}
-		if typ.forks[i] != "" {
+		if typ.forks[i] != "" && (i == len(typ.forks)-1 || typ.forks[i] != typ.forks[i+1]) {
 			fmt.Fprintf(w, "\n	}")
 		}
 	}
@@ -227,23 +231,35 @@ func generateSizeSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 			fmt.Fprintf(&b, "	if (fixed) {\n")
 			fmt.Fprintf(&b, "		return size\n")
 			fmt.Fprintf(&b, "	}\n")
-			for i := range typ.opsets {
-				if opset, ok := typ.opsets[i].(*opsetDynamic); ok {
-					if typ.forks[i] != "" {
-						if typ.forks[i][0] == '!' {
-							fmt.Fprintf(&b, "	if sizer.Fork() < ssz.Fork%s {\n", typ.forks[i][1:])
-						} else {
-							fmt.Fprintf(&b, "	if sizer.Fork() >= ssz.Fork%s {\n", typ.forks[i])
-						}
-					}
-					call := generateCall(opset.size, "sizer", "obj."+typ.fields[i])
-					fmt.Fprintf(&b, "	size += ssz.%s\n", call)
-					if typ.forks[i] != "" {
-						fmt.Fprintf(&b, "	}\n")
-					}
+			var (
+				dynFields []string
+				dynOpsets []opset
+				dynForks  []string
+			)
+			for i := 0; i < len(typ.fields); i++ {
+				if _, ok := (typ.opsets[i]).(*opsetDynamic); ok {
+					dynFields = append(dynFields, typ.fields[i])
+					dynOpsets = append(dynOpsets, typ.opsets[i])
+					dynForks = append(dynForks, typ.forks[i])
 				}
 			}
-			fmt.Fprintf(&b, "\n")
+			for i := range dynFields {
+				if dynForks[i] != "" && (i == 0 || dynForks[i] != dynForks[i-1]) {
+					if dynForks[i][0] == '!' {
+						fmt.Fprintf(&b, "	if sizer.Fork() < ssz.Fork%s {\n", dynForks[i][1:])
+					} else {
+						fmt.Fprintf(&b, "	if sizer.Fork() >= ssz.Fork%s {\n", dynForks[i])
+					}
+				}
+				call := generateCall(dynOpsets[i].(*opsetDynamic).size, "sizer", "obj."+dynFields[i])
+				fmt.Fprintf(&b, "	size += ssz.%s\n", call)
+				if dynForks[i] != "" && (i == len(dynForks)-1 || dynForks[i] != dynForks[i+1]) {
+					fmt.Fprintf(&b, "	}\n")
+				}
+			}
+			if dynForks[len(dynForks)-1] == "" {
+				fmt.Fprintf(&b, "\n")
+			}
 			fmt.Fprintf(&b, "	return size\n")
 			fmt.Fprintf(&b, "}\n")
 		} else {
@@ -253,23 +269,36 @@ func generateSizeSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 			fmt.Fprintf(&b, "	if (fixed) {\n")
 			fmt.Fprintf(&b, "		return size\n")
 			fmt.Fprintf(&b, "	}\n")
-			for i := range typ.opsets {
-				if opset, ok := typ.opsets[i].(*opsetDynamic); ok {
-					if typ.forks[i] != "" {
-						if typ.forks[i][0] == '!' {
-							fmt.Fprintf(&b, "	if sizer.Fork() < ssz.Fork%s {\n", typ.forks[i][1:])
-						} else {
-							fmt.Fprintf(&b, "	if sizer.Fork() >= ssz.Fork%s {\n", typ.forks[i])
-						}
-					}
-					call := generateCall(opset.size, "sizer", "obj."+typ.fields[i])
-					fmt.Fprintf(&b, "	size += ssz.%s\n", call)
-					if typ.forks[i] != "" {
-						fmt.Fprintf(&b, "	}\n")
-					}
+
+			var (
+				dynFields []string
+				dynOpsets []opset
+				dynForks  []string
+			)
+			for i := 0; i < len(typ.fields); i++ {
+				if _, ok := (typ.opsets[i]).(*opsetDynamic); ok {
+					dynFields = append(dynFields, typ.fields[i])
+					dynOpsets = append(dynOpsets, typ.opsets[i])
+					dynForks = append(dynForks, typ.forks[i])
 				}
 			}
-			fmt.Fprintf(&b, "\n")
+			for i := range dynFields {
+				if dynForks[i] != "" && (i == 0 || dynForks[i] != dynForks[i-1]) {
+					if dynForks[i][0] == '!' {
+						fmt.Fprintf(&b, "	if sizer.Fork() < ssz.Fork%s {\n", dynForks[i][1:])
+					} else {
+						fmt.Fprintf(&b, "	if sizer.Fork() >= ssz.Fork%s {\n", dynForks[i])
+					}
+				}
+				call := generateCall(dynOpsets[i].(*opsetDynamic).size, "sizer", "obj."+dynFields[i])
+				fmt.Fprintf(&b, "	size += ssz.%s\n", call)
+				if dynForks[i] != "" && (i == len(dynForks)-1 || dynForks[i] != dynForks[i+1]) {
+					fmt.Fprintf(&b, "	}\n")
+				}
+			}
+			if dynForks[len(dynForks)-1] == "" {
+				fmt.Fprintf(&b, "\n")
+			}
 			fmt.Fprintf(&b, "	return size\n")
 			fmt.Fprintf(&b, "}\n")
 		}
@@ -314,7 +343,7 @@ func generateDefineSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 		fmt.Fprint(&b, "	// Define the static data (fields and dynamic offsets)\n")
 	}
 	for i := 0; i < len(typ.fields); i++ {
-		if typ.forks[i] != "" {
+		if typ.forks[i] != "" && (i == 0 || typ.forks[i] != typ.forks[i-1]) {
 			if typ.forks[i][0] == '!' {
 				fmt.Fprintf(&b, "	if codec.Fork() < ssz.Fork%s {\n", typ.forks[i][1:])
 			} else {
@@ -338,27 +367,40 @@ func generateDefineSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 			call := generateCall(opset.defineOffset, "codec", "obj."+field, opset.limits...)
 			fmt.Fprintf(&b, "	ssz.%s // Offset ("+indexRule+") - "+nameRule+" - %"+sizeRule+"d bytes\n", call, i, field, offsetBytes)
 		}
-		if typ.forks[i] != "" {
+		if typ.forks[i] != "" && (i == len(typ.forks)-1 || typ.forks[i] != typ.forks[i+1]) {
 			fmt.Fprintf(&b, "	}\n")
 		}
 	}
 	if !typ.static {
 		fmt.Fprint(&b, "\n	// Define the dynamic data (fields)\n")
+		var (
+			dynIndices []int
+			dynFields  []string
+			dynOpsets  []opset
+			dynForks   []string
+		)
 		for i := 0; i < len(typ.fields); i++ {
-			field := typ.fields[i]
-			if opset, ok := (typ.opsets[i]).(*opsetDynamic); ok {
-				if typ.forks[i] != "" {
-					if typ.forks[i][0] == '!' {
-						fmt.Fprintf(&b, "	if codec.Fork() < ssz.Fork%s {\n", typ.forks[i][1:])
-					} else {
-						fmt.Fprintf(&b, "	if codec.Fork() >= ssz.Fork%s {\n", typ.forks[i])
-					}
+			if _, ok := (typ.opsets[i]).(*opsetDynamic); ok {
+				dynIndices = append(dynIndices, i)
+				dynFields = append(dynFields, typ.fields[i])
+				dynOpsets = append(dynOpsets, typ.opsets[i])
+				dynForks = append(dynForks, typ.forks[i])
+			}
+		}
+		for i := 0; i < len(dynFields); i++ {
+			opset := (dynOpsets[i]).(*opsetDynamic)
+
+			if dynForks[i] != "" && (i == 0 || dynForks[i] != dynForks[i-1]) {
+				if dynForks[i][0] == '!' {
+					fmt.Fprintf(&b, "	if codec.Fork() < ssz.Fork%s {\n", dynForks[i][1:])
+				} else {
+					fmt.Fprintf(&b, "	if codec.Fork() >= ssz.Fork%s {\n", dynForks[i])
 				}
-				call := generateCall(opset.defineContent, "codec", "obj."+field, opset.limits...)
-				fmt.Fprintf(&b, "	ssz.%s // Field  ("+indexRule+") - "+nameRule+" - ? bytes\n", call, i, field)
-				if typ.forks[i] != "" {
-					fmt.Fprintf(&b, "	}\n")
-				}
+			}
+			call := generateCall(opset.defineContent, "codec", "obj."+dynFields[i], opset.limits...)
+			fmt.Fprintf(&b, "	ssz.%s // Field  ("+indexRule+") - "+nameRule+" - ? bytes\n", call, dynIndices[i], dynFields[i])
+			if dynForks[i] != "" && (i == len(dynForks)-1 || dynForks[i] != dynForks[i+1]) {
+				fmt.Fprintf(&b, "	}\n")
 			}
 		}
 	}

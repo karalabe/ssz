@@ -30,7 +30,7 @@ func ExampleDecodeCheckedObject() {
 	blob := make([]byte, 44)
 
 	obj := new(WithdrawalChecked)
-	if err := ssz.DecodeFromBytes(blob, obj); err != nil {
+	if err := ssz.DecodeFromBytes(blob, obj, ssz.ForkUnknown); err != nil {
 		panic(err)
 	}
 	fmt.Printf("obj: %#x\n", obj)

@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -190,6 +191,7 @@ func TestConsensusSpecs(t *testing.T) {
 	testConsensusSpecType[*types.BeaconBlockBodyDeneb](t, "BeaconBlockBody", "deneb", "eip7594")
 	testConsensusSpecType[*types.BeaconBlockHeader](t, "BeaconBlockHeader")
 	testConsensusSpecType[*types.BeaconState](t, "BeaconState", "phase0")
+	testConsensusSpecType[*types.BeaconStateAltair](t, "BeaconState", "altair")
 	testConsensusSpecType[*types.BeaconStateCapella](t, "BeaconState", "capella")
 	testConsensusSpecType[*types.BeaconStateDeneb](t, "BeaconState", "deneb")
 	testConsensusSpecType[*types.BLSToExecutionChange](t, "BLSToExecutionChange")
@@ -221,6 +223,8 @@ func TestConsensusSpecs(t *testing.T) {
 	testConsensusSpecType[*types.Withdrawal](t, "Withdrawal")
 
 	// Add monolith variations to the consensus types
+	testConsensusSpecType[*types.BeaconBlockBodyMonolith](t, "BeaconBlockBody", "phase0", "altair", "bellatrix", "capella", "deneb")
+	testConsensusSpecType[*types.BeaconStateMonolith](t, "BeaconState", "phase0", "altair", "bellatrix", "capella", "deneb")
 	testConsensusSpecType[*types.ExecutionPayloadMonolith](t, "ExecutionPayload", "bellatrix", "capella", "deneb")
 	testConsensusSpecType[*types.ExecutionPayloadHeaderMonolith](t, "ExecutionPayloadHeader", "bellatrix", "capella", "deneb")
 
@@ -369,16 +373,16 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 // BenchmarkConsensusSpecs iterates over all the (supported) consensus SSZ types and
 // runs the encoding/decoding/hashing benchmark round.
 func BenchmarkConsensusSpecs(b *testing.B) {
-	benchmarkConsensusSpecType[*types.ExecutionPayloadVariation](b, "bellatrix", "ExecutionPayload")
-
 	benchmarkConsensusSpecType[*types.AggregateAndProof](b, "deneb", "AggregateAndProof")
 	benchmarkConsensusSpecType[*types.Attestation](b, "deneb", "Attestation")
 	benchmarkConsensusSpecType[*types.AttestationData](b, "deneb", "AttestationData")
 	benchmarkConsensusSpecType[*types.AttesterSlashing](b, "deneb", "AttesterSlashing")
 	benchmarkConsensusSpecType[*types.BeaconBlock](b, "phase0", "BeaconBlock")
 	benchmarkConsensusSpecType[*types.BeaconBlockBodyDeneb](b, "deneb", "BeaconBlockBody")
+	benchmarkConsensusSpecType[*types.BeaconBlockBodyMonolith](b, "deneb", "BeaconBlockBody")
 	benchmarkConsensusSpecType[*types.BeaconBlockHeader](b, "deneb", "BeaconBlockHeader")
-	benchmarkConsensusSpecType[*types.BeaconState](b, "phase0", "BeaconState")
+	benchmarkConsensusSpecType[*types.BeaconStateDeneb](b, "deneb", "BeaconState")
+	benchmarkConsensusSpecType[*types.BeaconStateMonolith](b, "deneb", "BeaconState")
 	benchmarkConsensusSpecType[*types.BLSToExecutionChange](b, "deneb", "BLSToExecutionChange")
 	benchmarkConsensusSpecType[*types.Checkpoint](b, "deneb", "Checkpoint")
 	benchmarkConsensusSpecType[*types.Deposit](b, "deneb", "Deposit")
@@ -387,7 +391,9 @@ func BenchmarkConsensusSpecs(b *testing.B) {
 	benchmarkConsensusSpecType[*types.Eth1Block](b, "deneb", "Eth1Block")
 	benchmarkConsensusSpecType[*types.Eth1Data](b, "deneb", "Eth1Data")
 	benchmarkConsensusSpecType[*types.ExecutionPayloadDeneb](b, "deneb", "ExecutionPayload")
+	benchmarkConsensusSpecType[*types.ExecutionPayloadMonolith](b, "deneb", "ExecutionPayload")
 	benchmarkConsensusSpecType[*types.ExecutionPayloadHeaderDeneb](b, "deneb", "ExecutionPayloadHeader")
+	benchmarkConsensusSpecType[*types.ExecutionPayloadHeaderMonolith](b, "deneb", "ExecutionPayloadHeader")
 	benchmarkConsensusSpecType[*types.Fork](b, "deneb", "Fork")
 	benchmarkConsensusSpecType[*types.HistoricalBatch](b, "deneb", "HistoricalBatch")
 	benchmarkConsensusSpecType[*types.HistoricalSummary](b, "deneb", "HistoricalSummary")
@@ -421,7 +427,7 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 		b.Fatalf("failed to decode SSZ stream: %v", err)
 	}
 	// Start the benchmarks for all the different operations
-	b.Run(fmt.Sprintf("%s/encode-stream", kind), func(b *testing.B) {
+	b.Run(fmt.Sprintf("%s/encode-stream", reflect.TypeOf(inObj).Elem().Name()), func(b *testing.B) {
 		b.SetBytes(int64(len(inSSZ)))
 		b.ReportAllocs()
 		b.ResetTimer()
@@ -432,7 +438,7 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 			}
 		}
 	})
-	b.Run(fmt.Sprintf("%s/encode-buffer", kind), func(b *testing.B) {
+	b.Run(fmt.Sprintf("%s/encode-buffer", reflect.TypeOf(inObj).Elem().Name()), func(b *testing.B) {
 		blob := make([]byte, len(inSSZ))
 
 		b.SetBytes(int64(len(inSSZ)))
@@ -445,7 +451,7 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 			}
 		}
 	})
-	b.Run(fmt.Sprintf("%s/decode-stream", kind), func(b *testing.B) {
+	b.Run(fmt.Sprintf("%s/decode-stream", reflect.TypeOf(inObj).Elem().Name()), func(b *testing.B) {
 		obj := T(new(U))
 		r := bytes.NewReader(inSSZ)
 
@@ -460,7 +466,7 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 			r.Reset(inSSZ)
 		}
 	})
-	b.Run(fmt.Sprintf("%s/decode-buffer", kind), func(b *testing.B) {
+	b.Run(fmt.Sprintf("%s/decode-buffer", reflect.TypeOf(inObj).Elem().Name()), func(b *testing.B) {
 		obj := T(new(U))
 
 		b.SetBytes(int64(len(inSSZ)))
@@ -473,7 +479,7 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 			}
 		}
 	})
-	b.Run(fmt.Sprintf("%s/merkleize-sequential", kind), func(b *testing.B) {
+	b.Run(fmt.Sprintf("%s/merkleize-sequential", reflect.TypeOf(inObj).Elem().Name()), func(b *testing.B) {
 		obj := T(new(U))
 		if err := ssz.DecodeFromBytes(inSSZ, obj, ssz.ForkMapping[fork]); err != nil {
 			b.Fatalf("failed to decode SSZ stream: %v", err)
@@ -486,7 +492,7 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 			ssz.HashSequential(obj, ssz.ForkMapping[fork])
 		}
 	})
-	b.Run(fmt.Sprintf("%s/merkleize-concurrent", kind), func(b *testing.B) {
+	b.Run(fmt.Sprintf("%s/merkleize-concurrent", reflect.TypeOf(inObj).Elem().Name()), func(b *testing.B) {
 		obj := T(new(U))
 		if err := ssz.DecodeFromBytes(inSSZ, obj, ssz.ForkMapping[fork]); err != nil {
 			b.Fatalf("failed to decode SSZ stream: %v", err)
@@ -541,6 +547,18 @@ func FuzzConsensusSpecsBeaconBlockHeader(f *testing.F) {
 }
 func FuzzConsensusSpecsBeaconState(f *testing.F) {
 	fuzzConsensusSpecType[*types.BeaconState](f, "BeaconState")
+}
+func FuzzConsensusSpecsBeaconStateAltair(f *testing.F) {
+	fuzzConsensusSpecType[*types.BeaconStateAltair](f, "BeaconState")
+}
+func FuzzConsensusSpecsBeaconStateBellatrix(f *testing.F) {
+	fuzzConsensusSpecType[*types.BeaconStateBellatrix](f, "BeaconState")
+}
+func FuzzConsensusSpecsBeaconStateCapella(f *testing.F) {
+	fuzzConsensusSpecType[*types.BeaconStateCapella](f, "BeaconState")
+}
+func FuzzConsensusSpecsBeaconStateDeneb(f *testing.F) {
+	fuzzConsensusSpecType[*types.BeaconStateDeneb](f, "BeaconState")
 }
 func FuzzConsensusSpecsBLSToExecutionChange(f *testing.F) {
 	fuzzConsensusSpecType[*types.BLSToExecutionChange](f, "BLSToExecutionChange")
@@ -624,6 +642,19 @@ func FuzzConsensusSpecsWithdrawal(f *testing.F) {
 	fuzzConsensusSpecType[*types.Withdrawal](f, "Withdrawal")
 }
 
+func FuzzConsensusSpecsBeaconBlockBodyMonolith(f *testing.F) {
+	fuzzConsensusSpecType[*types.BeaconBlockBodyMonolith](f, "BeaconBlockBody")
+}
+func FuzzConsensusSpecsBeaconStateMonolith(f *testing.F) {
+	fuzzConsensusSpecType[*types.BeaconStateMonolith](f, "BeaconState")
+}
+func FuzzConsensusSpecsExecutionPayloadMonolith(f *testing.F) {
+	fuzzConsensusSpecType[*types.ExecutionPayloadMonolith](f, "ExecutionPayload")
+}
+func FuzzConsensusSpecsExecutionPayloadHeaderMonolith(f *testing.F) {
+	fuzzConsensusSpecType[*types.ExecutionPayloadHeaderMonolith](f, "ExecutionPayloadHeader")
+}
+
 func FuzzConsensusSpecsExecutionPayloadVariation(f *testing.F) {
 	fuzzConsensusSpecType[*types.ExecutionPayloadVariation](f, "ExecutionPayload")
 }
@@ -664,7 +695,7 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 				f.Fatalf("failed to parse snappy ssz binary: %v", err)
 			}
 			obj := T(new(U))
-			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ)), ssz.ForkMapping[fork.Name()]); err == nil {
+			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ)), ssz.ForkFuture); err == nil {
 				// Stash away all valid ssz streams so we can play with decoding
 				// into previously used objects
 				valids = append(valids, inSSZ)
