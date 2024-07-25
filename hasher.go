@@ -73,6 +73,13 @@ func HashBool[T ~bool](h *Hasher, v T) {
 	}
 }
 
+// HashUint8 hashes a uint8.
+func HashUint8[T ~uint8](h *Hasher, n T) {
+	var buffer [32]byte
+	buffer[0] = uint8(n)
+	h.insertChunk(buffer, 0)
+}
+
 // HashUint64 hashes a uint64.
 func HashUint64[T ~uint64](h *Hasher, n T) {
 	var buffer [32]byte

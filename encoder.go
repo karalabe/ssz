@@ -99,6 +99,20 @@ func EncodeBool[T ~bool](enc *Encoder, v T) {
 	}
 }
 
+// EncodeUint8 serializes a uint8.
+func EncodeUint8[T ~uint8](enc *Encoder, n T) {
+	if enc.outWriter != nil {
+		if enc.err != nil {
+			return
+		}
+		enc.buf[0] = byte(n)
+		_, enc.err = enc.outWriter.Write(enc.buf[:1])
+	} else {
+		enc.outBuffer[0] = byte(n)
+		enc.outBuffer = enc.outBuffer[1:]
+	}
+}
+
 // EncodeUint64 serializes a uint64.
 func EncodeUint64[T ~uint64](enc *Encoder, n T) {
 	// Nope, dive into actual encoding
