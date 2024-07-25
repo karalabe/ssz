@@ -6,8 +6,8 @@ import "github.com/karalabe/ssz"
 
 // SizeSSZ returns either the static size of the object if fixed == true, or
 // the total size otherwise.
-func (obj *AttesterSlashing) SizeSSZ(sizer *ssz.Sizer, fixed bool) uint32 {
-	var size = uint32(4 + 4)
+func (obj *AttesterSlashing) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size uint32) {
+	size = 4 + 4
 	if fixed {
 		return size
 	}

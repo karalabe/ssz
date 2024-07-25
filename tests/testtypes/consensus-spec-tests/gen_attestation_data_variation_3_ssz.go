@@ -5,22 +5,28 @@ package consensus_spec_tests
 import "github.com/karalabe/ssz"
 
 // Cached static size computed on package init.
-var staticSizeCacheAttestationData = ssz.PrecomputeStaticSizeCache((*AttestationData)(nil))
+var staticSizeCacheAttestationDataVariation3 = ssz.PrecomputeStaticSizeCache((*AttestationDataVariation3)(nil))
 
 // SizeSSZ returns the total size of the static ssz object.
-func (obj *AttestationData) SizeSSZ(sizer *ssz.Sizer) (size uint32) {
-	if fork := int(sizer.Fork()); fork < len(staticSizeCacheAttestationData) {
-		return staticSizeCacheAttestationData[fork]
+func (obj *AttestationDataVariation3) SizeSSZ(sizer *ssz.Sizer) (size uint32) {
+	if fork := int(sizer.Fork()); fork < len(staticSizeCacheAttestationDataVariation3) {
+		return staticSizeCacheAttestationDataVariation3[fork]
 	}
 	size = 8 + 8 + 32 + (*Checkpoint)(nil).SizeSSZ(sizer) + (*Checkpoint)(nil).SizeSSZ(sizer)
+	if sizer.Fork() >= ssz.ForkFuture {
+		size += 8
+	}
 	return size
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *AttestationData) DefineSSZ(codec *ssz.Codec) {
+func (obj *AttestationDataVariation3) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUint64(codec, &obj.Slot)                 // Field  (0) -            Slot -  8 bytes
 	ssz.DefineUint64(codec, &obj.Index)                // Field  (1) -           Index -  8 bytes
 	ssz.DefineStaticBytes(codec, &obj.BeaconBlockHash) // Field  (2) - BeaconBlockHash - 32 bytes
 	ssz.DefineStaticObject(codec, &obj.Source)         // Field  (3) -          Source -  ? bytes (Checkpoint)
 	ssz.DefineStaticObject(codec, &obj.Target)         // Field  (4) -          Target -  ? bytes (Checkpoint)
+	if codec.Fork() >= ssz.ForkFuture {
+		ssz.DefineUint64(codec, &obj.Future) // Field  (5) -          Future -  8 bytes
+	}
 }

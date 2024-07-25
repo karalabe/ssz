@@ -6,11 +6,12 @@ package ssz
 
 import "fmt"
 
-// PrecomputeStaticSizeCache is a helper for genssz to precompute SSZ (static)
-// sizes for a monolith type on different forks.
+// PrecomputeStaticSizeCache is a helper to precompute SSZ (static) sizes for a
+// monolith type on different forks.
 //
 // For non-monolith types that are constant across forks (or are not meant to be
-// used across forks), all the sizes will be the same.
+// used across forks), all the sizes will be the same so might as well hard-code
+// it instead.
 func PrecomputeStaticSizeCache(obj Object) []uint32 {
 	var (
 		sizes = make([]uint32, ForkFuture)

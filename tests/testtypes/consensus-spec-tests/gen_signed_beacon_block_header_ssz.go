@@ -8,11 +8,12 @@ import "github.com/karalabe/ssz"
 var staticSizeCacheSignedBeaconBlockHeader = ssz.PrecomputeStaticSizeCache((*SignedBeaconBlockHeader)(nil))
 
 // SizeSSZ returns the total size of the static ssz object.
-func (obj *SignedBeaconBlockHeader) SizeSSZ(sizer *ssz.Sizer) uint32 {
+func (obj *SignedBeaconBlockHeader) SizeSSZ(sizer *ssz.Sizer) (size uint32) {
 	if fork := int(sizer.Fork()); fork < len(staticSizeCacheSignedBeaconBlockHeader) {
 		return staticSizeCacheSignedBeaconBlockHeader[fork]
 	}
-	return ssz.Size((*BeaconBlockHeader)(nil)) + 96
+	size = (*BeaconBlockHeader)(nil).SizeSSZ(sizer) + 96
+	return size
 }
 
 // DefineSSZ defines how an object is encoded/decoded.

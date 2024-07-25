@@ -20,7 +20,7 @@ type opsetStatic struct {
 	define string // DefineXYZ method for the ssz.Codec
 	encode string // EncodeXYZ method for the ssz.Encoder
 	decode string // DecodeXYZ method for the ssz.Decoder
-	bytes  []int  // Number of bytes in the ssz encoding (0 == unknown)
+	bytes  []int  // Number of bytes in the ssz encoding (nil == unknown)
 }
 
 // opsetDynamic is a group of methods that define how different pieces of an ssz

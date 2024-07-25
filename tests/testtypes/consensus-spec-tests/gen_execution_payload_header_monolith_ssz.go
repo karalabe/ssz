@@ -6,8 +6,17 @@ import "github.com/karalabe/ssz"
 
 // SizeSSZ returns either the static size of the object if fixed == true, or
 // the total size otherwise.
-func (obj *ExecutionPayloadHeader) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size uint32) {
+func (obj *ExecutionPayloadHeaderMonolith) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size uint32) {
 	size = 32 + 20 + 32 + 32 + 256 + 32 + 8 + 8 + 8 + 8 + 4 + 32 + 32 + 32
+	if sizer.Fork() >= ssz.ForkCapella {
+		size += 32
+	}
+	if sizer.Fork() >= ssz.ForkDeneb {
+		size += 8
+	}
+	if sizer.Fork() >= ssz.ForkDeneb {
+		size += 8
+	}
 	if fixed {
 		return size
 	}
@@ -17,7 +26,7 @@ func (obj *ExecutionPayloadHeader) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size u
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *ExecutionPayloadHeader) DefineSSZ(codec *ssz.Codec) {
+func (obj *ExecutionPayloadHeaderMonolith) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
 	ssz.DefineStaticBytes(codec, &obj.ParentHash)           // Field  ( 0) -       ParentHash -  32 bytes
 	ssz.DefineStaticBytes(codec, &obj.FeeRecipient)         // Field  ( 1) -     FeeRecipient -  20 bytes
@@ -33,6 +42,15 @@ func (obj *ExecutionPayloadHeader) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineStaticBytes(codec, &obj.BaseFeePerGas)        // Field  (11) -    BaseFeePerGas -  32 bytes
 	ssz.DefineStaticBytes(codec, &obj.BlockHash)            // Field  (12) -        BlockHash -  32 bytes
 	ssz.DefineStaticBytes(codec, &obj.TransactionsRoot)     // Field  (13) - TransactionsRoot -  32 bytes
+	if codec.Fork() >= ssz.ForkCapella {
+		ssz.DefineStaticBytes(codec, &obj.WithdrawalRoot) // Field  (14) -   WithdrawalRoot -  32 bytes
+	}
+	if codec.Fork() >= ssz.ForkDeneb {
+		ssz.DefineUint64(codec, &obj.BlobGasUsed) // Field  (15) -      BlobGasUsed -   8 bytes
+	}
+	if codec.Fork() >= ssz.ForkDeneb {
+		ssz.DefineUint64(codec, &obj.ExcessBlobGas) // Field  (16) -    ExcessBlobGas -   8 bytes
+	}
 
 	// Define the dynamic data (fields)
 	ssz.DefineDynamicBytesContent(codec, &obj.ExtraData, 32) // Field  (10) -        ExtraData - ? bytes

@@ -63,7 +63,7 @@ type Address [20]byte
 // LogsBloom is a standalone mock of go-ethereum's types.LogsBloom
 type LogsBloom [256]byte
 
-// Roots is a helper type to foce a generator quirk.
+// Roots is a helper type to force a generator quirk.
 type Roots [8192]Hash
 
 type AggregateAndProof struct {

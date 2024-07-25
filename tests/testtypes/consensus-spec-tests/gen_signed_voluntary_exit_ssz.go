@@ -8,11 +8,12 @@ import "github.com/karalabe/ssz"
 var staticSizeCacheSignedVoluntaryExit = ssz.PrecomputeStaticSizeCache((*SignedVoluntaryExit)(nil))
 
 // SizeSSZ returns the total size of the static ssz object.
-func (obj *SignedVoluntaryExit) SizeSSZ(sizer *ssz.Sizer) uint32 {
+func (obj *SignedVoluntaryExit) SizeSSZ(sizer *ssz.Sizer) (size uint32) {
 	if fork := int(sizer.Fork()); fork < len(staticSizeCacheSignedVoluntaryExit) {
 		return staticSizeCacheSignedVoluntaryExit[fork]
 	}
-	return ssz.Size((*VoluntaryExit)(nil)) + 96
+	size = (*VoluntaryExit)(nil).SizeSSZ(sizer) + 96
+	return size
 }
 
 // DefineSSZ defines how an object is encoded/decoded.

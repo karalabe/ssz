@@ -8,11 +8,12 @@ import "github.com/karalabe/ssz"
 var staticSizeCacheSignedBLSToExecutionChange = ssz.PrecomputeStaticSizeCache((*SignedBLSToExecutionChange)(nil))
 
 // SizeSSZ returns the total size of the static ssz object.
-func (obj *SignedBLSToExecutionChange) SizeSSZ(sizer *ssz.Sizer) uint32 {
+func (obj *SignedBLSToExecutionChange) SizeSSZ(sizer *ssz.Sizer) (size uint32) {
 	if fork := int(sizer.Fork()); fork < len(staticSizeCacheSignedBLSToExecutionChange) {
 		return staticSizeCacheSignedBLSToExecutionChange[fork]
 	}
-	return ssz.Size((*BLSToExecutionChange)(nil)) + 96
+	size = (*BLSToExecutionChange)(nil).SizeSSZ(sizer) + 96
+	return size
 }
 
 // DefineSSZ defines how an object is encoded/decoded.

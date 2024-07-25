@@ -8,11 +8,12 @@ import "github.com/karalabe/ssz"
 var staticSizeCacheDeposit = ssz.PrecomputeStaticSizeCache((*Deposit)(nil))
 
 // SizeSSZ returns the total size of the static ssz object.
-func (obj *Deposit) SizeSSZ(sizer *ssz.Sizer) uint32 {
+func (obj *Deposit) SizeSSZ(sizer *ssz.Sizer) (size uint32) {
 	if fork := int(sizer.Fork()); fork < len(staticSizeCacheDeposit) {
 		return staticSizeCacheDeposit[fork]
 	}
-	return 33*32 + ssz.Size((*DepositData)(nil))
+	size = 33*32 + (*DepositData)(nil).SizeSSZ(sizer)
+	return size
 }
 
 // DefineSSZ defines how an object is encoded/decoded.

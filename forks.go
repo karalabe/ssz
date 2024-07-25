@@ -47,9 +47,9 @@ const (
 	ForkElectra  = ForkPectra   // CL alias for Pectra
 )
 
-// forkMapping maps fork names to fork values. This is used internally by the
+// ForkMapping maps fork names to fork values. This is used internally by the
 // ssz codec generator to convert tags to values.
-var forkMapping = map[string]Fork{
+var ForkMapping = map[string]Fork{
 	"frontier":       ForkFrontier,
 	"homestead":      ForkHomestead,
 	"dao":            ForkDAO,

@@ -6,8 +6,8 @@ import "github.com/karalabe/ssz"
 
 // SizeSSZ returns either the static size of the object if fixed == true, or
 // the total size otherwise.
-func (obj *BeaconBlock) SizeSSZ(sizer *ssz.Sizer, fixed bool) uint32 {
-	var size = uint32(8 + 8 + 32 + 32 + 4)
+func (obj *BeaconBlock) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size uint32) {
+	size = 8 + 8 + 32 + 32 + 4
 	if fixed {
 		return size
 	}
