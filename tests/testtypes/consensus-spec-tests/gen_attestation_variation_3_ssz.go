@@ -37,7 +37,6 @@ func (obj *AttestationVariation3) DefineSSZ(codec *ssz.Codec) {
 	if codec.Fork() >= ssz.ForkFuture {
 		ssz.DefineUint64(codec, &obj.Future) // Field  (3) -          Future -  8 bytes
 	}
-
 	// Define the dynamic data (fields)
 	ssz.DefineSliceOfBitsContent(codec, &obj.AggregationBits, 2048) // Field  (0) - AggregationBits - ? bytes
 }

@@ -46,7 +46,6 @@ func (obj *ExecutionPayloadHeaderMonolith) DefineSSZ(codec *ssz.Codec) {
 		ssz.DefineUint64(codec, &obj.BlobGasUsed)   // Field  (15) -      BlobGasUsed -   8 bytes
 		ssz.DefineUint64(codec, &obj.ExcessBlobGas) // Field  (16) -    ExcessBlobGas -   8 bytes
 	}
-
 	// Define the dynamic data (fields)
 	ssz.DefineDynamicBytesContent(codec, &obj.ExtraData, 32) // Field  (10) -        ExtraData - ? bytes
 }

@@ -72,7 +72,6 @@ func (obj *BeaconBlockBodyMonolith) DefineSSZ(codec *ssz.Codec) {
 	if codec.Fork() >= ssz.ForkDeneb {
 		ssz.DefineSliceOfStaticBytesOffset(codec, &obj.BlobKzgCommitments, 4096) // Offset (11) -    BlobKzgCommitments -  4 bytes
 	}
-
 	// Define the dynamic data (fields)
 	ssz.DefineSliceOfStaticObjectsContent(codec, &obj.ProposerSlashings, 16) // Field  ( 3) -     ProposerSlashings - ? bytes
 	ssz.DefineSliceOfDynamicObjectsContent(codec, &obj.AttesterSlashings, 2) // Field  ( 4) -     AttesterSlashings - ? bytes

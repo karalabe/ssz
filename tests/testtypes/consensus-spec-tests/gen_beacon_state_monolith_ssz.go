@@ -101,7 +101,6 @@ func (obj *BeaconStateMonolith) DefineSSZ(codec *ssz.Codec) {
 		ssz.DefineUint64(codec, &obj.NextWithdrawalValidatorIndex)                      // Field  (28) - NextWithdrawalValidatorIndex -       8 bytes
 		ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.HistoricalSummaries, 16777216) // Offset (29) -          HistoricalSummaries -       4 bytes
 	}
-
 	// Define the dynamic data (fields)
 	ssz.DefineSliceOfStaticBytesContent(codec, &obj.HistoricalRoots, 16777216)   // Field  ( 7) -              HistoricalRoots - ? bytes
 	ssz.DefineSliceOfStaticObjectsContent(codec, &obj.Eth1DataVotes, 2048)       // Field  ( 9) -                Eth1DataVotes - ? bytes

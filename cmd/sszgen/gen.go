@@ -372,7 +372,10 @@ func generateDefineSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 		}
 	}
 	if !typ.static {
-		fmt.Fprint(&b, "\n	// Define the dynamic data (fields)\n")
+		if typ.forks[len(typ.forks)-1] == "" {
+			fmt.Fprint(&b, "\n")
+		}
+		fmt.Fprint(&b, "	// Define the dynamic data (fields)\n")
 		var (
 			dynIndices []int
 			dynFields  []string
