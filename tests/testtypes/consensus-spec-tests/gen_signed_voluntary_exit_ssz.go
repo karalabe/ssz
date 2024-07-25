@@ -5,11 +5,14 @@ package consensus_spec_tests
 import "github.com/karalabe/ssz"
 
 // Cached static size computed on package init.
-var staticSizeCacheSignedVoluntaryExit = (*VoluntaryExit)(nil).SizeSSZ() + 96
+var staticSizeCacheSignedVoluntaryExit = ssz.PrecomputeStaticSizeCache((*SignedVoluntaryExit)(nil))
 
 // SizeSSZ returns the total size of the static ssz object.
-func (obj *SignedVoluntaryExit) SizeSSZ() uint32 {
-	return staticSizeCacheSignedVoluntaryExit
+func (obj *SignedVoluntaryExit) SizeSSZ(sizer *ssz.Sizer) uint32 {
+	if fork := int(sizer.Fork()); fork < len(staticSizeCacheSignedVoluntaryExit) {
+		return staticSizeCacheSignedVoluntaryExit[fork]
+	}
+	return ssz.Size((*VoluntaryExit)(nil)) + 96
 }
 
 // DefineSSZ defines how an object is encoded/decoded.

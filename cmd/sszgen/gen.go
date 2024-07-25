@@ -109,7 +109,14 @@ func generateSizeSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 		// variable to run it on package init
 		if runtime {
 			fmt.Fprintf(&b, "// Cached static size computed on package init.\n")
-			fmt.Fprintf(&b, "var staticSizeCache%s = ", typ.named.Obj().Name())
+			fmt.Fprintf(&b, "var staticSizeCache%s = ssz.PrecomputeStaticSizeCache((*%s)(nil))\n\n", typ.named.Obj().Name(), typ.named.Obj().Name())
+
+			fmt.Fprintf(&b, "// SizeSSZ returns the total size of the static ssz object.\n")
+			fmt.Fprintf(&b, "func (obj *%s) SizeSSZ(sizer *ssz.Sizer) uint32 {\n", typ.named.Obj().Name())
+			fmt.Fprintf(&b, "	if fork := int(sizer.Fork()); fork < len(staticSizeCache%s) {\n", typ.named.Obj().Name())
+			fmt.Fprintf(&b, "		return staticSizeCache%s[fork]\n", typ.named.Obj().Name())
+			fmt.Fprintf(&b, "	}\n")
+			fmt.Fprintf(&b, "	return ")
 			for i := range typ.opsets {
 				if bytes := typ.opsets[i].(*opsetStatic).bytes; bytes != nil {
 					if len(bytes) == 1 {
@@ -121,23 +128,20 @@ func generateSizeSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 					typ := typ.types[i].(*types.Pointer).Elem().(*types.Named)
 					pkg := typ.Obj().Pkg()
 					if pkg.Path() == ctx.pkg.Path() {
-						fmt.Fprintf(&b, "(*%s)(nil).SizeSSZ()", typ.Obj().Name())
+						fmt.Fprintf(&b, "ssz.Size((*%s)(nil))", typ.Obj().Name())
 					} else {
 						ctx.addImport(pkg.Path(), "")
-						fmt.Fprintf(&b, "(*%s.%s)(nil).SizeSSZ()", pkg.Name(), typ.Obj().Name())
+						fmt.Fprintf(&b, "ssz.Size((*%s.%s)(nil))", pkg.Name(), typ.Obj().Name())
 					}
 				}
 				if i < len(typ.opsets)-1 {
 					fmt.Fprint(&b, " + ")
 				}
 			}
-			fmt.Fprintf(&b, "\n\n// SizeSSZ returns the total size of the static ssz object.\n")
-			fmt.Fprintf(&b, "func (obj *%s) SizeSSZ() uint32 {\n", typ.named.Obj().Name())
-			fmt.Fprintf(&b, "	return staticSizeCache%s\n", typ.named.Obj().Name())
-			fmt.Fprintf(&b, "}\n")
+			fmt.Fprintf(&b, "\n}\n")
 		} else {
 			fmt.Fprint(&b, "// SizeSSZ returns the total size of the static ssz object.\n")
-			fmt.Fprintf(&b, "func (obj *%s) SizeSSZ() uint32 {\n", typ.named.Obj().Name())
+			fmt.Fprintf(&b, "func (obj *%s) SizeSSZ(sizer *ssz.Sizer) uint32 {\n", typ.named.Obj().Name())
 			fmt.Fprint(&b, "	return ")
 			for i := range typ.opsets {
 				bytes := typ.opsets[i].(*opsetStatic).bytes
@@ -168,7 +172,15 @@ func generateSizeSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 		// variable to run it on package init
 		if runtime {
 			fmt.Fprintf(&b, "// Cached static size computed on package init.\n")
-			fmt.Fprintf(&b, "var staticSizeCache%s = ", typ.named.Obj().Name())
+			fmt.Fprintf(&b, "var staticSizeCache%s = ssz.PrecomputeStaticSizeCache((*%s)(nil))\n\n", typ.named.Obj().Name(), typ.named.Obj().Name())
+
+			fmt.Fprintf(&b, "// SizeSSZ returns either the static size of the object if fixed == true, or\n// the total size otherwise.\n")
+			fmt.Fprintf(&b, "func (obj *%s) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size uint32) {\n", typ.named.Obj().Name())
+			fmt.Fprintf(&b, "	// Load static size if already precomputed, calculate otherwise\n")
+			fmt.Fprintf(&b, "	if fork := int(sizer.Fork()); fork < len(staticSizeCache%s) {\n", typ.named.Obj().Name())
+			fmt.Fprintf(&b, "		size = staticSizeCache%s[fork]\n", typ.named.Obj().Name())
+			fmt.Fprintf(&b, "	} else {\n")
+			fmt.Fprintf(&b, "		size = ")
 			for i := range typ.opsets {
 				switch t := typ.opsets[i].(type) {
 				case *opsetStatic:
@@ -182,28 +194,29 @@ func generateSizeSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 						typ := typ.types[i].(*types.Pointer).Elem().(*types.Named)
 						pkg := typ.Obj().Pkg()
 						if pkg.Path() == ctx.pkg.Path() {
-							fmt.Fprintf(&b, "(*%s)(nil).SizeSSZ()", typ.Obj().Name())
+							fmt.Fprintf(&b, "(*%s)(nil).SizeSSZ(sizer)", typ.Obj().Name())
 						} else {
 							ctx.addImport(pkg.Path(), "")
-							fmt.Fprintf(&b, "(*%s.%s)(nil).SizeSSZ()", pkg.Name(), typ.Obj().Name())
+							fmt.Fprintf(&b, "(*%s.%s)(nil).SizeSSZ(sizer)", pkg.Name(), typ.Obj().Name())
 						}
 					}
 				case *opsetDynamic:
 					fmt.Fprintf(&b, "%d", offsetBytes)
 				}
 				if i < len(typ.opsets)-1 {
-					fmt.Fprint(&b, " + ")
+					fmt.Fprintf(&b, " + ")
+				} else {
+					fmt.Fprintf(&b, "\n")
 				}
 			}
-			fmt.Fprintf(&b, "\n\n// SizeSSZ returns either the static size of the object if fixed == true, or\n// the total size otherwise.\n")
-			fmt.Fprintf(&b, "func (obj *%s) SizeSSZ(fixed bool) uint32 {\n", typ.named.Obj().Name())
-			fmt.Fprintf(&b, "	var size = uint32(staticSizeCache%s)\n", typ.named.Obj().Name())
+			fmt.Fprintf(&b, "	}\n")
+			fmt.Fprintf(&b, "	// Either return the static size or accumulate the dynamic too\n")
 			fmt.Fprintf(&b, "	if (fixed) {\n")
 			fmt.Fprintf(&b, "		return size\n")
 			fmt.Fprintf(&b, "	}\n")
 			for i := range typ.opsets {
 				if opset, ok := typ.opsets[i].(*opsetDynamic); ok {
-					call := generateCall(opset.size, "", "obj."+typ.fields[i])
+					call := generateCall(opset.size, "sizer", "obj."+typ.fields[i])
 					fmt.Fprintf(&b, "	size += ssz.%s\n", call)
 				}
 			}
@@ -212,7 +225,7 @@ func generateSizeSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 			fmt.Fprintf(&b, "}\n")
 		} else {
 			fmt.Fprintf(&b, "\n\n// SizeSSZ returns either the static size of the object if fixed == true, or\n// the total size otherwise.\n")
-			fmt.Fprintf(&b, "func (obj *%s) SizeSSZ(fixed bool) uint32 {\n", typ.named.Obj().Name())
+			fmt.Fprintf(&b, "func (obj *%s) SizeSSZ(sizer *ssz.Sizer, fixed bool) uint32 {\n", typ.named.Obj().Name())
 			fmt.Fprintf(&b, "	var size = uint32(")
 			for i := range typ.opsets {
 				switch t := typ.opsets[i].(type) {
@@ -235,7 +248,7 @@ func generateSizeSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 			fmt.Fprintf(&b, "	}\n")
 			for i := range typ.opsets {
 				if opset, ok := typ.opsets[i].(*opsetDynamic); ok {
-					call := generateCall(opset.size, "", "obj."+typ.fields[i])
+					call := generateCall(opset.size, "sizer", "obj."+typ.fields[i])
 					fmt.Fprintf(&b, "	size += ssz.%s\n", call)
 				}
 			}
@@ -324,6 +337,7 @@ func generateCall(tmpl string, recv string, field string, limits ...int) string 
 		panic(err)
 	}
 	d := map[string]interface{}{
+		"Sizer": recv,
 		"Codec": recv,
 		"Field": field,
 	}

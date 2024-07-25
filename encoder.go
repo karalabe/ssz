@@ -71,11 +71,17 @@ type Encoder struct {
 
 	err   error  // Any write error to halt future encoding calls
 	codec *Codec // Self-referencing to pass DefineSSZ calls through (API trick)
+	sizer *Sizer // Self-referencing to pass SizeSSZ call through (API trick)
 
 	buf    [32]byte    // Integer conversion buffer
 	bufInt uint256.Int // Big.Int conversion buffer (not pointer, alloc free)
 
 	offset uint32 // Offset tracker for dynamic fields
+}
+
+// Fork retrieves the current fork (if any) that the encoder is operating in.
+func (enc *Encoder) Fork() Fork {
+	return enc.codec.fork
 }
 
 // EncodeBool serializes a boolean.
@@ -288,7 +294,7 @@ func EncodeDynamicObjectOffset(enc *Encoder, obj DynamicObject) {
 		binary.LittleEndian.PutUint32(enc.outBuffer, enc.offset)
 		enc.outBuffer = enc.outBuffer[4:]
 	}
-	enc.offset += obj.SizeSSZ(false)
+	enc.offset += obj.SizeSSZ(enc.sizer, false)
 }
 
 // EncodeDynamicObjectContent is the lazy data writer for EncodeDynamicObjectOffset.
@@ -296,7 +302,7 @@ func EncodeDynamicObjectContent(enc *Encoder, obj DynamicObject) {
 	if enc.err != nil {
 		return
 	}
-	enc.offsetDynamics(obj.SizeSSZ(true))
+	enc.offsetDynamics(obj.SizeSSZ(enc.sizer, true))
 	obj.DefineSSZ(enc.codec)
 }
 
@@ -590,7 +596,7 @@ func EncodeSliceOfStaticObjectsOffset[T StaticObject](enc *Encoder, objects []T)
 		enc.outBuffer = enc.outBuffer[4:]
 	}
 	if items := len(objects); items > 0 {
-		enc.offset += uint32(items) * objects[0].SizeSSZ()
+		enc.offset += uint32(items) * objects[0].SizeSSZ(enc.sizer)
 	}
 }
 
@@ -617,7 +623,7 @@ func EncodeSliceOfDynamicObjectsOffset[T DynamicObject](enc *Encoder, objects []
 		enc.outBuffer = enc.outBuffer[4:]
 	}
 	for _, obj := range objects {
-		enc.offset += 4 + obj.SizeSSZ(false)
+		enc.offset += 4 + obj.SizeSSZ(enc.sizer, false)
 	}
 }
 
@@ -638,14 +644,14 @@ func EncodeSliceOfDynamicObjectsContent[T DynamicObject](enc *Encoder, objects [
 			binary.LittleEndian.PutUint32(enc.buf[:4], enc.offset)
 			_, enc.err = enc.outWriter.Write(enc.buf[:4])
 
-			enc.offset += obj.SizeSSZ(false)
+			enc.offset += obj.SizeSSZ(enc.sizer, false)
 		}
 	} else {
 		for _, obj := range objects {
 			binary.LittleEndian.PutUint32(enc.outBuffer, enc.offset)
 			enc.outBuffer = enc.outBuffer[4:]
 
-			enc.offset += obj.SizeSSZ(false)
+			enc.offset += obj.SizeSSZ(enc.sizer, false)
 		}
 	}
 	// Inline:
@@ -657,7 +663,7 @@ func EncodeSliceOfDynamicObjectsContent[T DynamicObject](enc *Encoder, objects [
 		if enc.err != nil {
 			return
 		}
-		enc.offsetDynamics(obj.SizeSSZ(true))
+		enc.offsetDynamics(obj.SizeSSZ(enc.sizer, true))
 		obj.DefineSSZ(enc.codec)
 	}
 }

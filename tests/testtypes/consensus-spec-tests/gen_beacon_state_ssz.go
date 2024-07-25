@@ -5,21 +5,27 @@ package consensus_spec_tests
 import "github.com/karalabe/ssz"
 
 // Cached static size computed on package init.
-var staticSizeCacheBeaconState = 8 + 32 + 8 + (*Fork)(nil).SizeSSZ() + (*BeaconBlockHeader)(nil).SizeSSZ() + 8192*32 + 8192*32 + 4 + (*Eth1Data)(nil).SizeSSZ() + 4 + 8 + 4 + 4 + 65536*32 + 8192*8 + 4 + 4 + 1 + (*Checkpoint)(nil).SizeSSZ() + (*Checkpoint)(nil).SizeSSZ() + (*Checkpoint)(nil).SizeSSZ()
+var staticSizeCacheBeaconState = ssz.PrecomputeStaticSizeCache((*BeaconState)(nil))
 
 // SizeSSZ returns either the static size of the object if fixed == true, or
 // the total size otherwise.
-func (obj *BeaconState) SizeSSZ(fixed bool) uint32 {
-	var size = uint32(staticSizeCacheBeaconState)
+func (obj *BeaconState) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size uint32) {
+	// Load static size if already precomputed, calculate otherwise
+	if fork := int(sizer.Fork()); fork < len(staticSizeCacheBeaconState) {
+		size = staticSizeCacheBeaconState[fork]
+	} else {
+		size = 8 + 32 + 8 + (*Fork)(nil).SizeSSZ(sizer) + (*BeaconBlockHeader)(nil).SizeSSZ(sizer) + 8192*32 + 8192*32 + 4 + (*Eth1Data)(nil).SizeSSZ(sizer) + 4 + 8 + 4 + 4 + 65536*32 + 8192*8 + 4 + 4 + 1 + (*Checkpoint)(nil).SizeSSZ(sizer) + (*Checkpoint)(nil).SizeSSZ(sizer) + (*Checkpoint)(nil).SizeSSZ(sizer)
+	}
+	// Either return the static size or accumulate the dynamic too
 	if fixed {
 		return size
 	}
-	size += ssz.SizeSliceOfStaticBytes(obj.HistoricalRoots)
-	size += ssz.SizeSliceOfStaticObjects(obj.Eth1DataVotes)
-	size += ssz.SizeSliceOfStaticObjects(obj.Validators)
-	size += ssz.SizeSliceOfUint64s(obj.Balances)
-	size += ssz.SizeSliceOfDynamicObjects(obj.PreviousEpochAttestations)
-	size += ssz.SizeSliceOfDynamicObjects(obj.CurrentEpochAttestations)
+	size += ssz.SizeSliceOfStaticBytes(sizer, obj.HistoricalRoots)
+	size += ssz.SizeSliceOfStaticObjects(sizer, obj.Eth1DataVotes)
+	size += ssz.SizeSliceOfStaticObjects(sizer, obj.Validators)
+	size += ssz.SizeSliceOfUint64s(sizer, obj.Balances)
+	size += ssz.SizeSliceOfDynamicObjects(sizer, obj.PreviousEpochAttestations)
+	size += ssz.SizeSliceOfDynamicObjects(sizer, obj.CurrentEpochAttestations)
 
 	return size
 }

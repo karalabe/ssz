@@ -52,7 +52,9 @@ type Hasher struct {
 	groups []groupStats // Hashing progress tracking for the chunk groups
 	layer  int          // Layer depth being hasher now
 
-	codec  *Codec // Self-referencing to pass DefineSSZ calls through (API trick)
+	codec *Codec // Self-referencing to pass DefineSSZ calls through (API trick)
+	sizer *Sizer // Self-referencing to pass SizeSSZ call through (API trick)
+
 	bitbuf []byte // Bitlist conversion buffer
 }
 
@@ -62,6 +64,11 @@ type groupStats struct {
 	layer  int // Layer this chunk group is from
 	depth  int // Depth this chunk group is from
 	chunks int // Number of chunks in this group
+}
+
+// Fork retrieves the current fork (if any) that the hasher is operating in.
+func (h *Hasher) Fork() Fork {
+	return h.codec.fork
 }
 
 // HashBool hashes a boolean.

@@ -5,11 +5,14 @@ package consensus_spec_tests
 import "github.com/karalabe/ssz"
 
 // Cached static size computed on package init.
-var staticSizeCacheSignedBeaconBlockHeader = (*BeaconBlockHeader)(nil).SizeSSZ() + 96
+var staticSizeCacheSignedBeaconBlockHeader = ssz.PrecomputeStaticSizeCache((*SignedBeaconBlockHeader)(nil))
 
 // SizeSSZ returns the total size of the static ssz object.
-func (obj *SignedBeaconBlockHeader) SizeSSZ() uint32 {
-	return staticSizeCacheSignedBeaconBlockHeader
+func (obj *SignedBeaconBlockHeader) SizeSSZ(sizer *ssz.Sizer) uint32 {
+	if fork := int(sizer.Fork()); fork < len(staticSizeCacheSignedBeaconBlockHeader) {
+		return staticSizeCacheSignedBeaconBlockHeader[fork]
+	}
+	return ssz.Size((*BeaconBlockHeader)(nil)) + 96
 }
 
 // DefineSSZ defines how an object is encoded/decoded.

@@ -27,7 +27,7 @@ type opsetStatic struct {
 // codec operates on a given dynamic type. Ideally these would be some go/types
 // function values, but alas too much pain, especially with generics.
 type opsetDynamic struct {
-	size          string // SizeXYZ method for the SizeSSZ method
+	size          string // SizeXYZ method for the ssz.Sizer
 	defineOffset  string // DefineXYZOffset method for the ssz.Codec
 	defineContent string // DefineXYZContent method for the ssz.Codec
 	encodeOffset  string // EncodeXYZOffset method for the ssz.Encoder
@@ -119,7 +119,7 @@ func (p *parseContext) resolveBitlistOpset(tags *sizeTag) (opset, error) {
 		return nil, fmt.Errorf("slice of bits tag conflict: field supports [N] bits, tag wants %v bits", tags.limit)
 	}
 	return &opsetDynamic{
-		"SizeSliceOfBits({{.Field}})",
+		"SizeSliceOfBits({{.Sizer}}, {{.Field}})",
 		fmt.Sprintf("DefineSliceOfBitsOffset({{.Codec}}, &{{.Field}}, %d)", tags.limit[0]),  // inject bit-cap directly
 		fmt.Sprintf("DefineSliceOfBitsContent({{.Codec}}, &{{.Field}}, %d)", tags.limit[0]), // inject bit-cap directly
 		"EncodeSliceOfBitsOffset({{.Codec}}, &{{.Field}})",
@@ -262,7 +262,7 @@ func (p *parseContext) resolveSliceOpset(typ types.Type, tags *sizeTag) (opset, 
 				return nil, fmt.Errorf("dynamic slice of byte basic type tag conflict: needs [N] tag, has %v", tags.limit)
 			}
 			return &opsetDynamic{
-				"SizeDynamicBytes({{.Field}})",
+				"SizeDynamicBytes({{.Sizer}}, {{.Field}})",
 				"DefineDynamicBytesOffset({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
 				"DefineDynamicBytesContent({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
 				"EncodeDynamicBytesOffset({{.Codec}}, &{{.Field}})",
@@ -297,7 +297,7 @@ func (p *parseContext) resolveSliceOpset(typ types.Type, tags *sizeTag) (opset, 
 				return nil, fmt.Errorf("dynamic slice of uint64 basic type tag conflict: needs [N] tag, has %v", tags.limit)
 			}
 			return &opsetDynamic{
-				"SizeSliceOfUint64s({{.Field}})",
+				"SizeSliceOfUint64s({{.Sizer}}, {{.Field}})",
 				"DefineSliceOfUint64sOffset({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
 				"DefineSliceOfUint64sContent({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
 				"EncodeSliceOfUint64sOffset({{.Codec}}, &{{.Field}})",
@@ -319,7 +319,7 @@ func (p *parseContext) resolveSliceOpset(typ types.Type, tags *sizeTag) (opset, 
 				return nil, fmt.Errorf("dynamic slice of static objects type tag conflict: needs [N] tag, has %v", tags.limit)
 			}
 			return &opsetDynamic{
-				"SizeSliceOfStaticObjects({{.Field}})",
+				"SizeSliceOfStaticObjects({{.Sizer}}, {{.Field}})",
 				"DefineSliceOfStaticObjectsOffset({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
 				"DefineSliceOfStaticObjectsContent({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
 				"EncodeSliceOfStaticObjectsOffset({{.Codec}}, &{{.Field}})",
@@ -337,7 +337,7 @@ func (p *parseContext) resolveSliceOpset(typ types.Type, tags *sizeTag) (opset, 
 				return nil, fmt.Errorf("dynamic slice of dynamic objects type tag conflict: needs [N] tag, has %v", tags.limit)
 			}
 			return &opsetDynamic{
-				"SizeSliceOfDynamicObjects({{.Field}})",
+				"SizeSliceOfDynamicObjects({{.Sizer}}, {{.Field}})",
 				"DefineSliceOfDynamicObjectsOffset({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
 				"DefineSliceOfDynamicObjectsContent({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
 				"EncodeSliceOfDynamicObjectsOffset({{.Codec}}, &{{.Field}})",
@@ -393,7 +393,7 @@ func (p *parseContext) resolveSliceOfArrayOpset(typ types.Type, innerSize int, t
 				return nil, fmt.Errorf("dynamic slice of array of byte basic type tag conflict: needs [N] tag, has %v", tags.limit)
 			}
 			return &opsetDynamic{
-				"SizeSliceOfStaticBytes({{.Field}})",
+				"SizeSliceOfStaticBytes({{.Sizer}}, {{.Field}})",
 				"DefineSliceOfStaticBytesOffset({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
 				"DefineSliceOfStaticBytesContent({{.Codec}}, &{{.Field}}, {{.MaxSize}})",
 				"EncodeSliceOfStaticBytesOffset({{.Codec}}, &{{.Field}})",
@@ -428,7 +428,7 @@ func (p *parseContext) resolveSliceOfSliceOpset(typ types.Type, tags *sizeTag) (
 					return nil, fmt.Errorf("dynamic slice of dynamic slice of byte basic type tag conflict: needs [N, M] ssz-max tag, has %v", tags.limit)
 				}
 				return &opsetDynamic{
-					"SizeSliceOfDynamicBytes({{.Field}})",
+					"SizeSliceOfDynamicBytes({{.Sizer}}, {{.Field}})",
 					"DefineSliceOfDynamicBytesOffset({{.Codec}}, &{{.Field}}, {{.MaxItems}}, {{.MaxSize}})",
 					"DefineSliceOfDynamicBytesContent({{.Codec}}, &{{.Field}}, {{.MaxItems}}, {{.MaxSize}})",
 					"EncodeSliceOfDynamicBytesOffset({{.Codec}}, &{{.Field}})",
@@ -498,7 +498,7 @@ func (p *parseContext) resolvePointerOpset(typ *types.Pointer, tags *sizeTag) (o
 			return nil, fmt.Errorf("dynamic object type cannot have any ssz tags")
 		}
 		return &opsetDynamic{
-			"SizeDynamicObject({{.Field}})",
+			"SizeDynamicObject({{.Sizer}}, {{.Field}})",
 			"DefineDynamicObjectOffset({{.Codec}}, &{{.Field}})",
 			"DefineDynamicObjectContent({{.Codec}}, &{{.Field}})",
 			"EncodeDynamicObjectOffset({{.Codec}}, &{{.Field}})",

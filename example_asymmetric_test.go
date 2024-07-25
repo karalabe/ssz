@@ -17,7 +17,7 @@ type WithdrawalAsym struct {
 	Amount    uint64  `ssz-size:"8"`
 }
 
-func (w *WithdrawalAsym) SizeSSZ() uint32 { return 44 }
+func (w *WithdrawalAsym) SizeSSZ(siz *ssz.Sizer) uint32 { return 44 }
 
 func (w *WithdrawalAsym) DefineSSZ(codec *ssz.Codec) {
 	codec.DefineEncoder(func(enc *ssz.Encoder) {
@@ -41,7 +41,7 @@ func (w *WithdrawalAsym) DefineSSZ(codec *ssz.Codec) {
 }
 
 func ExampleEncodeAsymmetricObject() {
-	blob := make([]byte, (*WithdrawalAsym)(nil).SizeSSZ())
+	blob := make([]byte, ssz.Size((*WithdrawalAsym)(nil)))
 	if err := ssz.EncodeToBytes(blob, new(WithdrawalAsym)); err != nil {
 		panic(err)
 	}

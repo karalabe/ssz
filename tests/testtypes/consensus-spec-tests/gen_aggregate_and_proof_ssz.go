@@ -6,12 +6,12 @@ import "github.com/karalabe/ssz"
 
 // SizeSSZ returns either the static size of the object if fixed == true, or
 // the total size otherwise.
-func (obj *AggregateAndProof) SizeSSZ(fixed bool) uint32 {
+func (obj *AggregateAndProof) SizeSSZ(sizer *ssz.Sizer, fixed bool) uint32 {
 	var size = uint32(8 + 4 + 96)
 	if fixed {
 		return size
 	}
-	size += ssz.SizeDynamicObject(obj.Aggregate)
+	size += ssz.SizeDynamicObject(sizer, obj.Aggregate)
 
 	return size
 }

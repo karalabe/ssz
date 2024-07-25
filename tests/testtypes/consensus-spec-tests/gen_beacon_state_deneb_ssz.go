@@ -5,14 +5,14 @@ package consensus_spec_tests
 import "github.com/karalabe/ssz"
 
 // Cached static size computed on package init.
-var staticSizeCacheBeaconStateCapella = ssz.PrecomputeStaticSizeCache((*BeaconStateCapella)(nil))
+var staticSizeCacheBeaconStateDeneb = ssz.PrecomputeStaticSizeCache((*BeaconStateDeneb)(nil))
 
 // SizeSSZ returns either the static size of the object if fixed == true, or
 // the total size otherwise.
-func (obj *BeaconStateCapella) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size uint32) {
+func (obj *BeaconStateDeneb) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size uint32) {
 	// Load static size if already precomputed, calculate otherwise
-	if fork := int(sizer.Fork()); fork < len(staticSizeCacheBeaconStateCapella) {
-		size = staticSizeCacheBeaconStateCapella[fork]
+	if fork := int(sizer.Fork()); fork < len(staticSizeCacheBeaconStateDeneb) {
+		size = staticSizeCacheBeaconStateDeneb[fork]
 	} else {
 		size = 8 + 32 + 8 + (*Fork)(nil).SizeSSZ(sizer) + (*BeaconBlockHeader)(nil).SizeSSZ(sizer) + 8192*32 + 8192*32 + 4 + (*Eth1Data)(nil).SizeSSZ(sizer) + 4 + 8 + 4 + 4 + 65536*32 + 8192*8 + 4 + 4 + 1 + (*Checkpoint)(nil).SizeSSZ(sizer) + (*Checkpoint)(nil).SizeSSZ(sizer) + (*Checkpoint)(nil).SizeSSZ(sizer) + 4 + (*SyncCommittee)(nil).SizeSSZ(sizer) + (*SyncCommittee)(nil).SizeSSZ(sizer) + 4 + 8 + 8 + 4
 	}
@@ -34,7 +34,7 @@ func (obj *BeaconStateCapella) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size uint3
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *BeaconStateCapella) DefineSSZ(codec *ssz.Codec) {
+func (obj *BeaconStateDeneb) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
 	ssz.DefineUint64(codec, &obj.GenesisTime)                                           // Field  ( 0) -                  GenesisTime -       8 bytes
 	ssz.DefineStaticBytes(codec, &obj.GenesisValidatorsRoot)                            // Field  ( 1) -        GenesisValidatorsRoot -      32 bytes

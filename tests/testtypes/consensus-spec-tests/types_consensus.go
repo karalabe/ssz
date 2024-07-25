@@ -43,6 +43,7 @@ import (
 //go:generate go run -cover ../../../cmd/sszgen -type ExecutionPayloadHeaderDeneb -out gen_execution_payload_header_deneb_ssz.go
 //go:generate go run -cover ../../../cmd/sszgen -type BeaconState -out gen_beacon_state_ssz.go
 //go:generate go run -cover ../../../cmd/sszgen -type BeaconStateCapella -out gen_beacon_state_capella_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type BeaconStateDeneb -out gen_beacon_state_deneb_ssz.go
 //go:generate go run -cover ../../../cmd/sszgen -type BeaconBlockBody -out gen_beacon_block_body_ssz.go
 //go:generate go run -cover ../../../cmd/sszgen -type BeaconBlockBodyAltair -out gen_beacon_block_body_altair_ssz.go
 //go:generate go run -cover ../../../cmd/sszgen -type BeaconBlockBodyBellatrix -out gen_beacon_block_body_bellatrix_ssz.go

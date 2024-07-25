@@ -19,7 +19,7 @@ import (
 func TestDecodeMissized(t *testing.T) {
 	obj := new(testMissizedType)
 
-	blob := make([]byte, obj.SizeSSZ()+1)
+	blob := make([]byte, ssz.Size(obj)+1)
 	if err := ssz.DecodeFromBytes(blob, obj); !errors.Is(err, ssz.ErrObjectSlotSizeMismatch) {
 		t.Errorf("decode from bytes error mismatch: have %v, want %v", err, ssz.ErrObjectSlotSizeMismatch)
 	}
@@ -27,7 +27,7 @@ func TestDecodeMissized(t *testing.T) {
 		t.Errorf("decode from stream error mismatch: have %v, want %v", err, ssz.ErrObjectSlotSizeMismatch)
 	}
 
-	blob = make([]byte, obj.SizeSSZ()-1)
+	blob = make([]byte, ssz.Size(obj)-1)
 	if err := ssz.DecodeFromBytes(blob, obj); !errors.Is(err, io.ErrUnexpectedEOF) {
 		t.Errorf("decode from bytes error mismatch: have %v, want %v", err, io.ErrUnexpectedEOF)
 	}
@@ -40,7 +40,7 @@ type testMissizedType struct {
 	A, B uint64
 }
 
-func (t *testMissizedType) SizeSSZ() uint32 { return 16 }
+func (t *testMissizedType) SizeSSZ(sizer *ssz.Sizer) uint32 { return 16 }
 func (t *testMissizedType) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUint64(codec, &t.A)
 	ssz.DefineUint64(codec, &t.B)
@@ -50,7 +50,7 @@ func (t *testMissizedType) DefineSSZ(codec *ssz.Codec) {
 func TestEncodeOversized(t *testing.T) {
 	obj := new(testMissizedType)
 
-	blob := make([]byte, obj.SizeSSZ()-1)
+	blob := make([]byte, ssz.Size(obj)-1)
 	if err := ssz.EncodeToBytes(blob, obj); !errors.Is(err, ssz.ErrBufferTooSmall) {
 		t.Errorf("encode to bytes error mismatch: have %v, want %v", err, ssz.ErrBufferTooSmall)
 	}

@@ -17,7 +17,7 @@ type WithdrawalChecked struct {
 	Amount    uint64 `ssz-size:"8"`
 }
 
-func (w *WithdrawalChecked) SizeSSZ() uint32 { return 44 }
+func (w *WithdrawalChecked) SizeSSZ(siz *ssz.Sizer) uint32 { return 44 }
 
 func (w *WithdrawalChecked) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUint64(codec, &w.Index)                   // Field (0) - Index          -  8 bytes
