@@ -66,6 +66,19 @@ func DefineBool[T ~bool](c *Codec, v *T) {
 	HashBool(c.has, *v)
 }
 
+// DefineUint8 defines the next field as a uint8.
+func DefineUint8[T ~uint8](c *Codec, n *T) {
+	if c.enc != nil {
+		EncodeUint8(c.enc, *n)
+		return
+	}
+	if c.dec != nil {
+		DecodeUint8(c.dec, n)
+		return
+	}
+	HashUint8(c.has, *n)
+}
+
 // DefineUint64 defines the next field as a uint64.
 func DefineUint64[T ~uint64](c *Codec, n *T) {
 	if c.enc != nil {

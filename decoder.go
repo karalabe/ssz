@@ -109,6 +109,25 @@ func DecodeBool[T ~bool](dec *Decoder, v *T) {
 	}
 }
 
+// DecodeUint8 parses a uint8.
+func DecodeUint8[T ~uint8](dec *Decoder, n *T) {
+	if dec.err != nil {
+		return
+	}
+	if dec.inReader != nil {
+		_, dec.err = io.ReadFull(dec.inReader, dec.buf[:1])
+		*n = T(dec.buf[0])
+		dec.inRead += 1
+	} else {
+		if len(dec.inBuffer) < 1 {
+			dec.err = io.ErrUnexpectedEOF
+			return
+		}
+		*n = T(dec.inBuffer[0])
+		dec.inBuffer = dec.inBuffer[1:]
+	}
+}
+
 // DecodeUint64 parses a uint64.
 func DecodeUint64[T ~uint64](dec *Decoder, n *T) {
 	if dec.err != nil {
