@@ -6,11 +6,11 @@ import "github.com/karalabe/ssz"
 
 // SizeSSZ returns the total size of the static ssz object.
 func (obj *SmallTestStruct) SizeSSZ() uint32 {
-	return 1 + 1
+	return 2 + 2
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
 func (obj *SmallTestStruct) DefineSSZ(codec *ssz.Codec) {
-	ssz.DefineArrayOfBits(codec, &obj.A, 2) // Field  (0) - A - 1 bytes
-	ssz.DefineArrayOfBits(codec, &obj.B, 2) // Field  (1) - B - 1 bytes
+	ssz.DefineUint16(codec, &obj.A) // Field  (0) - A - 2 bytes
+	ssz.DefineUint16(codec, &obj.B) // Field  (1) - B - 2 bytes
 }
