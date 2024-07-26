@@ -127,6 +127,20 @@ func EncodeUint16[T ~uint16](enc *Encoder, n T) {
 	}
 }
 
+// EncodeUint32 serializes a uint32.
+func EncodeUint32[T ~uint32](enc *Encoder, n T) {
+	if enc.outWriter != nil {
+		if enc.err != nil {
+			return
+		}
+		binary.LittleEndian.PutUint32(enc.buf[:4], (uint32)(n))
+		_, enc.err = enc.outWriter.Write(enc.buf[:4])
+	} else {
+		binary.LittleEndian.PutUint32(enc.outBuffer, (uint32)(n))
+		enc.outBuffer = enc.outBuffer[4:]
+	}
+}
+
 // EncodeUint64 serializes a uint64.
 func EncodeUint64[T ~uint64](enc *Encoder, n T) {
 	// Nope, dive into actual encoding
