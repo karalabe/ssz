@@ -73,6 +73,16 @@ func (p *parseContext) resolveBasicOpset(typ *types.Basic, tags *sizeTag) (opset
 			"DecodeUint8({{.Codec}}, &{{.Field}})",
 			[]int{1},
 		}, nil
+	case types.Uint16:
+		if tags != nil && tags.size[0] != 2 {
+			return nil, fmt.Errorf("byte basic type requires ssz-size=2: have %d", tags.size[0])
+		}
+		return &opsetStatic{
+			"DefineUint16({{.Codec}}, &{{.Field}})",
+			"EncodeUint16({{.Codec}}, &{{.Field}})",
+			"DecodeUint16({{.Codec}}, &{{.Field}})",
+			[]int{2},
+		}, nil
 	case types.Uint64:
 		if tags != nil && tags.size[0] != 8 {
 			return nil, fmt.Errorf("uint64 basic type requires ssz-size=8: have %d", tags.size[0])

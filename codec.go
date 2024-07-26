@@ -79,6 +79,19 @@ func DefineUint8[T ~uint8](c *Codec, n *T) {
 	HashUint8(c.has, *n)
 }
 
+// DefineUint16 defines the next field as a uint16.
+func DefineUint16[T ~uint16](c *Codec, n *T) {
+	if c.enc != nil {
+		EncodeUint16(c.enc, *n)
+		return
+	}
+	if c.dec != nil {
+		DecodeUint16(c.dec, n)
+		return
+	}
+	HashUint16(c.has, *n)
+}
+
 // DefineUint64 defines the next field as a uint64.
 func DefineUint64[T ~uint64](c *Codec, n *T) {
 	if c.enc != nil {

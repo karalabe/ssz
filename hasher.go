@@ -80,6 +80,13 @@ func HashUint8[T ~uint8](h *Hasher, n T) {
 	h.insertChunk(buffer, 0)
 }
 
+// HashUint16 hashes a uint16.
+func HashUint16[T ~uint16](h *Hasher, n T) {
+	var buffer [32]byte
+	binary.LittleEndian.PutUint16(buffer[:], uint16(n))
+	h.insertChunk(buffer, 0)
+}
+
 // HashUint64 hashes a uint64.
 func HashUint64[T ~uint64](h *Hasher, n T) {
 	var buffer [32]byte
