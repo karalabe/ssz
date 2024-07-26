@@ -128,6 +128,44 @@ func DecodeUint8[T ~uint8](dec *Decoder, n *T) {
 	}
 }
 
+// DecodeUint16 parses a uint16.
+func DecodeUint16[T ~uint16](dec *Decoder, n *T) {
+	if dec.err != nil {
+		return
+	}
+	if dec.inReader != nil {
+		_, dec.err = io.ReadFull(dec.inReader, dec.buf[:2])
+		*n = T(binary.LittleEndian.Uint16(dec.buf[:2]))
+		dec.inRead += 2
+	} else {
+		if len(dec.inBuffer) < 2 {
+			dec.err = io.ErrUnexpectedEOF
+			return
+		}
+		*n = T(binary.LittleEndian.Uint16(dec.inBuffer))
+		dec.inBuffer = dec.inBuffer[2:]
+	}
+}
+
+// DecodeUint32 parses a uint32.
+func DecodeUint32[T ~uint32](dec *Decoder, n *T) {
+	if dec.err != nil {
+		return
+	}
+	if dec.inReader != nil {
+		_, dec.err = io.ReadFull(dec.inReader, dec.buf[:4])
+		*n = T(binary.LittleEndian.Uint32(dec.buf[:4]))
+		dec.inRead += 4
+	} else {
+		if len(dec.inBuffer) < 4 {
+			dec.err = io.ErrUnexpectedEOF
+			return
+		}
+		*n = T(binary.LittleEndian.Uint32(dec.inBuffer))
+		dec.inBuffer = dec.inBuffer[4:]
+	}
+}
+
 // DecodeUint64 parses a uint64.
 func DecodeUint64[T ~uint64](dec *Decoder, n *T) {
 	if dec.err != nil {

@@ -49,6 +49,8 @@ func commonPrefix(a []byte, b []byte) []byte {
 // consensus spec tests repo and runs the encoding/decoding/hashing round.
 func TestConsensusSpecBasics(t *testing.T) {
 	testConsensusSpecBasicType[*types.SingleFieldTestStruct](t, "SingleFieldTestStruct")
+	testConsensusSpecBasicType[*types.SmallTestStruct](t, "SmallTestStruct")
+	testConsensusSpecBasicType[*types.FixedTestStruct](t, "FixedTestStruct")
 	testConsensusSpecBasicType[*types.BitsStruct](t, "BitsStruct")
 }
 
