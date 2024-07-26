@@ -6,8 +6,8 @@ package consensus_spec_tests
 
 import "github.com/prysmaticlabs/go-bitfield"
 
-//go:generate go run ../../../cmd/sszgen -type SingleFieldTestStruct -out gen_single_field_test_struct_ssz.go
-//go:generate go run ../../../cmd/sszgen -type BitsStruct -out gen_bits_struct_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type SingleFieldTestStruct -out gen_single_field_test_struct_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type BitsStruct -out gen_bits_struct_ssz.go
 
 type SingleFieldTestStruct struct {
 	A byte

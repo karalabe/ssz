@@ -34,6 +34,12 @@ jobs:
     - name: Test with coverage
       run: go test -v -coverprofile="coverage-${{ matrix.os }}-${{ matrix.go-version }}.txt" -covermode=count ./...
 
+    - name: Codegen with coverage
+      run: |
+        mkdir gencov
+        GOCOVERDIR=${{ github.workspace }}/gencov go generate ./...
+        go tool covdata textfmt -i=gencov -o=coverage-sszgen-${{ matrix.os }}-${{ matrix.go-version }}.txt
+
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v4.5.0
       with:

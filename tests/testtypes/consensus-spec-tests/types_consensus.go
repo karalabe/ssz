@@ -9,46 +9,46 @@ import (
 	"github.com/prysmaticlabs/go-bitfield"
 )
 
-//go:generate go run ../../../cmd/sszgen -type Checkpoint -out gen_checkpoint_ssz.go
-//go:generate go run ../../../cmd/sszgen -type AttestationData -out gen_attestation_data_ssz.go
-//go:generate go run ../../../cmd/sszgen -type BeaconBlockHeader -out gen_beacon_block_header_ssz.go
-//go:generate go run ../../../cmd/sszgen -type BLSToExecutionChange -out gen_bls_to_execution_change_ssz.go
-//go:generate go run ../../../cmd/sszgen -type Attestation -out gen_attestation_ssz.go
-//go:generate go run ../../../cmd/sszgen -type AggregateAndProof -out gen_aggregate_and_proof_ssz.go
-//go:generate go run ../../../cmd/sszgen -type DepositData -out gen_deposit_data_ssz.go
-//go:generate go run ../../../cmd/sszgen -type DepositMessage -out gen_deposit_message_ssz.go
-//go:generate go run ../../../cmd/sszgen -type Deposit -out gen_deposit_ssz.go
-//go:generate go run ../../../cmd/sszgen -type Eth1Block -out gen_eth1_block_ssz.go
-//go:generate go run ../../../cmd/sszgen -type Eth1Data -out gen_eth1_data_ssz.go
-//go:generate go run ../../../cmd/sszgen -type ExecutionPayload -out gen_execution_payload_ssz.go
-//go:generate go run ../../../cmd/sszgen -type ExecutionPayloadHeader -out gen_execution_payload_header_ssz.go
-//go:generate go run ../../../cmd/sszgen -type Fork -out gen_fork_ssz.go
-//go:generate go run ../../../cmd/sszgen -type HistoricalBatch -out gen_historical_batch_ssz.go
-//go:generate go run ../../../cmd/sszgen -type HistoricalSummary -out gen_historical_summary_ssz.go
-//go:generate go run ../../../cmd/sszgen -type IndexedAttestation -out gen_indexed_attestation_ssz.go
-//go:generate go run ../../../cmd/sszgen -type AttesterSlashing -out gen_attester_slashing_ssz.go
-//go:generate go run ../../../cmd/sszgen -type PendingAttestation -out gen_pending_attestation_ssz.go
-//go:generate go run ../../../cmd/sszgen -type SignedBeaconBlockHeader -out gen_signed_beacon_block_header_ssz.go
-//go:generate go run ../../../cmd/sszgen -type ProposerSlashing -out gen_proposer_slashing_ssz.go
-//go:generate go run ../../../cmd/sszgen -type SignedBLSToExecutionChange -out gen_signed_bls_to_execution_change_ssz.go
-//go:generate go run ../../../cmd/sszgen -type SyncAggregate -out gen_sync_aggregate_ssz.go
-//go:generate go run ../../../cmd/sszgen -type SyncCommittee -out gen_sync_committee_ssz.go
-//go:generate go run ../../../cmd/sszgen -type VoluntaryExit -out gen_voluntary_exit_ssz.go
-//go:generate go run ../../../cmd/sszgen -type SignedVoluntaryExit -out gen_signed_voluntary_exit_ssz.go
-//go:generate go run ../../../cmd/sszgen -type Validator -out gen_validator_ssz.go
-//go:generate go run ../../../cmd/sszgen -type Withdrawal -out gen_withdrawal_ssz.go
-//go:generate go run ../../../cmd/sszgen -type ExecutionPayloadCapella -out gen_execution_payload_capella_ssz.go
-//go:generate go run ../../../cmd/sszgen -type ExecutionPayloadHeaderCapella -out gen_execution_payload_header_capella_ssz.go
-//go:generate go run ../../../cmd/sszgen -type ExecutionPayloadDeneb -out gen_execution_payload_deneb_ssz.go
-//go:generate go run ../../../cmd/sszgen -type ExecutionPayloadHeaderDeneb -out gen_execution_payload_header_deneb_ssz.go
-//go:generate go run ../../../cmd/sszgen -type BeaconState -out gen_beacon_state_ssz.go
-//go:generate go run ../../../cmd/sszgen -type BeaconStateCapella -out gen_beacon_state_capella_ssz.go
-//go:generate go run ../../../cmd/sszgen -type BeaconBlockBody -out gen_beacon_block_body_ssz.go
-//go:generate go run ../../../cmd/sszgen -type BeaconBlockBodyAltair -out gen_beacon_block_body_altair_ssz.go
-//go:generate go run ../../../cmd/sszgen -type BeaconBlockBodyBellatrix -out gen_beacon_block_body_bellatrix_ssz.go
-//go:generate go run ../../../cmd/sszgen -type BeaconBlockBodyCapella -out gen_beacon_block_body_capella_ssz.go
-//go:generate go run ../../../cmd/sszgen -type BeaconBlockBodyDeneb -out gen_beacon_block_body_deneb_ssz.go
-//go:generate go run ../../../cmd/sszgen -type BeaconBlock -out gen_beacon_block_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type Checkpoint -out gen_checkpoint_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type AttestationData -out gen_attestation_data_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type BeaconBlockHeader -out gen_beacon_block_header_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type BLSToExecutionChange -out gen_bls_to_execution_change_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type Attestation -out gen_attestation_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type AggregateAndProof -out gen_aggregate_and_proof_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type DepositData -out gen_deposit_data_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type DepositMessage -out gen_deposit_message_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type Deposit -out gen_deposit_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type Eth1Block -out gen_eth1_block_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type Eth1Data -out gen_eth1_data_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type ExecutionPayload -out gen_execution_payload_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type ExecutionPayloadHeader -out gen_execution_payload_header_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type Fork -out gen_fork_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type HistoricalBatch -out gen_historical_batch_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type HistoricalSummary -out gen_historical_summary_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type IndexedAttestation -out gen_indexed_attestation_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type AttesterSlashing -out gen_attester_slashing_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type PendingAttestation -out gen_pending_attestation_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type SignedBeaconBlockHeader -out gen_signed_beacon_block_header_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type ProposerSlashing -out gen_proposer_slashing_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type SignedBLSToExecutionChange -out gen_signed_bls_to_execution_change_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type SyncAggregate -out gen_sync_aggregate_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type SyncCommittee -out gen_sync_committee_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type VoluntaryExit -out gen_voluntary_exit_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type SignedVoluntaryExit -out gen_signed_voluntary_exit_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type Validator -out gen_validator_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type Withdrawal -out gen_withdrawal_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type ExecutionPayloadCapella -out gen_execution_payload_capella_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type ExecutionPayloadHeaderCapella -out gen_execution_payload_header_capella_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type ExecutionPayloadDeneb -out gen_execution_payload_deneb_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type ExecutionPayloadHeaderDeneb -out gen_execution_payload_header_deneb_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type BeaconState -out gen_beacon_state_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type BeaconStateCapella -out gen_beacon_state_capella_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type BeaconBlockBody -out gen_beacon_block_body_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type BeaconBlockBodyAltair -out gen_beacon_block_body_altair_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type BeaconBlockBodyBellatrix -out gen_beacon_block_body_bellatrix_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type BeaconBlockBodyCapella -out gen_beacon_block_body_capella_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type BeaconBlockBodyDeneb -out gen_beacon_block_body_deneb_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type BeaconBlock -out gen_beacon_block_ssz.go
 
 // Slot is an alias of uint64
 type Slot uint64
