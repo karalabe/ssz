@@ -92,7 +92,7 @@ func DefineUint16[T ~uint16](c *Codec, n *T) {
 	HashUint16(c.has, *n)
 }
 
-// DefineUint16 defines the next field as a uint16.
+// DefineUint32 defines the next field as a uint32.
 func DefineUint32[T ~uint32](c *Codec, n *T) {
 	if c.enc != nil {
 		EncodeUint32(c.enc, *n)
