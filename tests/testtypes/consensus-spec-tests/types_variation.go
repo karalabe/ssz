@@ -8,9 +8,9 @@ import (
 	"math/big"
 )
 
-//go:generate go run ../../../cmd/sszgen -type WithdrawalVariation -out gen_withdrawal_variation_ssz.go
-//go:generate go run ../../../cmd/sszgen -type HistoricalBatchVariation -out gen_historical_batch_variation_ssz.go
-//go:generate go run ../../../cmd/sszgen -type ExecutionPayloadVariation -out gen_execution_payload_variation_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type WithdrawalVariation -out gen_withdrawal_variation_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type HistoricalBatchVariation -out gen_historical_batch_variation_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type ExecutionPayloadVariation -out gen_execution_payload_variation_ssz.go
 
 type WithdrawalVariation struct {
 	Index     uint64
