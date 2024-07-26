@@ -119,7 +119,7 @@ func DecodeUint8[T ~uint8](dec *Decoder, n *T) {
 		*n = T(dec.buf[0])
 		dec.inRead += 1
 	} else {
-		if len(dec.inBuffer) < 8 {
+		if len(dec.inBuffer) < 1 {
 			dec.err = io.ErrUnexpectedEOF
 			return
 		}
