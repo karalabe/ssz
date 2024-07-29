@@ -69,6 +69,6 @@ type commonBitsLengths interface {
 // generics compiler that it cannot represent arrays of arbitrary sizes with
 // one shorthand notation.
 type commonBytesArrayLengths[U commonBytesLengths] interface {
-	// proof | committee | history | randao
-	~[33]U | ~[512]U | ~[8192]U | ~[65536]U
+	// verkle IPA vectors | proof | committee | history | randao
+	~[8]U | ~[33]U | ~[512]U | ~[8192]U | ~[65536]U
 }

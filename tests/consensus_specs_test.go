@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -21,6 +22,9 @@ import (
 )
 
 var (
+	// consensusSpecTestsBasicsRoot is the folder where the basic ssz tests are located.
+	consensusSpecTestsBasicsRoot = filepath.Join("testdata", "consensus-spec-tests", "tests", "general", "phase0", "ssz_generic", "containers")
+
 	// consensusSpecTestsRoot is the folder where the consensus ssz tests are located.
 	consensusSpecTestsRoot = filepath.Join("testdata", "consensus-spec-tests", "tests", "mainnet")
 
@@ -39,6 +43,135 @@ func commonPrefix(a []byte, b []byte) []byte {
 		a, b = a[1:], b[1:]
 	}
 	return prefix
+}
+
+// TestConsensusSpecBasics iterates over the basic container tests from the
+// consensus spec tests repo and runs the encoding/decoding/hashing round.
+func TestConsensusSpecBasics(t *testing.T) {
+	testConsensusSpecBasicType[*types.SingleFieldTestStruct](t, "SingleFieldTestStruct")
+	testConsensusSpecBasicType[*types.SmallTestStruct](t, "SmallTestStruct")
+	testConsensusSpecBasicType[*types.FixedTestStruct](t, "FixedTestStruct")
+	testConsensusSpecBasicType[*types.BitsStruct](t, "BitsStruct")
+}
+
+func testConsensusSpecBasicType[T newableObject[U], U any](t *testing.T, kind string) {
+	// Filter out the valid tests for this specific type
+	path := filepath.Join(consensusSpecTestsBasicsRoot, "valid")
+
+	tests, err := os.ReadDir(path)
+	if err != nil {
+		t.Errorf("failed to walk valid test collection %v: %v", path, err)
+		return
+	}
+	for i := 0; i < len(tests); i++ {
+		if !strings.HasPrefix(tests[i].Name(), kind+"_") {
+			tests = append(tests[:i], tests[i+1:]...)
+			i--
+		}
+	}
+	// Run all the valid tests
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("valid/%s/%s", kind, test.Name()), func(t *testing.T) {
+			// Parse the input SSZ data and the expected root for the test
+			inSnappy, err := os.ReadFile(filepath.Join(path, test.Name(), "serialized.ssz_snappy"))
+			if err != nil {
+				t.Fatalf("failed to load snapy ssz binary: %v", err)
+			}
+			inSSZ, err := snappy.Decode(nil, inSnappy)
+			if err != nil {
+				t.Fatalf("failed to parse snappy ssz binary: %v", err)
+			}
+			inYAML, err := os.ReadFile(filepath.Join(path, test.Name(), "meta.yaml"))
+			if err != nil {
+				t.Fatalf("failed to load yaml root: %v", err)
+			}
+			inRoot := struct {
+				Root string `yaml:"root"`
+			}{}
+			if err = yaml.Unmarshal(inYAML, &inRoot); err != nil {
+				t.Fatalf("failed to parse yaml root: %v", err)
+			}
+			// Do a decode/encode round. Would be nicer to parse out the value
+			// from yaml and check that too, but hex-in-yaml makes everything
+			// beyond annoying. C'est la vie.
+			obj := T(new(U))
+			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err != nil {
+				t.Fatalf("failed to decode SSZ stream: %v", err)
+			}
+			blob := new(bytes.Buffer)
+			if err := ssz.EncodeToStream(blob, obj); err != nil {
+				t.Fatalf("failed to re-encode SSZ stream: %v", err)
+			}
+			if !bytes.Equal(blob.Bytes(), inSSZ) {
+				prefix := commonPrefix(blob.Bytes(), inSSZ)
+				t.Fatalf("re-encoded stream mismatch: have %x, want %x, common prefix %d, have left %x, want left %x",
+					blob, inSSZ, len(prefix), blob.Bytes()[len(prefix):], inSSZ[len(prefix):])
+			}
+			obj = T(new(U))
+			if err := ssz.DecodeFromBytes(inSSZ, obj); err != nil {
+				t.Fatalf("failed to decode SSZ buffer: %v", err)
+			}
+			bin := make([]byte, ssz.Size(obj))
+			if err := ssz.EncodeToBytes(bin, obj); err != nil {
+				t.Fatalf("failed to re-encode SSZ buffer: %v", err)
+			}
+			if !bytes.Equal(bin, inSSZ) {
+				prefix := commonPrefix(bin, inSSZ)
+				t.Fatalf("re-encoded bytes mismatch: have %x, want %x, common prefix %d, have left %x, want left %x",
+					blob, inSSZ, len(prefix), bin[len(prefix):], inSSZ[len(prefix):])
+			}
+			// Encoder/decoder seems to work, check if the size reported by the
+			// encoded object actually matches the encoded stream
+			if size := ssz.Size(obj); size != uint32(len(inSSZ)) {
+				t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
+			}
+			hash := ssz.HashSequential(obj)
+			if fmt.Sprintf("%#x", hash) != inRoot.Root {
+				t.Fatalf("sequential merkle root mismatch: have %#x, want %s", hash, inRoot.Root)
+			}
+			hash = ssz.HashConcurrent(obj)
+			if fmt.Sprintf("%#x", hash) != inRoot.Root {
+				t.Fatalf("concurrent merkle root mismatch: have %#x, want %s", hash, inRoot.Root)
+			}
+		})
+	}
+	// Filter out the valid tests for this specific type
+	path = filepath.Join(consensusSpecTestsBasicsRoot, "invalid")
+
+	tests, err = os.ReadDir(path)
+	if err != nil {
+		t.Errorf("failed to walk invalid test collection %v: %v", path, err)
+		return
+	}
+	for i := 0; i < len(tests); i++ {
+		if !strings.HasPrefix(tests[i].Name(), kind+"_") {
+			tests = append(tests[:i], tests[i+1:]...)
+			i--
+		}
+	}
+	// Run all the valid tests
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("invalid/%s/%s", kind, test.Name()), func(t *testing.T) {
+			// Parse the input SSZ data and the expected root for the test
+			inSnappy, err := os.ReadFile(filepath.Join(path, test.Name(), "serialized.ssz_snappy"))
+			if err != nil {
+				t.Fatalf("failed to load snapy ssz binary: %v", err)
+			}
+			inSSZ, err := snappy.Decode(nil, inSnappy)
+			if err != nil {
+				t.Fatalf("failed to parse snappy ssz binary: %v", err)
+			}
+			// Try to decode, it should fail
+			obj := T(new(U))
+			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err == nil {
+				t.Fatalf("succeeded in decoding invalid SSZ stream")
+			}
+			obj = T(new(U))
+			if err := ssz.DecodeFromBytes(inSSZ, obj); err == nil {
+				t.Fatalf("succeeded in decoding invalid SSZ buffer")
+			}
+		})
+	}
 }
 
 // TestConsensusSpecs iterates over all the (supported) consensus SSZ types and
@@ -87,6 +220,7 @@ func TestConsensusSpecs(t *testing.T) {
 	testConsensusSpecType[*types.Withdrawal](t, "Withdrawal")
 
 	// Add some API variations to test different codec implementations
+	testConsensusSpecType[*types.ExecutionPayloadVariation](t, "ExecutionPayload", "bellatrix")
 	testConsensusSpecType[*types.HistoricalBatchVariation](t, "HistoricalBatch")
 	testConsensusSpecType[*types.WithdrawalVariation](t, "Withdrawal")
 
@@ -224,6 +358,8 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 // BenchmarkConsensusSpecs iterates over all the (supported) consensus SSZ types and
 // runs the encoding/decoding/hashing benchmark round.
 func BenchmarkConsensusSpecs(b *testing.B) {
+	benchmarkConsensusSpecType[*types.ExecutionPayloadVariation](b, "bellatrix", "ExecutionPayload")
+
 	benchmarkConsensusSpecType[*types.AggregateAndProof](b, "deneb", "AggregateAndProof")
 	benchmarkConsensusSpecType[*types.Attestation](b, "deneb", "Attestation")
 	benchmarkConsensusSpecType[*types.AttestationData](b, "deneb", "AttestationData")
@@ -440,9 +576,6 @@ func FuzzConsensusSpecsFork(f *testing.F) {
 func FuzzConsensusSpecsHistoricalBatch(f *testing.F) {
 	fuzzConsensusSpecType[*types.HistoricalBatch](f, "HistoricalBatch")
 }
-func FuzzConsensusSpecsHistoricalBatchVariation(f *testing.F) {
-	fuzzConsensusSpecType[*types.HistoricalBatchVariation](f, "HistoricalBatch")
-}
 func FuzzConsensusSpecsHistoricalSummary(f *testing.F) {
 	fuzzConsensusSpecType[*types.HistoricalSummary](f, "HistoricalSummary")
 }
@@ -478,6 +611,13 @@ func FuzzConsensusSpecsVoluntaryExit(f *testing.F) {
 }
 func FuzzConsensusSpecsWithdrawal(f *testing.F) {
 	fuzzConsensusSpecType[*types.Withdrawal](f, "Withdrawal")
+}
+
+func FuzzConsensusSpecsExecutionPayloadVariation(f *testing.F) {
+	fuzzConsensusSpecType[*types.ExecutionPayloadVariation](f, "ExecutionPayload")
+}
+func FuzzConsensusSpecsHistoricalBatchVariation(f *testing.F) {
+	fuzzConsensusSpecType[*types.HistoricalBatchVariation](f, "HistoricalBatch")
 }
 func FuzzConsensusSpecsWithdrawalVariation(f *testing.F) {
 	fuzzConsensusSpecType[*types.WithdrawalVariation](f, "Withdrawal")

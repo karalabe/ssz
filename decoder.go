@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math/big"
 	"math/bits"
 	"unsafe"
 
@@ -58,8 +59,9 @@ type Decoder struct {
 
 	err error // Any write error to halt future encoding calls
 
-	codec *Codec   // Self-referencing to pass DefineSSZ calls through (API trick)
-	buf   [32]byte // Integer conversion buffer
+	codec  *Codec      // Self-referencing to pass DefineSSZ calls through (API trick)
+	buf    [32]byte    // Integer conversion buffer
+	bufInt uint256.Int // Big.Int conversion buffer (not pointer, alloc free)
 
 	length  uint32   // Message length being decoded
 	lengths []uint32 // Stack of lengths from outer calls
@@ -107,6 +109,63 @@ func DecodeBool[T ~bool](dec *Decoder, v *T) {
 	}
 }
 
+// DecodeUint8 parses a uint8.
+func DecodeUint8[T ~uint8](dec *Decoder, n *T) {
+	if dec.err != nil {
+		return
+	}
+	if dec.inReader != nil {
+		_, dec.err = io.ReadFull(dec.inReader, dec.buf[:1])
+		*n = T(dec.buf[0])
+		dec.inRead += 1
+	} else {
+		if len(dec.inBuffer) < 1 {
+			dec.err = io.ErrUnexpectedEOF
+			return
+		}
+		*n = T(dec.inBuffer[0])
+		dec.inBuffer = dec.inBuffer[1:]
+	}
+}
+
+// DecodeUint16 parses a uint16.
+func DecodeUint16[T ~uint16](dec *Decoder, n *T) {
+	if dec.err != nil {
+		return
+	}
+	if dec.inReader != nil {
+		_, dec.err = io.ReadFull(dec.inReader, dec.buf[:2])
+		*n = T(binary.LittleEndian.Uint16(dec.buf[:2]))
+		dec.inRead += 2
+	} else {
+		if len(dec.inBuffer) < 2 {
+			dec.err = io.ErrUnexpectedEOF
+			return
+		}
+		*n = T(binary.LittleEndian.Uint16(dec.inBuffer))
+		dec.inBuffer = dec.inBuffer[2:]
+	}
+}
+
+// DecodeUint32 parses a uint32.
+func DecodeUint32[T ~uint32](dec *Decoder, n *T) {
+	if dec.err != nil {
+		return
+	}
+	if dec.inReader != nil {
+		_, dec.err = io.ReadFull(dec.inReader, dec.buf[:4])
+		*n = T(binary.LittleEndian.Uint32(dec.buf[:4]))
+		dec.inRead += 4
+	} else {
+		if len(dec.inBuffer) < 4 {
+			dec.err = io.ErrUnexpectedEOF
+			return
+		}
+		*n = T(binary.LittleEndian.Uint32(dec.inBuffer))
+		dec.inBuffer = dec.inBuffer[4:]
+	}
+}
+
 // DecodeUint64 parses a uint64.
 func DecodeUint64[T ~uint64](dec *Decoder, n *T) {
 	if dec.err != nil {
@@ -151,6 +210,31 @@ func DecodeUint256(dec *Decoder, n **uint256.Int) {
 			*n = new(uint256.Int)
 		}
 		(*n).UnmarshalSSZ(dec.inBuffer[:32])
+		dec.inBuffer = dec.inBuffer[32:]
+	}
+}
+
+// DecodeUint256BigInt parses a uint256 into a big.Int.
+func DecodeUint256BigInt(dec *Decoder, n **big.Int) {
+	if dec.err != nil {
+		return
+	}
+	if dec.inReader != nil {
+		_, dec.err = io.ReadFull(dec.inReader, dec.buf[:32])
+		if dec.err != nil {
+			return
+		}
+		dec.inRead += 32
+
+		dec.bufInt.UnmarshalSSZ(dec.buf[:32])
+		*n = dec.bufInt.ToBig() // TODO(karalabe): make this alloc free (https://github.com/holiman/uint256/pull/177)
+	} else {
+		if len(dec.inBuffer) < 32 {
+			dec.err = io.ErrUnexpectedEOF
+			return
+		}
+		dec.bufInt.UnmarshalSSZ(dec.inBuffer[:32])
+		*n = dec.bufInt.ToBig() // TODO(karalabe): make this alloc free (https://github.com/holiman/uint256/pull/177)
 		dec.inBuffer = dec.inBuffer[32:]
 	}
 }

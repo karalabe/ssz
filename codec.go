@@ -5,6 +5,8 @@
 package ssz
 
 import (
+	"math/big"
+
 	"github.com/holiman/uint256"
 	"github.com/prysmaticlabs/go-bitfield"
 )
@@ -82,6 +84,45 @@ func DefineBool[T ~bool](c *Codec, v *T) {
 	}
 }
 
+// DefineUint8 defines the next field as a uint8.
+func DefineUint8[T ~uint8](c *Codec, n *T) {
+	if c.enc != nil {
+		EncodeUint8(c.enc, *n)
+		return
+	}
+	if c.dec != nil {
+		DecodeUint8(c.dec, n)
+		return
+	}
+	HashUint8(c.has, *n)
+}
+
+// DefineUint16 defines the next field as a uint16.
+func DefineUint16[T ~uint16](c *Codec, n *T) {
+	if c.enc != nil {
+		EncodeUint16(c.enc, *n)
+		return
+	}
+	if c.dec != nil {
+		DecodeUint16(c.dec, n)
+		return
+	}
+	HashUint16(c.has, *n)
+}
+
+// DefineUint32 defines the next field as a uint32.
+func DefineUint32[T ~uint32](c *Codec, n *T) {
+	if c.enc != nil {
+		EncodeUint32(c.enc, *n)
+		return
+	}
+	if c.dec != nil {
+		DecodeUint32(c.dec, n)
+		return
+	}
+	HashUint32(c.has, *n)
+}
+
 // DefineUint64 defines the next field as a uint64.
 func DefineUint64[T ~uint64](c *Codec, n *T) {
 	if c.tre != nil {
@@ -118,6 +159,19 @@ func DefineUint256(c *Codec, n **uint256.Int) {
 	if c.has != nil {
 		HashUint256(c.has, *n)
 	}
+}
+
+// DefineUint256BigInt defines the next field as a uint256.
+func DefineUint256BigInt(c *Codec, n **big.Int) {
+	if c.enc != nil {
+		EncodeUint256BigInt(c.enc, *n)
+		return
+	}
+	if c.dec != nil {
+		DecodeUint256BigInt(c.dec, n)
+		return
+	}
+	HashUint256BigInt(c.has, *n)
 }
 
 // DefineStaticBytes defines the next field as static binary blob. This method

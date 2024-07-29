@@ -1,0 +1,18 @@
+coverage:
+  status:
+    project: no
+    patch: no
+
+comment:
+  layout: "header, diff, flags, components"
+
+component_management:
+  individual_components:
+    - component_id: package_ssz
+      name: ssz
+      paths:
+        - "*"
+    - component_id: command_sszgen
+      name: sszgen
+      paths:
+        - "cmd/sszgen/**"

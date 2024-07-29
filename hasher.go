@@ -7,6 +7,7 @@ package ssz
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"math/big"
 	bitops "math/bits"
 	"runtime"
 	"unsafe"
@@ -72,6 +73,27 @@ func HashBool[T ~bool](h *Hasher, v T) {
 	}
 }
 
+// HashUint8 hashes a uint8.
+func HashUint8[T ~uint8](h *Hasher, n T) {
+	var buffer [32]byte
+	buffer[0] = uint8(n)
+	h.insertChunk(buffer, 0)
+}
+
+// HashUint16 hashes a uint16.
+func HashUint16[T ~uint16](h *Hasher, n T) {
+	var buffer [32]byte
+	binary.LittleEndian.PutUint16(buffer[:], uint16(n))
+	h.insertChunk(buffer, 0)
+}
+
+// HashUint32 hashes a uint32.
+func HashUint32[T ~uint32](h *Hasher, n T) {
+	var buffer [32]byte
+	binary.LittleEndian.PutUint32(buffer[:], uint32(n))
+	h.insertChunk(buffer, 0)
+}
+
 // HashUint64 hashes a uint64.
 func HashUint64[T ~uint64](h *Hasher, n T) {
 	var buffer [32]byte
@@ -86,6 +108,19 @@ func HashUint256(h *Hasher, n *uint256.Int) {
 	var buffer [32]byte
 	if n != nil {
 		n.MarshalSSZInto(buffer[:])
+	}
+	h.insertChunk(buffer, 0)
+}
+
+// HashUint256BigInt hashes a big.Int as uint256.
+//
+// Note, a nil pointer is hashed as zero.
+func HashUint256BigInt(h *Hasher, n *big.Int) {
+	var buffer [32]byte
+	if n != nil {
+		var bufint uint256.Int // No pointer, alloc free
+		bufint.SetFromBig(n)
+		bufint.MarshalSSZInto(buffer[:])
 	}
 	h.insertChunk(buffer, 0)
 }

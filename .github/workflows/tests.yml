@@ -1,4 +1,4 @@
-name: Tests
+name: tests
 
 on:
   push:
@@ -8,12 +8,16 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ['1.21.x', '1.22.x']
+        os: [ubuntu-latest, macos-latest]
+        go-version: ['stable', 'oldstable']
+    runs-on: ${{ matrix.os }}
 
     steps:
+    - name: Enable long paths on git checkouts
+      run: git config --global core.longpaths true
+
     - uses: actions/checkout@v4
       with:
         submodules: 'true'
@@ -27,5 +31,18 @@ jobs:
     - name: Build
       run: go build -v ./...
 
-    - name: Test
-      run: go test -v ./...
+    - name: Test with coverage
+      run: go test -v -coverprofile="coverage-${{ matrix.os }}-${{ matrix.go-version }}.txt" -coverpkg=./... ./...
+
+    - name: Codegen with coverage
+      env:
+        GOCOVERDIR: "${{ github.workspace }}/coverage"
+      run: |
+        mkdir coverage
+        go generate ./...
+        go tool covdata textfmt -i=coverage -o=coverage-sszgen-${{ matrix.os }}-${{ matrix.go-version }}.txt
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v4.5.0
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
