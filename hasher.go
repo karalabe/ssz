@@ -422,12 +422,7 @@ func (h *Hasher) insertChunk(chunk [32]byte, depth int) {
 		// We've reached **exactly** the batch number of chunks. Note, we're adding
 		// them one by one, so can't all of a sudden overshoot. Hash the next batch
 		// of chunks and update the trackers.
-		chunks := len(h.chunks)
-		gohashtree.HashChunks(h.chunks[chunks-hasherBatch:], h.chunks[chunks-hasherBatch:])
-		h.chunks = h.chunks[:chunks-hasherBatch/2]
-
-		group.depth++
-		group.chunks >>= 1
+		h.merkleizeAndCollapseChunks(group, len(h.chunks)-hasherBatch)
 
 		// The last group tracker we've just hashed needs to be either updated to
 		// the new level count, or merged into the previous one if they share all
@@ -537,6 +532,7 @@ func (h *Hasher) balanceLayer() {
 				return
 			}
 		}
+
 		// Either group has multiple chunks still, or there are multiple entire
 		// groups in this layer. Either way, we need to collapse this group into
 		// the previous one and then see.
@@ -545,12 +541,7 @@ func (h *Hasher) balanceLayer() {
 			h.chunks = append(h.chunks, hasherZeroCache[group.depth])
 			group.chunks++
 		}
-		chunks := len(h.chunks)
-		gohashtree.HashChunks(h.chunks[chunks-int(group.chunks):], h.chunks[chunks-int(group.chunks):])
-		h.chunks = h.chunks[:chunks-int(group.chunks)>>1]
-
-		group.depth++
-		group.chunks >>= 1
+		h.merkleizeAndCollapseChunks(group, len(h.chunks)-int(group.chunks))
 
 		// The last group tracker we've just hashed needs to be either updated to
 		// the new level count, or merged into the previous one if they share all
@@ -568,6 +559,23 @@ func (h *Hasher) balanceLayer() {
 		// or depth level, update the tail and see if more balancing is needed
 		h.groups[groups-1] = group
 	}
+}
+
+// merkleizeAndCollapseChunks hashes the chunks in the group and collapses them
+func (h *Hasher) merkleizeAndCollapseChunks(group groupStats, startIndex int) {
+	// Hash the chunks.
+	gohashtree.HashChunks(h.chunks[startIndex:], h.chunks[startIndex:])
+
+	// Cut the size of the chunks slice in half, as we've just halved the number
+	// of chunks in it by hasing.
+	h.chunks = h.chunks[:startIndex>>1]
+
+	// Increase the group depth since we have gone up the tree.
+	group.depth++
+
+	// Divide the number of chunks in the next group by two since we have just
+	// hashed them.
+	group.chunks >>= 1
 }
 
 // ascendMixinLayer is similar to ascendLayer, but actually ascends one for the
