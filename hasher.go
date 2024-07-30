@@ -484,23 +484,20 @@ func (h *Hasher) ascendLayer(capacity uint64) {
 
 	// Last group was reduced to a single root hash. If the capacity used during
 	// hashing it was less than what the container slot required, keep expanding
-	// it with empty sibling tries.
+	// it with empty sibling tries. The effective purpose of this loop is to expand
+	// the last group with virtual zero chunks until it reaches the required capacity
 	for {
 		groups := len(h.groups)
 
-		// If we've used up the required capacity, stop expanding
+		// Get the last group
 		group := h.groups[groups-1]
+
 		if (1 << group.depth) >= capacity {
 			break
 		}
-		// Last group requires expansion, hash in a new empty sibling trie
-		h.chunks = append(h.chunks, hasherZeroCache[group.depth])
 
-		chunks := len(h.chunks)
-		gohashtree.HashChunks(h.chunks[chunks-2:], h.chunks[chunks-2:])
-		h.chunks = h.chunks[:chunks-1]
-
-		h.groups[groups-1].depth++
+		// Expand the group by merkleizing it with virtual zero chunks
+		h.merkelizeWithVirtualZeroes(group)
 	}
 	// Ascend from the previous hashing layer
 	h.layer--
@@ -578,6 +575,24 @@ func (h *Hasher) merkleizeAndCollapseChunks(group groupStats, startIndex int) {
 	// Divide the number of chunks in the next group by two since we have just
 	// hashed them.
 	group.chunks >>= 1
+}
+
+// merkelizeWithVirtualZeroes hashes the chunks in the group and collapses them.
+// This function is part of a larger Merkle tree hashing algorithm.
+func (h *Hasher) merkelizeWithVirtualZeroes(group groupStats) {
+	// Append a zero hash to the chunks slice.
+	// This adds a virtual zero node to balance the tree.
+	h.chunks = append(h.chunks, hasherZeroCache[group.depth])
+
+	// Hash the last two chunks (the last real chunk and the virtual zero).
+	chunks := len(h.chunks)
+	gohashtree.HashChunks(h.chunks[chunks-2:], h.chunks[chunks-2:])
+
+	// Remove the virtual zero chunk after hashing.
+	h.chunks = h.chunks[:chunks-1]
+
+	// Increment the depth of the last group, moving up one level in the tree.
+	h.groups[len(h.groups)-1].depth++
 }
 
 // ascendMixinLayer is similar to ascendLayer, but actually ascends one for the
