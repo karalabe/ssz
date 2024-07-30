@@ -533,14 +533,6 @@ func (h *Hasher) balanceLayer() {
 			}
 		}
 
-		// Either group has multiple chunks still, or there are multiple entire
-		// groups in this layer. Either way, we need to collapse this group into
-		// the previous one and then see.
-		if group.chunks&0x1 == 1 {
-			// Group unbalanced, expand with a zero sub-trie
-			h.chunks = append(h.chunks, hasherZeroCache[group.depth])
-			group.chunks++
-		}
 		h.merkleizeAndCollapseChunks(group, len(h.chunks)-int(group.chunks))
 
 		// The last group tracker we've just hashed needs to be either updated to
@@ -563,6 +555,15 @@ func (h *Hasher) balanceLayer() {
 
 // merkleizeAndCollapseChunks hashes the chunks in the group and collapses them
 func (h *Hasher) merkleizeAndCollapseChunks(group groupStats, startIndex int) {
+	// Either group has multiple chunks still, or there are multiple entire
+	// groups in this layer. Either way, we need to collapse this group into
+	// the previous one and then see.
+	if group.chunks&0x1 == 1 {
+		// Group unbalanced, expand with a zero sub-trie
+		h.chunks = append(h.chunks, hasherZeroCache[group.depth])
+		group.chunks++
+	}
+
 	// Hash the chunks.
 	gohashtree.HashChunks(h.chunks[startIndex:], h.chunks[startIndex:])
 
