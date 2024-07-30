@@ -487,11 +487,8 @@ func (h *Hasher) ascendLayer(capacity uint64) {
 	// it with empty sibling tries. The effective purpose of this loop is to expand
 	// the last group with virtual zero chunks until it reaches the required capacity
 	for {
-		groups := len(h.groups)
-
-		// Get the last group
-		group := h.groups[groups-1]
-
+		// If we've used up the required capacity, stop expanding
+		group := h.groups[len(h.groups)-1]
 		if (1 << group.depth) >= capacity {
 			break
 		}
