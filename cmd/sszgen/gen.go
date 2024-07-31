@@ -87,7 +87,6 @@ func generate(ctx *genContext, typ *sszContainer) ([]byte, error) {
 		}
 		codes = append(codes, code)
 	}
-	//fmt.Println(string(bytes.Join(codes, []byte("\n"))))
 	return bytes.Join(codes, []byte("\n")), nil
 }
 
