@@ -187,9 +187,11 @@ func DecodeUint64[T ~uint64](dec *Decoder, n *T) {
 
 // DecodeUint256 parses a uint256.
 func DecodeUint256(dec *Decoder, n **uint256.Int) {
+	fmt.Println("REEEE")
 	if dec.err != nil {
 		return
 	}
+	fmt.Println("REEEE2")
 	if dec.inReader != nil {
 		_, dec.err = io.ReadFull(dec.inReader, dec.buf[:32])
 		if dec.err != nil {
@@ -201,6 +203,7 @@ func DecodeUint256(dec *Decoder, n **uint256.Int) {
 			*n = new(uint256.Int)
 		}
 		(*n).UnmarshalSSZ(dec.buf[:32])
+		fmt.Println("BET123", n)
 	} else {
 		if len(dec.inBuffer) < 32 {
 			dec.err = io.ErrUnexpectedEOF
@@ -208,9 +211,12 @@ func DecodeUint256(dec *Decoder, n **uint256.Int) {
 		}
 		if *n == nil {
 			*n = new(uint256.Int)
+			fmt.Println("BET1234", *n)
 		}
 		(*n).UnmarshalSSZ(dec.inBuffer[:32])
 		dec.inBuffer = dec.inBuffer[32:]
+
+		fmt.Println("ON THE OBJ", *n)
 	}
 }
 
@@ -227,14 +233,14 @@ func DecodeUint256BigInt(dec *Decoder, n **big.Int) {
 		dec.inRead += 32
 
 		dec.bufInt.UnmarshalSSZ(dec.buf[:32])
-		*n = dec.bufInt.ToBig() // TODO(karalabe): make this alloc free (https://github.com/holiman/uint256/pull/177)
+		dec.bufInt.IntoBig(n)
 	} else {
 		if len(dec.inBuffer) < 32 {
 			dec.err = io.ErrUnexpectedEOF
 			return
 		}
 		dec.bufInt.UnmarshalSSZ(dec.inBuffer[:32])
-		*n = dec.bufInt.ToBig() // TODO(karalabe): make this alloc free (https://github.com/holiman/uint256/pull/177)
+		dec.bufInt.IntoBig(n)
 		dec.inBuffer = dec.inBuffer[32:]
 	}
 }
