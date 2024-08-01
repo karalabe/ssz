@@ -72,12 +72,12 @@ type Withdrawal struct {
 To encode/decode such an object via SSZ, it needs to implement the `ssz.StaticObject` interface:
 
 ```go
-type StaticObject interface {
+type StaticObject[C CodecI] interface {
 	// SizeSSZ returns the total size of an SSZ object.
 	SizeSSZ() uint32
 
 	// DefineSSZ defines how an object would be encoded/decoded.
-	DefineSSZ(codec CodecI)
+	DefineSSZ(codec C)
 }
 ```
 
@@ -94,6 +94,26 @@ func (w *Withdrawal) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUint64(codec, &w.Amount)       // Field (3) - Amount         -  8 bytes
 }
 ```
+
+- Note that since StaticObject is a generic interface, we have the flexibility to use custom codec implementations. This allows for more specialized or optimized encoding/decoding strategies when needed.
+
+```go
+type MyCustomCodec struct {
+	// my impl fields
+}
+
+
+func (w *Withdrawal) SizeSSZ() uint32 { return 44 }
+
+func (w *Withdrawal) DefineSSZ(codec *MyCustomCodec) {
+	ssz.DefineUint64(codec, &w.Index)        // Field (0) - Index          -  8 bytes
+	ssz.DefineUint64(codec, &w.Validator)    // Field (1) - ValidatorIndex -  8 bytes
+	ssz.DefineStaticBytes(codec, &w.Address) // Field (2) - Address        - 20 bytes
+	ssz.DefineUint64(codec, &w.Amount)       // Field (3) - Amount         -  8 bytes
+}
+```
+
+
 
 - The `DefineXYZ` methods should feel self-explanatory. They spill out what fields to encode in what order and into what types. The interesting tidbit is the addressing of the fields. Since this code is used for *both* encoding and decoding, it needs to be able to instantiate any `nil` fields during decoding, so pointers are needed.
 
