@@ -87,7 +87,7 @@ func (c *Codec) DefineHasher(impl func(has *Hasher)) {
 }
 
 // DefineBool defines the next field as a 1 byte boolean.
-func DefineBool[T ~bool](c CodecI, v *T) {
+func DefineBool[T ~bool, C CodecI](c C, v *T) {
 	if c.Enc() != nil {
 		EncodeBool(c.Enc(), *v)
 		return
@@ -100,7 +100,7 @@ func DefineBool[T ~bool](c CodecI, v *T) {
 }
 
 // DefineUint8 defines the next field as a uint8.
-func DefineUint8[T ~uint8](c CodecI, n *T) {
+func DefineUint8[T ~uint8, C CodecI](c C, n *T) {
 	if c.Enc() != nil {
 		EncodeUint8(c.Enc(), *n)
 		return
@@ -113,7 +113,7 @@ func DefineUint8[T ~uint8](c CodecI, n *T) {
 }
 
 // DefineUint16 defines the next field as a uint16.
-func DefineUint16[T ~uint16](c CodecI, n *T) {
+func DefineUint16[T ~uint16, C CodecI](c C, n *T) {
 	if c.Enc() != nil {
 		EncodeUint16(c.Enc(), *n)
 		return
@@ -126,7 +126,7 @@ func DefineUint16[T ~uint16](c CodecI, n *T) {
 }
 
 // DefineUint32 defines the next field as a uint32.
-func DefineUint32[T ~uint32](c CodecI, n *T) {
+func DefineUint32[T ~uint32, C CodecI](c C, n *T) {
 	if c.Enc() != nil {
 		EncodeUint32(c.Enc(), *n)
 		return
@@ -139,7 +139,7 @@ func DefineUint32[T ~uint32](c CodecI, n *T) {
 }
 
 // DefineUint64 defines the next field as a uint64.
-func DefineUint64[T ~uint64](c CodecI, n *T) {
+func DefineUint64[T ~uint64, C CodecI](c C, n *T) {
 	if c.Enc() != nil {
 		EncodeUint64(c.Enc(), *n)
 		return
@@ -152,7 +152,7 @@ func DefineUint64[T ~uint64](c CodecI, n *T) {
 }
 
 // DefineUint256 defines the next field as a uint256.
-func DefineUint256(c CodecI, n **uint256.Int) {
+func DefineUint256[C CodecI](c C, n **uint256.Int) {
 	if c.Enc() != nil {
 		EncodeUint256(c.Enc(), *n)
 		return
@@ -165,7 +165,7 @@ func DefineUint256(c CodecI, n **uint256.Int) {
 }
 
 // DefineUint256BigInt defines the next field as a uint256.
-func DefineUint256BigInt(c CodecI, n **big.Int) {
+func DefineUint256BigInt[C CodecI](c C, n **big.Int) {
 	if c.Enc() != nil {
 		EncodeUint256BigInt(c.Enc(), *n)
 		return
@@ -179,7 +179,7 @@ func DefineUint256BigInt(c CodecI, n **big.Int) {
 
 // DefineStaticBytes defines the next field as static binary blob. This method
 // can be used for byte arrays.
-func DefineStaticBytes[T commonBytesLengths](c CodecI, blob *T) {
+func DefineStaticBytes[T commonBytesLengths, C CodecI](c C, blob *T) {
 	if c.Enc() != nil {
 		EncodeStaticBytes(c.Enc(), blob)
 		return
@@ -194,7 +194,7 @@ func DefineStaticBytes[T commonBytesLengths](c CodecI, blob *T) {
 // DefineCheckedStaticBytes defines the next field as static binary blob. This
 // method can be used for plain byte slices, which is more expensive, since it
 // needs runtime size validation.
-func DefineCheckedStaticBytes(c CodecI, blob *[]byte, size uint64) {
+func DefineCheckedStaticBytes[C CodecI](c C, blob *[]byte, size uint64) {
 	if c.Enc() != nil {
 		EncodeCheckedStaticBytes(c.Enc(), *blob)
 		return
@@ -207,7 +207,7 @@ func DefineCheckedStaticBytes(c CodecI, blob *[]byte, size uint64) {
 }
 
 // DefineDynamicBytesOffset defines the next field as dynamic binary blob.
-func DefineDynamicBytesOffset(c CodecI, blob *[]byte, maxSize uint64) {
+func DefineDynamicBytesOffset[C CodecI](c C, blob *[]byte, maxSize uint64) {
 	if c.Enc() != nil {
 		EncodeDynamicBytesOffset(c.Enc(), *blob)
 		return
@@ -220,7 +220,7 @@ func DefineDynamicBytesOffset(c CodecI, blob *[]byte, maxSize uint64) {
 }
 
 // DefineDynamicBytesContent defines the next field as dynamic binary blob.
-func DefineDynamicBytesContent(c CodecI, blob *[]byte, maxSize uint64) {
+func DefineDynamicBytesContent[C CodecI](c C, blob *[]byte, maxSize uint64) {
 	if c.Enc() != nil {
 		EncodeDynamicBytesContent(c.Enc(), *blob)
 		return
@@ -233,7 +233,7 @@ func DefineDynamicBytesContent(c CodecI, blob *[]byte, maxSize uint64) {
 }
 
 // DefineStaticObject defines the next field as a static ssz object.
-func DefineStaticObject[T newableStaticObject[U], U any](c CodecI, obj *T) {
+func DefineStaticObject[T newableStaticObject[U], U any, C CodecI](c C, obj *T) {
 	if c.Enc() != nil {
 		EncodeStaticObject(c.Enc(), *obj)
 		return
@@ -246,7 +246,7 @@ func DefineStaticObject[T newableStaticObject[U], U any](c CodecI, obj *T) {
 }
 
 // DefineDynamicObjectOffset defines the next field as a dynamic ssz object.
-func DefineDynamicObjectOffset[T newableDynamicObject[U], U any](c CodecI, obj *T) {
+func DefineDynamicObjectOffset[T newableDynamicObject[U], U any, C CodecI](c C, obj *T) {
 	if c.Enc() != nil {
 		EncodeDynamicObjectOffset(c.Enc(), *obj)
 		return
@@ -259,7 +259,7 @@ func DefineDynamicObjectOffset[T newableDynamicObject[U], U any](c CodecI, obj *
 }
 
 // DefineDynamicObjectContent defines the next field as a dynamic ssz object.
-func DefineDynamicObjectContent[T newableDynamicObject[U], U any](c CodecI, obj *T) {
+func DefineDynamicObjectContent[T newableDynamicObject[U], U any, C CodecI](c C, obj *T) {
 	if c.Enc() != nil {
 		EncodeDynamicObjectContent(c.Enc(), *obj)
 		return
@@ -272,7 +272,7 @@ func DefineDynamicObjectContent[T newableDynamicObject[U], U any](c CodecI, obj 
 }
 
 // DefineArrayOfBits defines the next field as a static array of (packed) bits.
-func DefineArrayOfBits[T commonBitsLengths](c CodecI, bits *T, size uint64) {
+func DefineArrayOfBits[T commonBitsLengths, C CodecI](c C, bits *T, size uint64) {
 	if c.Enc() != nil {
 		EncodeArrayOfBits(c.Enc(), bits)
 		return
@@ -285,7 +285,7 @@ func DefineArrayOfBits[T commonBitsLengths](c CodecI, bits *T, size uint64) {
 }
 
 // DefineSliceOfBitsOffset defines the next field as a dynamic slice of (packed) bits.
-func DefineSliceOfBitsOffset(c CodecI, bits *bitfield.Bitlist, maxBits uint64) {
+func DefineSliceOfBitsOffset[C CodecI](c C, bits *bitfield.Bitlist, maxBits uint64) {
 	if c.Enc() != nil {
 		EncodeSliceOfBitsOffset(c.Enc(), *bits)
 		return
@@ -298,7 +298,7 @@ func DefineSliceOfBitsOffset(c CodecI, bits *bitfield.Bitlist, maxBits uint64) {
 }
 
 // DefineSliceOfBitsContent defines the next field as a dynamic slice of (packed) bits.
-func DefineSliceOfBitsContent(c CodecI, bits *bitfield.Bitlist, maxBits uint64) {
+func DefineSliceOfBitsContent[C CodecI](c C, bits *bitfield.Bitlist, maxBits uint64) {
 	if c.Enc() != nil {
 		EncodeSliceOfBitsContent(c.Enc(), *bits)
 		return
@@ -311,7 +311,7 @@ func DefineSliceOfBitsContent(c CodecI, bits *bitfield.Bitlist, maxBits uint64) 
 }
 
 // DefineArrayOfUint64s defines the next field as a static array of uint64s.
-func DefineArrayOfUint64s[T commonUint64sLengths](c CodecI, ns *T) {
+func DefineArrayOfUint64s[T commonUint64sLengths, C CodecI](c C, ns *T) {
 	if c.Enc() != nil {
 		EncodeArrayOfUint64s(c.Enc(), ns)
 		return
@@ -324,7 +324,7 @@ func DefineArrayOfUint64s[T commonUint64sLengths](c CodecI, ns *T) {
 }
 
 // DefineSliceOfUint64sOffset defines the next field as a dynamic slice of uint64s.
-func DefineSliceOfUint64sOffset[T ~uint64](c CodecI, ns *[]T, maxItems uint64) {
+func DefineSliceOfUint64sOffset[T ~uint64, C CodecI](c C, ns *[]T, maxItems uint64) {
 	if c.Enc() != nil {
 		EncodeSliceOfUint64sOffset(c.Enc(), *ns)
 		return
@@ -337,7 +337,7 @@ func DefineSliceOfUint64sOffset[T ~uint64](c CodecI, ns *[]T, maxItems uint64) {
 }
 
 // DefineSliceOfUint64sContent defines the next field as a dynamic slice of uint64s.
-func DefineSliceOfUint64sContent[T ~uint64](c CodecI, ns *[]T, maxItems uint64) {
+func DefineSliceOfUint64sContent[T ~uint64, C CodecI](c C, ns *[]T, maxItems uint64) {
 	if c.Enc() != nil {
 		EncodeSliceOfUint64sContent(c.Enc(), *ns)
 		return
@@ -351,7 +351,7 @@ func DefineSliceOfUint64sContent[T ~uint64](c CodecI, ns *[]T, maxItems uint64) 
 
 // DefineArrayOfStaticBytes defines the next field as a static array of static
 // binary blobs.
-func DefineArrayOfStaticBytes[T commonBytesArrayLengths[U], U commonBytesLengths](c CodecI, blobs *T) {
+func DefineArrayOfStaticBytes[T commonBytesArrayLengths[U], U commonBytesLengths, C CodecI](c C, blobs *T) {
 	if c.Enc() != nil {
 		EncodeArrayOfStaticBytes[T, U](c.Enc(), blobs)
 		return
@@ -367,7 +367,7 @@ func DefineArrayOfStaticBytes[T commonBytesArrayLengths[U], U commonBytesLengths
 // static binary blobs. This method operates on plain slices of byte arrays and
 // will crash if provided a slice of a non-array. Its purpose is to get around
 // Go's generics limitations in generated code (use DefineArrayOfStaticBytes).
-func DefineUnsafeArrayOfStaticBytes[T commonBytesLengths](c CodecI, blobs []T) {
+func DefineUnsafeArrayOfStaticBytes[T commonBytesLengths, C CodecI](c C, blobs []T) {
 	if c.Enc() != nil {
 		EncodeUnsafeArrayOfStaticBytes(c.Enc(), blobs)
 		return
@@ -382,7 +382,7 @@ func DefineUnsafeArrayOfStaticBytes[T commonBytesLengths](c CodecI, blobs []T) {
 // DefineCheckedArrayOfStaticBytes defines the next field as a static array of
 // static binary blobs. This method can be used for plain slices of byte arrays,
 // which is more expensive since it needs runtime size validation.
-func DefineCheckedArrayOfStaticBytes[T commonBytesLengths](c CodecI, blobs *[]T, size uint64) {
+func DefineCheckedArrayOfStaticBytes[T commonBytesLengths, C CodecI](c C, blobs *[]T, size uint64) {
 	if c.Enc() != nil {
 		EncodeCheckedArrayOfStaticBytes(c.Enc(), *blobs)
 		return
@@ -396,7 +396,7 @@ func DefineCheckedArrayOfStaticBytes[T commonBytesLengths](c CodecI, blobs *[]T,
 
 // DefineSliceOfStaticBytesOffset defines the next field as a dynamic slice of static
 // binary blobs.
-func DefineSliceOfStaticBytesOffset[T commonBytesLengths](c CodecI, bytes *[]T, maxItems uint64) {
+func DefineSliceOfStaticBytesOffset[T commonBytesLengths, C CodecI](c C, bytes *[]T, maxItems uint64) {
 	if c.Enc() != nil {
 		EncodeSliceOfStaticBytesOffset(c.Enc(), *bytes)
 		return
@@ -410,7 +410,7 @@ func DefineSliceOfStaticBytesOffset[T commonBytesLengths](c CodecI, bytes *[]T, 
 
 // DefineSliceOfStaticBytesContent defines the next field as a dynamic slice of static
 // binary blobs.
-func DefineSliceOfStaticBytesContent[T commonBytesLengths](c CodecI, blobs *[]T, maxItems uint64) {
+func DefineSliceOfStaticBytesContent[T commonBytesLengths, C CodecI](c C, blobs *[]T, maxItems uint64) {
 	if c.Enc() != nil {
 		EncodeSliceOfStaticBytesContent(c.Enc(), *blobs)
 		return
@@ -424,7 +424,7 @@ func DefineSliceOfStaticBytesContent[T commonBytesLengths](c CodecI, blobs *[]T,
 
 // DefineSliceOfDynamicBytesOffset defines the next field as a dynamic slice of dynamic
 // binary blobs.
-func DefineSliceOfDynamicBytesOffset(c CodecI, blobs *[][]byte, maxItems uint64, maxSize uint64) {
+func DefineSliceOfDynamicBytesOffset[C CodecI](c C, blobs *[][]byte, maxItems uint64, maxSize uint64) {
 	if c.Enc() != nil {
 		EncodeSliceOfDynamicBytesOffset(c.Enc(), *blobs)
 		return
@@ -438,7 +438,7 @@ func DefineSliceOfDynamicBytesOffset(c CodecI, blobs *[][]byte, maxItems uint64,
 
 // DefineSliceOfDynamicBytesContent defines the next field as a dynamic slice of dynamic
 // binary blobs.
-func DefineSliceOfDynamicBytesContent(c CodecI, blobs *[][]byte, maxItems uint64, maxSize uint64) {
+func DefineSliceOfDynamicBytesContent[C CodecI](c C, blobs *[][]byte, maxItems uint64, maxSize uint64) {
 	if c.Enc() != nil {
 		EncodeSliceOfDynamicBytesContent(c.Enc(), *blobs)
 		return
@@ -452,7 +452,7 @@ func DefineSliceOfDynamicBytesContent(c CodecI, blobs *[][]byte, maxItems uint64
 
 // DefineSliceOfStaticObjectsOffset defines the next field as a dynamic slice of static
 // ssz objects.
-func DefineSliceOfStaticObjectsOffset[T newableStaticObject[U], U any](c CodecI, objects *[]T, maxItems uint64) {
+func DefineSliceOfStaticObjectsOffset[T newableStaticObject[U], U any, C CodecI](c C, objects *[]T, maxItems uint64) {
 	if c.Enc() != nil {
 		EncodeSliceOfStaticObjectsOffset(c.Enc(), *objects)
 		return
