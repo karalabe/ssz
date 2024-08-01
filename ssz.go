@@ -89,7 +89,11 @@ var hasherPool = sync.Pool{
 func EncodeToStream[C CodecI[C]](w io.Writer, obj Object[C]) error {
 	codec := encoderPool.Get().(C)
 	defer encoderPool.Put(codec)
+	return EncodeToStreamWithCodec(codec, w, obj)
+}
 
+// EncodeToStreamWithCodec serializes the object into a data stream using the provided codec.
+func EncodeToStreamWithCodec[C CodecI[C]](codec C, w io.Writer, obj Object[C]) error {
 	codec.Enc().outWriter, codec.Enc().err = w, nil
 	switch v := obj.(type) {
 	case StaticObject[C]:
@@ -109,12 +113,17 @@ func EncodeToStream[C CodecI[C]](w io.Writer, obj Object[C]) error {
 // would double the memory use for the temporary buffer. For that use case, use
 // EncodeToStream instead.
 func EncodeToBytes[C CodecI[C]](buf []byte, obj Object[C]) error {
+	codec := encoderPool.Get().(C)
+	defer encoderPool.Put(codec)
+	return EncodeToBytesWithCodec(codec, buf, obj)
+}
+
+// EncodeToBytesWithCodec serializes the object into a byte buffer using the provided codec.
+func EncodeToBytesWithCodec[C CodecI[C]](codec C, buf []byte, obj Object[C]) error {
 	// Sanity check that we have enough space to serialize into
 	if size := Size(obj); int(size) > len(buf) {
 		return fmt.Errorf("%w: buffer %d bytes, object %d bytes", ErrBufferTooSmall, len(buf), size)
 	}
-	codec := encoderPool.Get().(C)
-	defer encoderPool.Put(codec)
 
 	codec.Enc().outBuffer, codec.Enc().err = buf, nil
 	switch v := obj.(type) {
@@ -134,10 +143,13 @@ func EncodeToBytes[C CodecI[C]](buf []byte, obj Object[C]) error {
 // use this method with a bytes.Buffer to read from a []byte slice, as that will
 // double the byte copying. For that use case, use DecodeFromBytes instead.
 func DecodeFromStream[C CodecI[C]](r io.Reader, obj Object[C], size uint32) error {
-	// Retrieve a new decoder codec and set its data source
 	codec := decoderPool.Get().(C)
 	defer decoderPool.Put(codec)
+	return DecodeFromStreamWithCodec(codec, r, obj, size)
+}
 
+// DecodeFromStreamWithCodec parses an object with the given size out of a stream using the provided codec.
+func DecodeFromStreamWithCodec[C CodecI[C]](codec C, r io.Reader, obj Object[C], size uint32) error {
 	codec.Dec().inReader = r
 
 	// Start a decoding round with length enforcement in place
@@ -169,13 +181,17 @@ func DecodeFromStream[C CodecI[C]](r io.Reader, obj Object[C], size uint32) erro
 // would double the memory use for the temporary buffer. For that use case, use
 // DecodeFromStream instead.
 func DecodeFromBytes[C CodecI[C]](blob []byte, obj Object[C]) error {
+	codec := decoderPool.Get().(C)
+	defer decoderPool.Put(codec)
+	return DecodeFromBytesWithCodec(codec, blob, obj)
+}
+
+// DecodeFromBytesWithCodec parses an object from a byte buffer using the provided codec.
+func DecodeFromBytesWithCodec[C CodecI[C]](codec C, blob []byte, obj Object[C]) error {
 	// Reject decoding from an empty slice
 	if len(blob) == 0 {
 		return io.ErrUnexpectedEOF
 	}
-	// Retrieve a new decoder codec and set its data source
-	codec := decoderPool.Get().(C)
-	defer decoderPool.Put(codec)
 
 	codec.Dec().inBuffer = blob
 	codec.Dec().inBufEnd = uintptr(unsafe.Pointer(&blob[0])) + uintptr(len(blob))
@@ -211,22 +227,14 @@ func DecodeFromBytes[C CodecI[C]](blob []byte, obj Object[C]) error {
 func HashSequential[C CodecI[C]](obj Object[C]) [32]byte {
 	codec := hasherPool.Get().(C)
 	defer hasherPool.Put(codec)
-	defer codec.Has().Reset()
-
-	codec.Has().descendLayer()
-	obj.DefineSSZ(codec)
-	codec.Has().ascendLayer(0)
-
-	if len(codec.Has().chunks) != 1 {
-		panic(fmt.Sprintf("unfinished hashing: left %v", codec.Has().groups))
-	}
-	return codec.Has().chunks[0]
+	return HashWithCodecSequential(codec, obj)
 }
 
-// HashSequential computes the ssz merkle root of the object on a single thread.
+// HashWithCodecSequential computes the ssz merkle root of the object on a single thread.
 // This is useful for processing small objects with stable runtime and O(1) GC
 // guarantees.
 func HashWithCodecSequential[C CodecI[C]](codec C, obj Object[C]) [32]byte {
+	defer codec.Has().Reset()
 	codec.Has().descendLayer()
 	obj.DefineSSZ(codec)
 	codec.Has().ascendLayer(0)
@@ -244,8 +252,13 @@ func HashWithCodecSequential[C CodecI[C]](codec C, obj Object[C]) [32]byte {
 func HashConcurrent[C CodecI[C]](obj Object[C]) [32]byte {
 	codec := hasherPool.Get().(C)
 	defer hasherPool.Put(codec)
-	defer codec.Has().Reset()
+	return HashWithCodecConcurrent(codec, obj)
+}
 
+// HashWithCodecConcurrent computes the ssz merkle root of the object on potentially multiple
+// concurrent threads using the provided codec.
+func HashWithCodecConcurrent[C CodecI[C]](codec C, obj Object[C]) [32]byte {
+	defer codec.Has().Reset()
 	codec.Has().threads = true
 	codec.Has().descendLayer()
 	obj.DefineSSZ(codec)
