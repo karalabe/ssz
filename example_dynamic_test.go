@@ -45,7 +45,7 @@ func (e *ExecutionPayload) SizeSSZ(fixed bool) uint32 {
 
 	return size
 }
-func (e *ExecutionPayload) DefineSSZ(codec ssz.CodecI) {
+func (e *ExecutionPayload) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
 	ssz.DefineStaticBytes(codec, &e.ParentHash)                                           // Field  ( 0) - ParentHash    -  32 bytes
 	ssz.DefineStaticBytes(codec, &e.FeeRecipient)                                         // Field  ( 1) - FeeRecipient  -  20 bytes

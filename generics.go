@@ -7,16 +7,16 @@ package ssz
 // newableStaticObject is a generic type whose purpose is to enforce that the
 // ssz.StaticObject is specifically implemented on a struct pointer. That is
 // needed to allow to instantiate new structs via `new` when parsing.
-type newableStaticObject[U any] interface {
-	StaticObject
+type newableStaticObject[C CodecI[C], U any] interface {
+	StaticObject[C]
 	*U
 }
 
 // newableDynamicObject is a generic type whose purpose is to enforce that the
 // ssz.DynamicObject is specifically implemented on a struct pointer. That is
 // needed to allow to instantiate new structs via `new` when parsing.
-type newableDynamicObject[U any] interface {
-	DynamicObject
+type newableDynamicObject[C CodecI[C], U any] interface {
+	DynamicObject[C]
 	*U
 }
 

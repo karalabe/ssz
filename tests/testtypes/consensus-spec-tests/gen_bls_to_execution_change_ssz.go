@@ -10,7 +10,7 @@ func (obj *BLSToExecutionChange) SizeSSZ() uint32 {
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *BLSToExecutionChange) DefineSSZ(codec ssz.CodecI) {
+func (obj *BLSToExecutionChange) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUint64(codec, &obj.ValidatorIndex)          // Field  (0) -     ValidatorIndex -  8 bytes
 	ssz.DefineStaticBytes(codec, &obj.FromBLSPubKey)      // Field  (1) -      FromBLSPubKey - 48 bytes
 	ssz.DefineStaticBytes(codec, &obj.ToExecutionAddress) // Field  (2) - ToExecutionAddress - 20 bytes

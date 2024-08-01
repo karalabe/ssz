@@ -20,7 +20,7 @@ func (obj *PendingAttestation) SizeSSZ(fixed bool) uint32 {
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *PendingAttestation) DefineSSZ(codec ssz.CodecI) {
+func (obj *PendingAttestation) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
 	ssz.DefineSliceOfBitsOffset(codec, &obj.AggregationBits, 2048) // Offset (0) - AggregationBits - 4 bytes
 	ssz.DefineStaticObject(codec, &obj.Data)                       // Field  (1) -            Data - ? bytes (AttestationData)

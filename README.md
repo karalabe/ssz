@@ -87,7 +87,7 @@ type StaticObject interface {
 ```go
 func (w *Withdrawal) SizeSSZ() uint32 { return 44 }
 
-func (w *Withdrawal) DefineSSZ(codec ssz.CodecI) {
+func (w *Withdrawal) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUint64(codec, &w.Index)        // Field (0) - Index          -  8 bytes
 	ssz.DefineUint64(codec, &w.Validator)    // Field (1) - ValidatorIndex -  8 bytes
 	ssz.DefineStaticBytes(codec, &w.Address) // Field (2) - Address        - 20 bytes
@@ -182,7 +182,7 @@ Opposed to the static `Withdrawal` from the previous section, `ExecutionPayload`
 The codec itself is very similar to the static example before:
 
 ```go
-func (e *ExecutionPayload) DefineSSZ(codec ssz.CodecI) {
+func (e *ExecutionPayload) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
 	ssz.DefineStaticBytes(codec, &e.ParentHash)                                           // Field  ( 0) - ParentHash    -  32 bytes
 	ssz.DefineStaticBytes(codec, &e.FeeRecipient)                                         // Field  ( 1) - FeeRecipient  -  20 bytes
@@ -237,7 +237,7 @@ For these scenarios, this package has support for asymmetric encoders/decoders, 
 To avoid having a real-world example's complexity overshadow the point we're trying to make here, we'll just convert the previously demoed `Withdrawal` encoding/decoding from the unified `codec` version to a separate `encoder` and `decoder` version.
 
 ```go
-func (w *Withdrawal) DefineSSZ(codec ssz.CodecI) {
+func (w *Withdrawal) DefineSSZ(codec *ssz.Codec) {
 	codec.DefineEncoder(func(enc *ssz.Encoder) {
 		ssz.EncodeUint64(enc, w.Index)         // Field (0) - Index          -  8 bytes
 		ssz.EncodeUint64(enc, w.Validator)     // Field (1) - ValidatorIndex -  8 bytes
@@ -278,7 +278,7 @@ type Withdrawal struct {
 The code for the `SizeSSZ` remains the same. The code for `DefineSSZ` changes ever so slightly:
 
 ```go
-func (w *Withdrawal) DefineSSZ(codec ssz.CodecI) {
+func (w *Withdrawal) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUint64(codec, &w.Index)                   // Field (0) - Index          -  8 bytes
 	ssz.DefineUint64(codec, &w.Validator)               // Field (1) - ValidatorIndex -  8 bytes
 	ssz.DefineCheckedStaticBytes(codec, &w.Address, 20) // Field (2) - Address        - 20 bytes
@@ -334,7 +334,7 @@ func (obj *Withdrawal) SizeSSZ() uint32 {
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *Withdrawal) DefineSSZ(codec ssz.CodecI) {
+func (obj *Withdrawal) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUint64(codec, &obj.Index)        // Field  (0) -     Index -  8 bytes
 	ssz.DefineUint64(codec, &obj.Validator)    // Field  (1) - Validator -  8 bytes
 	ssz.DefineStaticBytes(codec, &obj.Address) // Field  (2) -   Address - 20 bytes
@@ -402,7 +402,7 @@ func (obj *ExecutionPayload) SizeSSZ(fixed bool) uint32 {
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *ExecutionPayload) DefineSSZ(codec ssz.CodecI) {
+func (obj *ExecutionPayload) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
 	ssz.DefineCheckedStaticBytes(codec, &obj.ParentHash, 32)                           // Field  ( 0) -    ParentHash -  32 bytes
 	ssz.DefineCheckedStaticBytes(codec, &obj.FeeRecipient, 32)                         // Field  ( 1) -  FeeRecipient -  32 bytes
@@ -491,7 +491,7 @@ type Withdrawal struct {
 }
 
 func (w *Withdrawal) SizeSSZ() uint32 { return 44 }
-func (w *Withdrawal) DefineSSZ(codec ssz.CodecI) {
+func (w *Withdrawal) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUint64(codec, &w.Index)        // Field (0) - Index          -  8 bytes
 	ssz.DefineUint64(codec, &w.Validator)    // Field (1) - ValidatorIndex -  8 bytes
 	ssz.DefineStaticBytes(codec, &w.Address) // Field (2) - Address        - 20 bytes
@@ -513,7 +513,7 @@ func main() {
 If for some reason you have a type that requires custom encoders/decoders, high chance, that it will also require a custom hasher. For those cases, this library provides an API surface very similar to how the asymmetric encoding/decoding worked:
 
 ```go
-func (w *Withdrawal) DefineSSZ(codec ssz.CodecI) {
+func (w *Withdrawal) DefineSSZ(codec *ssz.Codec) {
 	codec.DefineEncoder(func(enc *ssz.Encoder) {
 		ssz.EncodeUint64(enc, w.Index)         // Field (0) - Index          -  8 bytes
 		ssz.EncodeUint64(enc, w.Validator)     // Field (1) - ValidatorIndex -  8 bytes

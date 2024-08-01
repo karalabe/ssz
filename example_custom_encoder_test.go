@@ -23,7 +23,7 @@ type FunkyWithdrawal struct {
 
 func (w *FunkyWithdrawal) SizeSSZ() uint32 { return 44 }
 
-func (w *FunkyWithdrawal) DefineSSZ(codec ssz.CodecI) {
+func (w *FunkyWithdrawal) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUint64(codec, &w.Index)                   // Field (0) - Index          -  8 bytes
 	ssz.DefineUint64(codec, &w.Validator)               // Field (1) - ValidatorIndex -  8 bytes
 	ssz.DefineCheckedStaticBytes(codec, &w.Address, 20) // Field (2) - Address        - 20 bytes
@@ -31,10 +31,7 @@ func (w *FunkyWithdrawal) DefineSSZ(codec ssz.CodecI) {
 }
 
 func ExampleCustomEncoder() {
-	rawCdc := &ssz.Codec{}
-	rawCdc.SetEncoder(new(ssz.Encoder))
-	cdc := CustomCodec{Codec: rawCdc}
-	hash := ssz.HashWithCodecSequential(cdc, new(Withdrawal))
+	hash := ssz.HashSequential(new(FunkyWithdrawal))
 
 	fmt.Printf("hash: %#x\n", hash)
 	// Output

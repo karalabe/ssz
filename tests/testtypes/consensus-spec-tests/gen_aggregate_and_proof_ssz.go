@@ -17,7 +17,7 @@ func (obj *AggregateAndProof) SizeSSZ(fixed bool) uint32 {
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *AggregateAndProof) DefineSSZ(codec ssz.CodecI) {
+func (obj *AggregateAndProof) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
 	ssz.DefineUint64(codec, &obj.Index)                  // Field  (0) -          Index -  8 bytes
 	ssz.DefineDynamicObjectOffset(codec, &obj.Aggregate) // Offset (1) -      Aggregate -  4 bytes

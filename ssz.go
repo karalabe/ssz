@@ -14,16 +14,20 @@ import (
 
 // Object defines the methods a type needs to implement to be used as a ssz
 // encodable and decodable object.
-type Object interface {
+type Object[C CodecI[C]] interface {
 	// DefineSSZ defines how an object would be encoded/decoded.
-	DefineSSZ(codec CodecI)
+	DefineSSZ(codec C)
 }
 
 // StaticObject defines the methods a type needs to implement to be used as a
 // ssz encodable and decodable static object.
-type StaticObject interface {
-	Object
+type StaticObject[C CodecI[C]] interface {
+	Object[C]
+	StaticObjectSizer
+}
 
+// StaticObjectSizer defines the methods a type needs to implement to be used as a
+type StaticObjectSizer interface {
 	// SizeSSZ returns the total size of the ssz object.
 	//
 	// Note, StaticObject.SizeSSZ and DynamicObject.SizeSSZ deliberately clash
@@ -34,9 +38,12 @@ type StaticObject interface {
 
 // DynamicObject defines the methods a type needs to implement to be used as a
 // ssz encodable and decodable dynamic object.
-type DynamicObject interface {
-	Object
+type DynamicObject[C CodecI[C]] interface {
+	Object[C]
+	DynamicObjectSizer
+}
 
+type DynamicObjectSizer interface {
 	// SizeSSZ returns either the static size of the object if fixed == true, or
 	// the total size otherwise.
 	//
@@ -50,7 +57,7 @@ type DynamicObject interface {
 // without hitting Go's GC constantly.
 var encoderPool = sync.Pool{
 	New: func() any {
-		codec := &Codec{enc: new(Encoder)}
+		codec := &Codec{enc: new(Encoder[*Codec])}
 		codec.Enc().codec = codec
 		return codec
 	},
@@ -60,7 +67,7 @@ var encoderPool = sync.Pool{
 // without hitting Go's GC constantly.
 var decoderPool = sync.Pool{
 	New: func() any {
-		codec := &Codec{dec: new(Decoder)}
+		codec := &Codec{dec: new(Decoder[*Codec])}
 		codec.Dec().codec = codec
 		return codec
 	},
@@ -70,7 +77,7 @@ var decoderPool = sync.Pool{
 // without hitting Go's GC constantly.
 var hasherPool = sync.Pool{
 	New: func() any {
-		codec := &Codec{has: new(Hasher)}
+		codec := &Codec{has: new(Hasher[*Codec])}
 		codec.Has().codec = codec
 		return codec
 	},
@@ -79,15 +86,15 @@ var hasherPool = sync.Pool{
 // EncodeToStream serializes the object into a data stream. Do not use this
 // method with a bytes.Buffer to write into a []byte slice, as that will do
 // double the byte copying. For that use case, use EncodeToBytes instead.
-func EncodeToStream(w io.Writer, obj Object) error {
-	codec := encoderPool.Get().(CodecI)
+func EncodeToStream[C CodecI[C]](w io.Writer, obj Object[C]) error {
+	codec := encoderPool.Get().(C)
 	defer encoderPool.Put(codec)
 
 	codec.Enc().outWriter, codec.Enc().err = w, nil
 	switch v := obj.(type) {
-	case StaticObject:
+	case StaticObject[C]:
 		v.DefineSSZ(codec)
-	case DynamicObject:
+	case DynamicObject[C]:
 		codec.Enc().offsetDynamics(v.SizeSSZ(true))
 		v.DefineSSZ(codec)
 	default:
@@ -101,19 +108,19 @@ func EncodeToStream(w io.Writer, obj Object) error {
 // if you want to then write the buffer into a stream via some writer, as that
 // would double the memory use for the temporary buffer. For that use case, use
 // EncodeToStream instead.
-func EncodeToBytes(buf []byte, obj Object) error {
+func EncodeToBytes[C CodecI[C]](buf []byte, obj Object[C]) error {
 	// Sanity check that we have enough space to serialize into
 	if size := Size(obj); int(size) > len(buf) {
 		return fmt.Errorf("%w: buffer %d bytes, object %d bytes", ErrBufferTooSmall, len(buf), size)
 	}
-	codec := encoderPool.Get().(CodecI)
+	codec := encoderPool.Get().(C)
 	defer encoderPool.Put(codec)
 
 	codec.Enc().outBuffer, codec.Enc().err = buf, nil
 	switch v := obj.(type) {
-	case StaticObject:
+	case StaticObject[C]:
 		v.DefineSSZ(codec)
-	case DynamicObject:
+	case DynamicObject[C]:
 		codec.Enc().offsetDynamics(v.SizeSSZ(true))
 		v.DefineSSZ(codec)
 	default:
@@ -126,9 +133,9 @@ func EncodeToBytes(buf []byte, obj Object) error {
 // DecodeFromStream parses an object with the given size out of a stream. Do not
 // use this method with a bytes.Buffer to read from a []byte slice, as that will
 // double the byte copying. For that use case, use DecodeFromBytes instead.
-func DecodeFromStream(r io.Reader, obj Object, size uint32) error {
+func DecodeFromStream[C CodecI[C]](r io.Reader, obj Object[C], size uint32) error {
 	// Retrieve a new decoder codec and set its data source
-	codec := decoderPool.Get().(CodecI)
+	codec := decoderPool.Get().(C)
 	defer decoderPool.Put(codec)
 
 	codec.Dec().inReader = r
@@ -137,9 +144,9 @@ func DecodeFromStream(r io.Reader, obj Object, size uint32) error {
 	codec.Dec().descendIntoSlot(size)
 
 	switch v := obj.(type) {
-	case StaticObject:
+	case StaticObject[C]:
 		v.DefineSSZ(codec)
-	case DynamicObject:
+	case DynamicObject[C]:
 		codec.Dec().startDynamics(v.SizeSSZ(true))
 		v.DefineSSZ(codec)
 		codec.Dec().flushDynamics()
@@ -161,13 +168,13 @@ func DecodeFromStream(r io.Reader, obj Object, size uint32) error {
 // if you want to first read the buffer from a stream via some reader, as that
 // would double the memory use for the temporary buffer. For that use case, use
 // DecodeFromStream instead.
-func DecodeFromBytes(blob []byte, obj Object) error {
+func DecodeFromBytes[C CodecI[C]](blob []byte, obj Object[C]) error {
 	// Reject decoding from an empty slice
 	if len(blob) == 0 {
 		return io.ErrUnexpectedEOF
 	}
 	// Retrieve a new decoder codec and set its data source
-	codec := decoderPool.Get().(CodecI)
+	codec := decoderPool.Get().(C)
 	defer decoderPool.Put(codec)
 
 	codec.Dec().inBuffer = blob
@@ -177,9 +184,9 @@ func DecodeFromBytes(blob []byte, obj Object) error {
 	codec.Dec().descendIntoSlot(uint32(len(blob)))
 
 	switch v := obj.(type) {
-	case StaticObject:
+	case StaticObject[C]:
 		v.DefineSSZ(codec)
-	case DynamicObject:
+	case DynamicObject[C]:
 		codec.Dec().startDynamics(v.SizeSSZ(true))
 		v.DefineSSZ(codec)
 		codec.Dec().flushDynamics()
@@ -201,8 +208,8 @@ func DecodeFromBytes(blob []byte, obj Object) error {
 // HashSequential computes the ssz merkle root of the object on a single thread.
 // This is useful for processing small objects with stable runtime and O(1) GC
 // guarantees.
-func HashSequential(obj Object) [32]byte {
-	codec := hasherPool.Get().(CodecI)
+func HashSequential[C CodecI[C]](obj Object[C]) [32]byte {
+	codec := hasherPool.Get().(C)
 	defer hasherPool.Put(codec)
 	defer codec.Has().Reset()
 
@@ -219,7 +226,7 @@ func HashSequential(obj Object) [32]byte {
 // HashSequential computes the ssz merkle root of the object on a single thread.
 // This is useful for processing small objects with stable runtime and O(1) GC
 // guarantees.
-func HashWithCodecSequential(codec CodecI, obj Object) [32]byte {
+func HashWithCodecSequential[C CodecI[C]](codec C, obj Object[C]) [32]byte {
 	codec.Has().descendLayer()
 	obj.DefineSSZ(codec)
 	codec.Has().ascendLayer(0)
@@ -234,8 +241,8 @@ func HashWithCodecSequential(codec CodecI, obj Object) [32]byte {
 // concurrent threads (iff some data segments are large enough to be worth it). This
 // is useful for processing large objects, but will place a bigger load on your CPU
 // and GC; and might be more variable timing wise depending on other load.
-func HashConcurrent(obj Object) [32]byte {
-	codec := hasherPool.Get().(CodecI)
+func HashConcurrent[C CodecI[C]](obj Object[C]) [32]byte {
+	codec := hasherPool.Get().(C)
 	defer hasherPool.Put(codec)
 	defer codec.Has().Reset()
 
@@ -252,12 +259,12 @@ func HashConcurrent(obj Object) [32]byte {
 
 // Size retrieves the size of a ssz object, independent if it's a static or a
 // dynamic one.
-func Size(obj Object) uint32 {
+func Size(obj any) uint32 {
 	var size uint32
 	switch v := obj.(type) {
-	case StaticObject:
+	case StaticObjectSizer:
 		size = v.SizeSSZ()
-	case DynamicObject:
+	case DynamicObjectSizer:
 		size = v.SizeSSZ(false)
 	default:
 		panic(fmt.Sprintf("unsupported type: %T", obj))

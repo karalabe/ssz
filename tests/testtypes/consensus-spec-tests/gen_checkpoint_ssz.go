@@ -10,7 +10,7 @@ func (obj *Checkpoint) SizeSSZ() uint32 {
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *Checkpoint) DefineSSZ(codec ssz.CodecI) {
+func (obj *Checkpoint) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUint64(codec, &obj.Epoch)     // Field  (0) - Epoch -  8 bytes
 	ssz.DefineStaticBytes(codec, &obj.Root) // Field  (1) -  Root - 32 bytes
 }

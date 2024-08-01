@@ -19,20 +19,20 @@ type WithdrawalAsym struct {
 
 func (w *WithdrawalAsym) SizeSSZ() uint32 { return 44 }
 
-func (w *WithdrawalAsym) DefineSSZ(codec ssz.CodecI) {
-	codec.DefineEncoder(func(enc *ssz.Encoder) {
+func (w *WithdrawalAsym) DefineSSZ(codec *ssz.Codec) {
+	codec.DefineEncoder(func(enc *ssz.Encoder[*ssz.Codec]) {
 		ssz.EncodeUint64(enc, w.Index)         // Field (0) - Index          -  8 bytes
 		ssz.EncodeUint64(enc, w.Validator)     // Field (1) - ValidatorIndex -  8 bytes
 		ssz.EncodeStaticBytes(enc, &w.Address) // Field (2) - Address        - 20 bytes
 		ssz.EncodeUint64(enc, w.Amount)        // Field (3) - Amount         -  8 bytes
 	})
-	codec.DefineDecoder(func(dec *ssz.Decoder) {
+	codec.DefineDecoder(func(dec *ssz.Decoder[*ssz.Codec]) {
 		ssz.DecodeUint64(dec, &w.Index)        // Field (0) - Index          -  8 bytes
 		ssz.DecodeUint64(dec, &w.Validator)    // Field (1) - ValidatorIndex -  8 bytes
 		ssz.DecodeStaticBytes(dec, &w.Address) // Field (2) - Address        - 20 bytes
 		ssz.DecodeUint64(dec, &w.Amount)       // Field (3) - Amount         -  8 bytes
 	})
-	codec.DefineHasher(func(has *ssz.Hasher) {
+	codec.DefineHasher(func(has *ssz.Hasher[*ssz.Codec]) {
 		ssz.HashUint64(has, w.Index)         // Field (0) - Index          -  8 bytes
 		ssz.HashUint64(has, w.Validator)     // Field (1) - ValidatorIndex -  8 bytes
 		ssz.HashStaticBytes(has, &w.Address) // Field (2) - Address        - 20 bytes

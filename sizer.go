@@ -26,7 +26,7 @@ func SizeSliceOfUint64s[T ~uint64](ns []T) uint32 {
 
 // SizeDynamicObject returns the serialized size of the dynamic part of a dynamic
 // object.
-func SizeDynamicObject[T DynamicObject](obj T) uint32 {
+func SizeDynamicObject[T DynamicObjectSizer](obj T) uint32 {
 	return obj.SizeSSZ(false)
 }
 
@@ -51,7 +51,7 @@ func SizeSliceOfDynamicBytes(blobs [][]byte) uint32 {
 
 // SizeSliceOfStaticObjects returns the serialized size of the dynamic part of a dynamic
 // list of static objects.
-func SizeSliceOfStaticObjects[T StaticObject](objects []T) uint32 {
+func SizeSliceOfStaticObjects[T StaticObjectSizer](objects []T) uint32 {
 	if len(objects) == 0 {
 		return 0
 	}
@@ -60,7 +60,7 @@ func SizeSliceOfStaticObjects[T StaticObject](objects []T) uint32 {
 
 // SizeSliceOfDynamicObjects returns the serialized size of the dynamic part of
 // a dynamic list of dynamic objects.
-func SizeSliceOfDynamicObjects[T DynamicObject](objects []T) uint32 {
+func SizeSliceOfDynamicObjects[T DynamicObjectSizer](objects []T) uint32 {
 	var size uint32
 	for _, obj := range objects {
 		size += 4 + obj.SizeSSZ(false) // 4-byte offset + dynamic data later

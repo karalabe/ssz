@@ -28,7 +28,7 @@ func (obj *BeaconStateCapella) SizeSSZ(fixed bool) uint32 {
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *BeaconStateCapella) DefineSSZ(codec ssz.CodecI) {
+func (obj *BeaconStateCapella) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
 	ssz.DefineUint64(codec, &obj.GenesisTime)                                           // Field  ( 0) -                  GenesisTime -       8 bytes
 	ssz.DefineStaticBytes(codec, &obj.GenesisValidatorsRoot)                            // Field  ( 1) -        GenesisValidatorsRoot -      32 bytes

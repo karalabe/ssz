@@ -18,7 +18,7 @@ func (obj *AttesterSlashing) SizeSSZ(fixed bool) uint32 {
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *AttesterSlashing) DefineSSZ(codec ssz.CodecI) {
+func (obj *AttesterSlashing) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
 	ssz.DefineDynamicObjectOffset(codec, &obj.Attestation1) // Offset (0) - Attestation1 - 4 bytes
 	ssz.DefineDynamicObjectOffset(codec, &obj.Attestation2) // Offset (1) - Attestation2 - 4 bytes

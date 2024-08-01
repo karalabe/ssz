@@ -279,7 +279,7 @@ func generateDefineSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 	)
 	// Generate the code itself
 	fmt.Fprint(&b, "// DefineSSZ defines how an object is encoded/decoded.\n")
-	fmt.Fprintf(&b, "func (obj *%s) DefineSSZ(codec ssz.CodecI) {\n", typ.named.Obj().Name())
+	fmt.Fprintf(&b, "func (obj *%s) DefineSSZ(codec *ssz.Codec) {\n", typ.named.Obj().Name())
 	if !typ.static {
 		fmt.Fprint(&b, "	// Define the static data (fields and dynamic offsets)\n")
 	}

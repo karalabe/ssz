@@ -13,7 +13,7 @@ func (obj *Deposit) SizeSSZ() uint32 {
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *Deposit) DefineSSZ(codec ssz.CodecI) {
+func (obj *Deposit) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUnsafeArrayOfStaticBytes(codec, obj.Proof[:]) // Field  (0) - Proof - 1056 bytes
 	ssz.DefineStaticObject(codec, &obj.Data)                // Field  (1) -  Data -    ? bytes (DepositData)
 }

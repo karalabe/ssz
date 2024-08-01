@@ -18,7 +18,7 @@ func (obj *BitsStruct) SizeSSZ(fixed bool) uint32 {
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *BitsStruct) DefineSSZ(codec ssz.CodecI) {
+func (obj *BitsStruct) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
 	ssz.DefineSliceOfBitsOffset(codec, &obj.A, 5) // Offset (0) - A - 4 bytes
 	ssz.DefineArrayOfBits(codec, &obj.B, 2)       // Field  (1) - B - 1 bytes

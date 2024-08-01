@@ -10,6 +10,6 @@ func (obj *SingleFieldTestStruct) SizeSSZ() uint32 {
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *SingleFieldTestStruct) DefineSSZ(codec ssz.CodecI) {
+func (obj *SingleFieldTestStruct) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUint8(codec, &obj.A) // Field  (0) - A - 1 bytes
 }

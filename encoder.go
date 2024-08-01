@@ -65,12 +65,12 @@ var (
 //     copied verbatim). Unfortunately the Go compiler doesn't inline functions
 //     aggressively enough (neither does it allow explicitly directing it to),
 //     and in such tight loops, extra calls matter on performance.
-type Encoder struct {
+type Encoder[C any] struct {
 	outWriter io.Writer // Underlying output stream to write into (streaming mode)
 	outBuffer []byte    // Underlying output stream to write into (buffered mode)
 
-	err   error  // Any write error to halt future encoding calls
-	codec CodecI // Self-referencing to pass DefineSSZ calls through (API trick)
+	err   error // Any write error to halt future encoding calls
+	codec C     // Self-referencing to pass DefineSSZ calls through (API trick)
 
 	buf    [32]byte    // Integer conversion buffer
 	bufInt uint256.Int // Big.Int conversion buffer (not pointer, alloc free)
@@ -79,7 +79,7 @@ type Encoder struct {
 }
 
 // EncodeBool serializes a boolean.
-func EncodeBool[T ~bool](enc *Encoder, v T) {
+func EncodeBool[C CodecI[C], T ~bool](enc *Encoder[C], v T) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -100,7 +100,7 @@ func EncodeBool[T ~bool](enc *Encoder, v T) {
 }
 
 // EncodeUint8 serializes a uint8.
-func EncodeUint8[T ~uint8](enc *Encoder, n T) {
+func EncodeUint8[C CodecI[C], T ~uint8](enc *Encoder[C], n T) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -114,7 +114,7 @@ func EncodeUint8[T ~uint8](enc *Encoder, n T) {
 }
 
 // EncodeUint16 serializes a uint16.
-func EncodeUint16[T ~uint16](enc *Encoder, n T) {
+func EncodeUint16[C CodecI[C], T ~uint16](enc *Encoder[C], n T) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -128,7 +128,7 @@ func EncodeUint16[T ~uint16](enc *Encoder, n T) {
 }
 
 // EncodeUint32 serializes a uint32.
-func EncodeUint32[T ~uint32](enc *Encoder, n T) {
+func EncodeUint32[C CodecI[C], T ~uint32](enc *Encoder[C], n T) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -142,7 +142,7 @@ func EncodeUint32[T ~uint32](enc *Encoder, n T) {
 }
 
 // EncodeUint64 serializes a uint64.
-func EncodeUint64[T ~uint64](enc *Encoder, n T) {
+func EncodeUint64[C CodecI[C], T ~uint64](enc *Encoder[C], n T) {
 	// Nope, dive into actual encoding
 	if enc.outWriter != nil {
 		if enc.err != nil {
@@ -159,7 +159,7 @@ func EncodeUint64[T ~uint64](enc *Encoder, n T) {
 // EncodeUint256 serializes a uint256.
 //
 // Note, a nil pointer is serialized as zero.
-func EncodeUint256(enc *Encoder, n *uint256.Int) {
+func EncodeUint256[C CodecI[C]](enc *Encoder[C], n *uint256.Int) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -184,7 +184,7 @@ func EncodeUint256(enc *Encoder, n *uint256.Int) {
 //
 // Note, a nil pointer is serialized as zero.
 // Note, an overflow will be silently dropped.
-func EncodeUint256BigInt(enc *Encoder, n *big.Int) {
+func EncodeUint256BigInt[C CodecI[C]](enc *Encoder[C], n *big.Int) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -211,7 +211,7 @@ func EncodeUint256BigInt(enc *Encoder, n *big.Int) {
 //
 // The blob is passed by pointer to avoid high stack copy costs and a potential
 // escape to the heap.
-func EncodeStaticBytes[T commonBytesLengths](enc *Encoder, blob *T) {
+func EncodeStaticBytes[C CodecI[C], T commonBytesLengths](enc *Encoder[C], blob *T) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -228,7 +228,7 @@ func EncodeStaticBytes[T commonBytesLengths](enc *Encoder, blob *T) {
 }
 
 // EncodeCheckedStaticBytes serializes a static binary blob.
-func EncodeCheckedStaticBytes(enc *Encoder, blob []byte) {
+func EncodeCheckedStaticBytes[C CodecI[C]](enc *Encoder[C], blob []byte) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -241,7 +241,7 @@ func EncodeCheckedStaticBytes(enc *Encoder, blob []byte) {
 }
 
 // EncodeDynamicBytesOffset serializes a dynamic binary blob.
-func EncodeDynamicBytesOffset(enc *Encoder, blob []byte) {
+func EncodeDynamicBytesOffset[C CodecI[C]](enc *Encoder[C], blob []byte) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -256,7 +256,7 @@ func EncodeDynamicBytesOffset(enc *Encoder, blob []byte) {
 }
 
 // EncodeDynamicBytesContent is the lazy data writer for EncodeDynamicBytesOffset.
-func EncodeDynamicBytesContent(enc *Encoder, blob []byte) {
+func EncodeDynamicBytesContent[C CodecI[C]](enc *Encoder[C], blob []byte) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -269,7 +269,7 @@ func EncodeDynamicBytesContent(enc *Encoder, blob []byte) {
 }
 
 // EncodeStaticObject serializes a static ssz object.
-func EncodeStaticObject(enc *Encoder, obj StaticObject) {
+func EncodeStaticObject[C CodecI[C]](enc *Encoder[C], obj StaticObject[C]) {
 	if enc.err != nil {
 		return
 	}
@@ -277,7 +277,7 @@ func EncodeStaticObject(enc *Encoder, obj StaticObject) {
 }
 
 // EncodeDynamicObjectOffset serializes a dynamic ssz object.
-func EncodeDynamicObjectOffset(enc *Encoder, obj DynamicObject) {
+func EncodeDynamicObjectOffset[C CodecI[C]](enc *Encoder[C], obj DynamicObject[C]) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -292,7 +292,7 @@ func EncodeDynamicObjectOffset(enc *Encoder, obj DynamicObject) {
 }
 
 // EncodeDynamicObjectContent is the lazy data writer for EncodeDynamicObjectOffset.
-func EncodeDynamicObjectContent(enc *Encoder, obj DynamicObject) {
+func EncodeDynamicObjectContent[C CodecI[C]](enc *Encoder[C], obj DynamicObject[C]) {
 	if enc.err != nil {
 		return
 	}
@@ -301,7 +301,7 @@ func EncodeDynamicObjectContent(enc *Encoder, obj DynamicObject) {
 }
 
 // EncodeArrayOfBits serializes a static array of (packed) bits.
-func EncodeArrayOfBits[T commonBitsLengths](enc *Encoder, bits *T) {
+func EncodeArrayOfBits[C CodecI[C], T commonBitsLengths](enc *Encoder[C], bits *T) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -318,7 +318,7 @@ func EncodeArrayOfBits[T commonBitsLengths](enc *Encoder, bits *T) {
 }
 
 // EncodeSliceOfBitsOffset serializes a dynamic slice of (packed) bits.
-func EncodeSliceOfBitsOffset(enc *Encoder, bits bitfield.Bitlist) {
+func EncodeSliceOfBitsOffset[C CodecI[C]](enc *Encoder[C], bits bitfield.Bitlist) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -333,7 +333,7 @@ func EncodeSliceOfBitsOffset(enc *Encoder, bits bitfield.Bitlist) {
 }
 
 // EncodeSliceOfBitsContent is the lazy data writer for EncodeSliceOfBitsOffset.
-func EncodeSliceOfBitsContent(enc *Encoder, bits bitfield.Bitlist) {
+func EncodeSliceOfBitsContent[C CodecI[C]](enc *Encoder[C], bits bitfield.Bitlist) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -350,7 +350,7 @@ func EncodeSliceOfBitsContent(enc *Encoder, bits bitfield.Bitlist) {
 // The reason the ns is passed by pointer and not by value is to prevent it from
 // escaping to the heap (and incurring an allocation) when passing it to the
 // output stream.
-func EncodeArrayOfUint64s[T commonUint64sLengths](enc *Encoder, ns *T) {
+func EncodeArrayOfUint64s[C CodecI[C], T commonUint64sLengths](enc *Encoder[C], ns *T) {
 	// The code below should have used `*blob[:]`, alas Go's generics compiler
 	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 	nums := unsafe.Slice(&(*ns)[0], len(*ns))
@@ -374,7 +374,7 @@ func EncodeArrayOfUint64s[T commonUint64sLengths](enc *Encoder, ns *T) {
 }
 
 // EncodeSliceOfUint64sOffset serializes a dynamic slice of uint64s.
-func EncodeSliceOfUint64sOffset[T ~uint64](enc *Encoder, ns []T) {
+func EncodeSliceOfUint64sOffset[C CodecI[C], T ~uint64](enc *Encoder[C], ns []T) {
 	// Nope, dive into actual encoding
 	if enc.outWriter != nil {
 		if enc.err != nil {
@@ -392,7 +392,7 @@ func EncodeSliceOfUint64sOffset[T ~uint64](enc *Encoder, ns []T) {
 }
 
 // EncodeSliceOfUint64sContent is the lazy data writer for EncodeSliceOfUint64sOffset.
-func EncodeSliceOfUint64sContent[T ~uint64](enc *Encoder, ns []T) {
+func EncodeSliceOfUint64sContent[C CodecI[C], T ~uint64](enc *Encoder[C], ns []T) {
 	if enc.outWriter != nil {
 		for _, n := range ns {
 			if enc.err != nil {
@@ -415,7 +415,7 @@ func EncodeSliceOfUint64sContent[T ~uint64](enc *Encoder, ns []T) {
 // The reason the blobs is passed by pointer and not by value is to prevent it
 // from escaping to the heap (and incurring an allocation) when passing it to
 // the output stream.
-func EncodeArrayOfStaticBytes[T commonBytesArrayLengths[U], U commonBytesLengths](enc *Encoder, blobs *T) {
+func EncodeArrayOfStaticBytes[T commonBytesArrayLengths[U], U commonBytesLengths, C CodecI[C]](enc *Encoder[C], blobs *T) {
 	// The code below should have used `(*blobs)[:]`, alas Go's generics compiler
 	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 	EncodeUnsafeArrayOfStaticBytes(enc, unsafe.Slice(&(*blobs)[0], len(*blobs)))
@@ -423,7 +423,7 @@ func EncodeArrayOfStaticBytes[T commonBytesArrayLengths[U], U commonBytesLengths
 
 // EncodeUnsafeArrayOfStaticBytes serializes a static array of static binary
 // blobs.
-func EncodeUnsafeArrayOfStaticBytes[T commonBytesLengths](enc *Encoder, blobs []T) {
+func EncodeUnsafeArrayOfStaticBytes[T commonBytesLengths, C CodecI[C]](enc *Encoder[C], blobs []T) {
 	// Internally this method is essentially calling EncodeStaticBytes on all
 	// the blobs in a loop. Practically, we've inlined that call to make things
 	// a *lot* faster.
@@ -448,7 +448,7 @@ func EncodeUnsafeArrayOfStaticBytes[T commonBytesLengths](enc *Encoder, blobs []
 
 // EncodeCheckedArrayOfStaticBytes serializes a static array of static binary
 // blobs.
-func EncodeCheckedArrayOfStaticBytes[T commonBytesLengths](enc *Encoder, blobs []T) {
+func EncodeCheckedArrayOfStaticBytes[T commonBytesLengths, C CodecI[C]](enc *Encoder[C], blobs []T) {
 	// Internally this method is essentially calling EncodeStaticBytes on all
 	// the blobs in a loop. Practically, we've inlined that call to make things
 	// a *lot* faster.
@@ -472,7 +472,7 @@ func EncodeCheckedArrayOfStaticBytes[T commonBytesLengths](enc *Encoder, blobs [
 }
 
 // EncodeSliceOfStaticBytesOffset serializes a dynamic slice of static binary blobs.
-func EncodeSliceOfStaticBytesOffset[T commonBytesLengths](enc *Encoder, blobs []T) {
+func EncodeSliceOfStaticBytesOffset[C CodecI[C], T commonBytesLengths](enc *Encoder[C], blobs []T) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -489,7 +489,7 @@ func EncodeSliceOfStaticBytesOffset[T commonBytesLengths](enc *Encoder, blobs []
 }
 
 // EncodeSliceOfStaticBytesContent is the lazy data writer for EncodeSliceOfStaticBytesOffset.
-func EncodeSliceOfStaticBytesContent[T commonBytesLengths](enc *Encoder, blobs []T) {
+func EncodeSliceOfStaticBytesContent[C CodecI[C], T commonBytesLengths](enc *Encoder[C], blobs []T) {
 	// Internally this method is essentially calling EncodeStaticBytes on all
 	// the blobs in a loop. Practically, we've inlined that call to make things
 	// a *lot* faster.
@@ -513,7 +513,7 @@ func EncodeSliceOfStaticBytesContent[T commonBytesLengths](enc *Encoder, blobs [
 }
 
 // EncodeSliceOfDynamicBytesOffset serializes a dynamic slice of dynamic binary blobs.
-func EncodeSliceOfDynamicBytesOffset(enc *Encoder, blobs [][]byte) {
+func EncodeSliceOfDynamicBytesOffset[C CodecI[C]](enc *Encoder[C], blobs [][]byte) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -530,7 +530,7 @@ func EncodeSliceOfDynamicBytesOffset(enc *Encoder, blobs [][]byte) {
 }
 
 // EncodeSliceOfDynamicBytesContent is the lazy data writer for EncodeSliceOfDynamicBytesOffset.
-func EncodeSliceOfDynamicBytesContent(enc *Encoder, blobs [][]byte) {
+func EncodeSliceOfDynamicBytesContent[C CodecI[C]](enc *Encoder[C], blobs [][]byte) {
 	// Nope, dive into actual encoding
 	enc.offsetDynamics(uint32(4 * len(blobs)))
 
@@ -578,7 +578,7 @@ func EncodeSliceOfDynamicBytesContent(enc *Encoder, blobs [][]byte) {
 }
 
 // EncodeSliceOfStaticObjectsOffset serializes a dynamic slice of static ssz objects.
-func EncodeSliceOfStaticObjectsOffset[T StaticObject](enc *Encoder, objects []T) {
+func EncodeSliceOfStaticObjectsOffset[C CodecI[C], T StaticObject[C]](enc *Encoder[C], objects []T) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -595,7 +595,7 @@ func EncodeSliceOfStaticObjectsOffset[T StaticObject](enc *Encoder, objects []T)
 }
 
 // EncodeSliceOfStaticObjectsContent is the lazy data writer for EncodeSliceOfStaticObjectsOffset.
-func EncodeSliceOfStaticObjectsContent[T StaticObject](enc *Encoder, objects []T) {
+func EncodeSliceOfStaticObjectsContent[C CodecI[C], T StaticObject[C]](enc *Encoder[C], objects []T) {
 	for _, obj := range objects {
 		if enc.err != nil {
 			return
@@ -605,7 +605,7 @@ func EncodeSliceOfStaticObjectsContent[T StaticObject](enc *Encoder, objects []T
 }
 
 // EncodeSliceOfDynamicObjectsOffset serializes a dynamic slice of dynamic ssz objects.
-func EncodeSliceOfDynamicObjectsOffset[T DynamicObject](enc *Encoder, objects []T) {
+func EncodeSliceOfDynamicObjectsOffset[C CodecI[C], T DynamicObject[C]](enc *Encoder[C], objects []T) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -622,7 +622,7 @@ func EncodeSliceOfDynamicObjectsOffset[T DynamicObject](enc *Encoder, objects []
 }
 
 // EncodeSliceOfDynamicObjectsContent is the lazy data writer for EncodeSliceOfDynamicObjectsOffset.
-func EncodeSliceOfDynamicObjectsContent[T DynamicObject](enc *Encoder, objects []T) {
+func EncodeSliceOfDynamicObjectsContent[C CodecI[C], T DynamicObject[C]](enc *Encoder[C], objects []T) {
 	enc.offsetDynamics(uint32(4 * len(objects)))
 
 	// Inline:
@@ -664,6 +664,6 @@ func EncodeSliceOfDynamicObjectsContent[T DynamicObject](enc *Encoder, objects [
 
 // offsetDynamics marks the item being encoded as a dynamic type, setting the starting
 // offset for the dynamic fields.
-func (enc *Encoder) offsetDynamics(offset uint32) {
+func (enc *Encoder[C]) offsetDynamics(offset uint32) {
 	enc.offset = offset
 }

@@ -13,7 +13,7 @@ func (obj *SignedBLSToExecutionChange) SizeSSZ() uint32 {
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *SignedBLSToExecutionChange) DefineSSZ(codec ssz.CodecI) {
+func (obj *SignedBLSToExecutionChange) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineStaticObject(codec, &obj.Message)  // Field  (0) -   Message -  ? bytes (BLSToExecutionChange)
 	ssz.DefineStaticBytes(codec, &obj.Signature) // Field  (1) - Signature - 96 bytes
 }

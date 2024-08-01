@@ -24,7 +24,7 @@ func (obj *BeaconBlockBodyAltair) SizeSSZ(fixed bool) uint32 {
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *BeaconBlockBodyAltair) DefineSSZ(codec ssz.CodecI) {
+func (obj *BeaconBlockBodyAltair) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
 	ssz.DefineStaticBytes(codec, &obj.RandaoReveal)                         // Field  (0) -      RandaoReveal - 96 bytes
 	ssz.DefineStaticObject(codec, &obj.Eth1Data)                            // Field  (1) -          Eth1Data -  ? bytes (Eth1Data)
