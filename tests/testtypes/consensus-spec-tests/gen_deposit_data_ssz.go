@@ -10,7 +10,7 @@ func (obj *DepositData) SizeSSZ() uint32 {
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *DepositData) DefineSSZ(codec *ssz.Codec) {
+func (obj *DepositData) DefineSSZ(codec ssz.CodecI) {
 	ssz.DefineStaticBytes(codec, &obj.Pubkey)                // Field  (0) -                Pubkey - 48 bytes
 	ssz.DefineStaticBytes(codec, &obj.WithdrawalCredentials) // Field  (1) - WithdrawalCredentials - 32 bytes
 	ssz.DefineUint64(codec, &obj.Amount)                     // Field  (2) -                Amount -  8 bytes

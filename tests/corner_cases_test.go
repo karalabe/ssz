@@ -41,7 +41,7 @@ type testMissizedType struct {
 }
 
 func (t *testMissizedType) SizeSSZ() uint32 { return 16 }
-func (t *testMissizedType) DefineSSZ(codec *ssz.Codec) {
+func (t *testMissizedType) DefineSSZ(codec ssz.CodecI) {
 	ssz.DefineUint64(codec, &t.A)
 	ssz.DefineUint64(codec, &t.B)
 }

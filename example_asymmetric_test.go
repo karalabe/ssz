@@ -19,7 +19,7 @@ type WithdrawalAsym struct {
 
 func (w *WithdrawalAsym) SizeSSZ() uint32 { return 44 }
 
-func (w *WithdrawalAsym) DefineSSZ(codec *ssz.Codec) {
+func (w *WithdrawalAsym) DefineSSZ(codec ssz.CodecI) {
 	codec.DefineEncoder(func(enc *ssz.Encoder) {
 		ssz.EncodeUint64(enc, w.Index)         // Field (0) - Index          -  8 bytes
 		ssz.EncodeUint64(enc, w.Validator)     // Field (1) - ValidatorIndex -  8 bytes

@@ -13,7 +13,7 @@ func (obj *SignedBeaconBlockHeader) SizeSSZ() uint32 {
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *SignedBeaconBlockHeader) DefineSSZ(codec *ssz.Codec) {
+func (obj *SignedBeaconBlockHeader) DefineSSZ(codec ssz.CodecI) {
 	ssz.DefineStaticObject(codec, &obj.Header)   // Field  (0) -    Header -  ? bytes (BeaconBlockHeader)
 	ssz.DefineStaticBytes(codec, &obj.Signature) // Field  (1) - Signature - 96 bytes
 }

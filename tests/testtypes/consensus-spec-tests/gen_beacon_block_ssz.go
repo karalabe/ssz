@@ -17,7 +17,7 @@ func (obj *BeaconBlock) SizeSSZ(fixed bool) uint32 {
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *BeaconBlock) DefineSSZ(codec *ssz.Codec) {
+func (obj *BeaconBlock) DefineSSZ(codec ssz.CodecI) {
 	// Define the static data (fields and dynamic offsets)
 	ssz.DefineUint64(codec, &obj.Slot)              // Field  (0) -          Slot -  8 bytes
 	ssz.DefineUint64(codec, &obj.ProposerIndex)     // Field  (1) - ProposerIndex -  8 bytes

@@ -13,7 +13,7 @@ func (obj *ProposerSlashing) SizeSSZ() uint32 {
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *ProposerSlashing) DefineSSZ(codec *ssz.Codec) {
+func (obj *ProposerSlashing) DefineSSZ(codec ssz.CodecI) {
 	ssz.DefineStaticObject(codec, &obj.Header1) // Field  (0) - Header1 - ? bytes (SignedBeaconBlockHeader)
 	ssz.DefineStaticObject(codec, &obj.Header2) // Field  (1) - Header2 - ? bytes (SignedBeaconBlockHeader)
 }

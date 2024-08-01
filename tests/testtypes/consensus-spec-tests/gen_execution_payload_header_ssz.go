@@ -17,7 +17,7 @@ func (obj *ExecutionPayloadHeader) SizeSSZ(fixed bool) uint32 {
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *ExecutionPayloadHeader) DefineSSZ(codec *ssz.Codec) {
+func (obj *ExecutionPayloadHeader) DefineSSZ(codec ssz.CodecI) {
 	// Define the static data (fields and dynamic offsets)
 	ssz.DefineStaticBytes(codec, &obj.ParentHash)           // Field  ( 0) -       ParentHash -  32 bytes
 	ssz.DefineStaticBytes(codec, &obj.FeeRecipient)         // Field  ( 1) -     FeeRecipient -  20 bytes

@@ -59,7 +59,7 @@ type Decoder struct {
 
 	err error // Any write error to halt future encoding calls
 
-	codec  *Codec      // Self-referencing to pass DefineSSZ calls through (API trick)
+	codec  CodecI      // Self-referencing to pass DefineSSZ calls through (API trick)
 	buf    [32]byte    // Integer conversion buffer
 	bufInt uint256.Int // Big.Int conversion buffer (not pointer, alloc free)
 

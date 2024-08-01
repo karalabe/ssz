@@ -10,7 +10,7 @@ func (obj *Validator) SizeSSZ() uint32 {
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *Validator) DefineSSZ(codec *ssz.Codec) {
+func (obj *Validator) DefineSSZ(codec ssz.CodecI) {
 	ssz.DefineStaticBytes(codec, &obj.Pubkey)                // Field  (0) -                     Pubkey - 48 bytes
 	ssz.DefineStaticBytes(codec, &obj.WithdrawalCredentials) // Field  (1) -      WithdrawalCredentials - 32 bytes
 	ssz.DefineUint64(codec, &obj.EffectiveBalance)           // Field  (2) -           EffectiveBalance -  8 bytes

@@ -10,7 +10,7 @@ func (obj *WithdrawalVariation) SizeSSZ() uint32 {
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *WithdrawalVariation) DefineSSZ(codec *ssz.Codec) {
+func (obj *WithdrawalVariation) DefineSSZ(codec ssz.CodecI) {
 	ssz.DefineUint64(codec, &obj.Index)                   // Field  (0) -     Index -  8 bytes
 	ssz.DefineUint64(codec, &obj.Validator)               // Field  (1) - Validator -  8 bytes
 	ssz.DefineCheckedStaticBytes(codec, &obj.Address, 20) // Field  (2) -   Address - 20 bytes

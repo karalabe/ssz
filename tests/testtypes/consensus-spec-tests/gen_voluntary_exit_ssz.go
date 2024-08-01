@@ -10,7 +10,7 @@ func (obj *VoluntaryExit) SizeSSZ() uint32 {
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *VoluntaryExit) DefineSSZ(codec *ssz.Codec) {
+func (obj *VoluntaryExit) DefineSSZ(codec ssz.CodecI) {
 	ssz.DefineUint64(codec, &obj.Epoch)          // Field  (0) -          Epoch - 8 bytes
 	ssz.DefineUint64(codec, &obj.ValidatorIndex) // Field  (1) - ValidatorIndex - 8 bytes
 }

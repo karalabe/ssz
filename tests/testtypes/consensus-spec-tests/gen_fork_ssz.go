@@ -10,7 +10,7 @@ func (obj *Fork) SizeSSZ() uint32 {
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *Fork) DefineSSZ(codec *ssz.Codec) {
+func (obj *Fork) DefineSSZ(codec ssz.CodecI) {
 	ssz.DefineStaticBytes(codec, &obj.PreviousVersion) // Field  (0) - PreviousVersion - 4 bytes
 	ssz.DefineStaticBytes(codec, &obj.CurrentVersion)  // Field  (1) -  CurrentVersion - 4 bytes
 	ssz.DefineUint64(codec, &obj.Epoch)                // Field  (2) -           Epoch - 8 bytes

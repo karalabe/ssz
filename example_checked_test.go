@@ -19,7 +19,7 @@ type WithdrawalChecked struct {
 
 func (w *WithdrawalChecked) SizeSSZ() uint32 { return 44 }
 
-func (w *WithdrawalChecked) DefineSSZ(codec *ssz.Codec) {
+func (w *WithdrawalChecked) DefineSSZ(codec ssz.CodecI) {
 	ssz.DefineUint64(codec, &w.Index)                   // Field (0) - Index          -  8 bytes
 	ssz.DefineUint64(codec, &w.Validator)               // Field (1) - ValidatorIndex -  8 bytes
 	ssz.DefineCheckedStaticBytes(codec, &w.Address, 20) // Field (2) - Address        - 20 bytes

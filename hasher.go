@@ -52,7 +52,7 @@ type Hasher struct {
 	groups []groupStats // Hashing progress tracking for the chunk groups
 	layer  int          // Layer depth being hasher now
 
-	codec  *Codec // Self-referencing to pass DefineSSZ calls through (API trick)
+	codec  CodecI // Self-referencing to pass DefineSSZ calls through (API trick)
 	bitbuf []byte // Bitlist conversion buffer
 }
 
@@ -343,20 +343,20 @@ func HashSliceOfStaticObjects[T StaticObject](h *Hasher, objects []T, maxItems u
 		worker := i // Take care, closure
 
 		workers.Go(func() error {
-			codec := hasherPool.Get().(*Codec)
+			codec := hasherPool.Get().(CodecI)
 			defer hasherPool.Put(codec)
-			defer codec.has.Reset()
-			codec.has.threads = true
+			defer codec.Has().Reset()
+			codec.Has().threads = true
 
 			for i := worker * subtask; i < (worker+1)*subtask && i < len(objects); i++ {
-				codec.has.descendLayer()
+				codec.Has().descendLayer()
 				objects[i].DefineSSZ(codec)
-				codec.has.ascendLayer(0)
+				codec.Has().ascendLayer(0)
 			}
-			codec.has.balanceLayer()
+			codec.Has().balanceLayer()
 
-			resultChunks[worker] = codec.has.chunks[0]
-			resultDepths[worker] = codec.has.groups[0].depth
+			resultChunks[worker] = codec.Has().chunks[0]
+			resultDepths[worker] = codec.Has().groups[0].depth
 			return nil
 		})
 	}

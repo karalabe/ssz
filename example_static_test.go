@@ -22,7 +22,7 @@ type Withdrawal struct {
 
 func (w *Withdrawal) SizeSSZ() uint32 { return 44 }
 
-func (w *Withdrawal) DefineSSZ(codec *ssz.Codec) {
+func (w *Withdrawal) DefineSSZ(codec ssz.CodecI) {
 	ssz.DefineUint64(codec, &w.Index)        // Field (0) - Index          -  8 bytes
 	ssz.DefineUint64(codec, &w.Validator)    // Field (1) - ValidatorIndex -  8 bytes
 	ssz.DefineStaticBytes(codec, &w.Address) // Field (2) - Address        - 20 bytes
