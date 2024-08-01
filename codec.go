@@ -33,12 +33,24 @@ func (c *Codec) Enc() *Encoder {
 	return c.enc
 }
 
+func (w *Codec) SetEncoder(enc *Encoder) {
+	w.enc = enc
+}
+
 func (c *Codec) Dec() *Decoder {
 	return c.dec
 }
 
+func (w *Codec) SetDecoder(dec *Decoder) {
+	w.dec = dec
+}
+
 func (c *Codec) Has() *Hasher {
 	return c.has
+}
+
+func (w *Codec) SetHasher(has *Hasher) {
+	w.has = has
 }
 
 // DefineEncoder uses a dedicated encoder in case the types SSZ conversion is for

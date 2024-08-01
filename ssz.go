@@ -216,6 +216,20 @@ func HashSequential(obj Object) [32]byte {
 	return codec.Has().chunks[0]
 }
 
+// HashSequential computes the ssz merkle root of the object on a single thread.
+// This is useful for processing small objects with stable runtime and O(1) GC
+// guarantees.
+func HashWithCodecSequential(codec CodecI, obj Object) [32]byte {
+	codec.Has().descendLayer()
+	obj.DefineSSZ(codec)
+	codec.Has().ascendLayer(0)
+
+	if len(codec.Has().chunks) != 1 {
+		panic(fmt.Sprintf("unfinished hashing: left %v", codec.Has().groups))
+	}
+	return codec.Has().chunks[0]
+}
+
 // HashConcurrent computes the ssz merkle root of the object on potentially multiple
 // concurrent threads (iff some data segments are large enough to be worth it). This
 // is useful for processing large objects, but will place a bigger load on your CPU
