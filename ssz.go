@@ -259,7 +259,7 @@ func HashConcurrent[C CodecI[C]](obj Object[C]) [32]byte {
 
 // Size retrieves the size of a ssz object, independent if it's a static or a
 // dynamic one.
-func Size(obj any) uint32 {
+func Size[C CodecI[C]](obj Object[C]) uint32 {
 	var size uint32
 	switch v := obj.(type) {
 	case StaticObjectSizer:
