@@ -835,6 +835,12 @@ func DecodeSliceOfDynamicObjectsContent[C CodecI[C], T newableDynamicObject[C, U
 	}
 }
 
+// WithCodec sets the codec to use for decoding.
+func (dec *Decoder[C]) WithCodec(codec C) *Decoder[C] {
+	dec.codec = codec
+	return dec
+}
+
 // decodeOffset decodes the next uint32 as an offset and validates it.
 func (dec *Decoder[C]) decodeOffset(list bool) {
 	if dec.err != nil {

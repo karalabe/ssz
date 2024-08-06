@@ -55,7 +55,7 @@ type DynamicObjectSizer interface {
 
 // encoderPool is a pool of SSZ encoders to reuse some tiny internal helpers
 // without hitting Go's GC constantly.
-var encoderPool = sync.Pool{
+var encoderPool = &sync.Pool{
 	New: func() any {
 		codec := &Codec{enc: new(Encoder[*Codec])}
 		codec.Enc().codec = codec
@@ -63,9 +63,14 @@ var encoderPool = sync.Pool{
 	},
 }
 
+// UpdateGlobalEncoderPool updates the global encoder pool with a new pool.
+func UpdateGlobalEncoderPool(newPool *sync.Pool) {
+	encoderPool = newPool
+}
+
 // decoderPool is a pool of SSZ decoders to reuse some tiny internal helpers
 // without hitting Go's GC constantly.
-var decoderPool = sync.Pool{
+var decoderPool = &sync.Pool{
 	New: func() any {
 		codec := &Codec{dec: new(Decoder[*Codec])}
 		codec.Dec().codec = codec
@@ -73,14 +78,24 @@ var decoderPool = sync.Pool{
 	},
 }
 
+// UpdateGlobalDecoderPool updates the global decoder pool with a new pool.
+func UpdateGlobalDecoderPool(newPool *sync.Pool) {
+	decoderPool = newPool
+}
+
 // hasherPool is a pool of SSZ hashers to reuse some tiny internal helpers
 // without hitting Go's GC constantly.
-var hasherPool = sync.Pool{
+var hasherPool = &sync.Pool{
 	New: func() any {
 		codec := &Codec{has: new(Hasher[*Codec])}
 		codec.Has().codec = codec
 		return codec
 	},
+}
+
+// UpdateGlobalHasherPool updates the global hasher pool with a new pool.
+func UpdateGlobalHasherPool(newPool *sync.Pool) {
+	hasherPool = newPool
 }
 
 // EncodeToStream serializes the object into a data stream. Do not use this

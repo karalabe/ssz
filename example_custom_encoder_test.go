@@ -6,20 +6,21 @@ package ssz_test
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/karalabe/ssz"
 )
 
-type FunkyWithdrawal struct {
+type WithdrawalCustomCodec struct {
 	Index     uint64 `ssz-size:"8"`
 	Validator uint64 `ssz-size:"8"`
 	Address   []byte `ssz-size:"20"`
 	Amount    uint64 `ssz-size:"8"`
 }
 
-func (w *FunkyWithdrawal) SizeSSZ() uint32 { return 44 }
+func (w *WithdrawalCustomCodec) SizeSSZ() uint32 { return 44 }
 
-func (w *FunkyWithdrawal) DefineSSZ(codec *CustomCodec) {
+func (w *WithdrawalCustomCodec) DefineSSZ(codec *CustomCodec) {
 	ssz.DefineUint64(codec, &w.Index)                   // Field (0) - Index          -  8 bytes
 	ssz.DefineUint64(codec, &w.Validator)               // Field (1) - ValidatorIndex -  8 bytes
 	ssz.DefineCheckedStaticBytes(codec, &w.Address, 20) // Field (2) - Address        - 20 bytes
@@ -27,7 +28,14 @@ func (w *FunkyWithdrawal) DefineSSZ(codec *CustomCodec) {
 }
 
 func ExampleCustomEncoder() {
-	hash := ssz.HashSequential(new(FunkyWithdrawal))
+	ssz.UpdateGlobalHasherPool(&sync.Pool{
+		New: func() any {
+			codec := &CustomCodec{}
+			codec.dec = (&ssz.Decoder[*CustomCodec]{}).WithCodec(codec)
+			return codec
+		},
+	})
+	hash := ssz.HashSequential(new(WithdrawalCustomCodec))
 
 	fmt.Printf("hash: %#x\n", hash)
 	// Output
