@@ -227,14 +227,14 @@ func DecodeUint256BigInt(dec *Decoder, n **big.Int) {
 		dec.inRead += 32
 
 		dec.bufInt.UnmarshalSSZ(dec.buf[:32])
-		*n = dec.bufInt.ToBig() // TODO(karalabe): make this alloc free (https://github.com/holiman/uint256/pull/177)
+		dec.bufInt.IntoBig(n)
 	} else {
 		if len(dec.inBuffer) < 32 {
 			dec.err = io.ErrUnexpectedEOF
 			return
 		}
 		dec.bufInt.UnmarshalSSZ(dec.inBuffer[:32])
-		*n = dec.bufInt.ToBig() // TODO(karalabe): make this alloc free (https://github.com/holiman/uint256/pull/177)
+		dec.bufInt.IntoBig(n)
 		dec.inBuffer = dec.inBuffer[32:]
 	}
 }
