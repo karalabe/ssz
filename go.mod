@@ -1,6 +1,6 @@
 module github.com/karalabe/ssz
 
-go 1.21
+go 1.22.5
 
 require (
 	github.com/golang/snappy v0.0.4
