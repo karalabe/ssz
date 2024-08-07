@@ -20,19 +20,13 @@ test:
 		echo "Consensus spec tests directory is empty. Running setup..."; \
 		$(MAKE) setup; \
 	fi
-
 	$(GOTEST) -v ./...
 
 tidy:
 	$(GOMOD) tidy
 
-# Generate code (as seen in the GitHub Actions workflow)
 generate:
 	$(GOCMD) generate ./...
-
-# Coverage (as seen in the GitHub Actions workflow)
-coverage:
-	$(GOTEST) -v -coverprofile=coverage.txt -coverpkg=./... ./...
 
 setup:
 	@mkdir -p coverage
