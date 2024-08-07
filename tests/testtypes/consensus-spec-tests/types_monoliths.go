@@ -6,10 +6,10 @@ package consensus_spec_tests
 
 import "github.com/holiman/uint256"
 
-//go:generate go run ../../../cmd/sszgen -type ExecutionPayloadMonolith -out gen_execution_payload_monolith_ssz.go
-//go:generate go run ../../../cmd/sszgen -type ExecutionPayloadHeaderMonolith -out gen_execution_payload_header_monolith_ssz.go
-//go:generate go run ../../../cmd/sszgen -type BeaconBlockBodyMonolith -out gen_beacon_block_body_monolith_ssz.go
-//go:generate go run ../../../cmd/sszgen -type BeaconStateMonolith -out gen_beacon_state_monolith_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type ExecutionPayloadMonolith -out gen_execution_payload_monolith_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type ExecutionPayloadHeaderMonolith -out gen_execution_payload_header_monolith_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type BeaconBlockBodyMonolith -out gen_beacon_block_body_monolith_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type BeaconStateMonolith -out gen_beacon_state_monolith_ssz.go
 
 type BeaconBlockBodyMonolith struct {
 	RandaoReveal          [96]byte
