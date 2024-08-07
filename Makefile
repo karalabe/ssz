@@ -1,38 +1,36 @@
 # Makefile for ssz project
 
-# Go parameters
-GOCMD=go
-GOBUILD=$(GOCMD) build
-GOCLEAN=$(GOCMD) clean
-GOTEST=$(GOCMD) test
-GOGET=$(GOCMD) get
-GOMOD=$(GOCMD) mod
-BINARY_NAME=ssz
+default: all
 
-# Git parameters
-GITCMD=git
+all: setup build test
 
-# Build targets
-all: test build
+build: check_consensus_tests
+	@echo "Building project..."
+	@go build -v ./...
 
-test:
-	@if [ -z "$(shell ls -A tests/testdata/consensus-spec-tests)" ]; then \
-		echo "Consensus spec tests directory is empty. Running setup..."; \
-		$(MAKE) setup; \
-	fi
-	$(GOTEST) -v ./...
+test: check_consensus_tests
+	@echo "Running tests..."
+	@go test ./...
 
 tidy:
-	$(GOMOD) tidy
+	@echo "Tidying go modules..."
+	@go mod tidy
 
 generate:
-	$(GOCMD) generate ./...
+	@echo "Generating code..."
+	@go generate ./...
 
 setup:
 	@mkdir -p coverage
 	@echo "Downloading consensus tests... This may take a while due to the large repository size."
-	@$(GITCMD) submodule update --init --recursive --depth=1
+	@git submodule update --init --recursive --depth=1
 	@echo "Consensus tests download completed."
 
+check_consensus_tests:
+	@if [ -z "$(shell ls -A tests/testdata/consensus-spec-tests)" ]; then \
+		echo "Consensus spec tests directory is empty. Running setup..."; \
+		$(MAKE) setup; \
+	fi
+
 # Phony targets
-.PHONY: all build test clean run deps tidy generate coverage submodules
+.PHONY: all build test tidy generate setup check_consensus_tests
