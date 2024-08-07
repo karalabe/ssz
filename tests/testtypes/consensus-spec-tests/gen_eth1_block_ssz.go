@@ -5,7 +5,7 @@ package consensus_spec_tests
 import "github.com/karalabe/ssz"
 
 // SizeSSZ returns the total size of the static ssz object.
-func (obj *Eth1Block) SizeSSZ() uint32 {
+func (obj *Eth1Block) SizeSSZ(sizer *ssz.Sizer) uint32 {
 	return 8 + 32 + 8
 }
 

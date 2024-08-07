@@ -14,22 +14,25 @@ const (
 	sszTagIdent     = "ssz"
 	sszSizeTagIdent = "ssz-size"
 	sszMaxTagIdent  = "ssz-max"
+	sszForkTagIdent = "ssz-fork"
 )
 
-// sizeTag describes the size restriction for types.
+// sizeTag describes the restriction for types.
 type sizeTag struct {
 	bits  bool  // whether the sizes are bits instead of bytes
 	size  []int // 0 means the size for that dimension is undefined
 	limit []int // 0 means the limit for that dimension is undefined
 }
 
-func parseTags(input string) (bool, *sizeTag, error) {
+func parseTags(input string) (bool, *sizeTag, string, error) {
 	if len(input) == 0 {
-		return false, nil, nil
+		return false, nil, "", nil
 	}
 	var (
 		ignore bool
 		tags   sizeTag
+		fork   string
+
 		setTag = func(v int, ident string) {
 			if ident == sszMaxTagIdent {
 				tags.limit = append(tags.limit, v)
@@ -41,7 +44,7 @@ func parseTags(input string) (bool, *sizeTag, error) {
 	for _, tag := range strings.Fields(input) {
 		parts := strings.Split(tag, ":")
 		if len(parts) != 2 {
-			return false, nil, fmt.Errorf("invalid tag %s", tag)
+			return false, nil, "", fmt.Errorf("invalid tag %s", tag)
 		}
 		ident, remain := parts[0], strings.Trim(parts[1], "\"")
 		switch ident {
@@ -60,14 +63,28 @@ func parseTags(input string) (bool, *sizeTag, error) {
 				}
 				num, err := strconv.ParseInt(p, 10, 64)
 				if err != nil {
-					return false, nil, err
+					return false, nil, "", err
 				}
 				setTag(int(num), ident)
+			}
+		case sszForkTagIdent:
+			var negate bool
+			if remain[0] == '!' {
+				negate = true
+				remain = remain[1:]
+			}
+			if enum, ok := forkMapping[remain]; !ok {
+				return ignore, nil, "", fmt.Errorf("invalid fork tag %s", tag)
+			} else {
+				fork = enum
+				if negate {
+					fork = "!" + fork
+				}
 			}
 		}
 	}
 	if tags.size == nil && tags.limit == nil {
-		return ignore, nil, nil
+		return ignore, nil, fork, nil
 	}
-	return ignore, &tags, nil
+	return ignore, &tags, fork, nil
 }

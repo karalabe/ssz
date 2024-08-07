@@ -19,19 +19,19 @@ import (
 func TestDecodeMissized(t *testing.T) {
 	obj := new(testMissizedType)
 
-	blob := make([]byte, obj.SizeSSZ()+1)
-	if err := ssz.DecodeFromBytes(blob, obj); !errors.Is(err, ssz.ErrObjectSlotSizeMismatch) {
+	blob := make([]byte, ssz.Size(obj, ssz.ForkUnknown)+1)
+	if err := ssz.DecodeFromBytes(blob, obj, ssz.ForkUnknown); !errors.Is(err, ssz.ErrObjectSlotSizeMismatch) {
 		t.Errorf("decode from bytes error mismatch: have %v, want %v", err, ssz.ErrObjectSlotSizeMismatch)
 	}
-	if err := ssz.DecodeFromStream(bytes.NewReader(blob), obj, uint32(len(blob))); !errors.Is(err, ssz.ErrObjectSlotSizeMismatch) {
+	if err := ssz.DecodeFromStream(bytes.NewReader(blob), obj, uint32(len(blob)), ssz.ForkUnknown); !errors.Is(err, ssz.ErrObjectSlotSizeMismatch) {
 		t.Errorf("decode from stream error mismatch: have %v, want %v", err, ssz.ErrObjectSlotSizeMismatch)
 	}
 
-	blob = make([]byte, obj.SizeSSZ()-1)
-	if err := ssz.DecodeFromBytes(blob, obj); !errors.Is(err, io.ErrUnexpectedEOF) {
+	blob = make([]byte, ssz.Size(obj, ssz.ForkUnknown)-1)
+	if err := ssz.DecodeFromBytes(blob, obj, ssz.ForkUnknown); !errors.Is(err, io.ErrUnexpectedEOF) {
 		t.Errorf("decode from bytes error mismatch: have %v, want %v", err, io.ErrUnexpectedEOF)
 	}
-	if err := ssz.DecodeFromStream(bytes.NewReader(blob), obj, uint32(len(blob))); !errors.Is(err, io.ErrUnexpectedEOF) {
+	if err := ssz.DecodeFromStream(bytes.NewReader(blob), obj, uint32(len(blob)), ssz.ForkUnknown); !errors.Is(err, io.ErrUnexpectedEOF) {
 		t.Errorf("decode from stream error mismatch: have %v, want %v", err, io.ErrUnexpectedEOF)
 	}
 }
@@ -40,7 +40,7 @@ type testMissizedType struct {
 	A, B uint64
 }
 
-func (t *testMissizedType) SizeSSZ() uint32 { return 16 }
+func (t *testMissizedType) SizeSSZ(sizer *ssz.Sizer) uint32 { return 16 }
 func (t *testMissizedType) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUint64(codec, &t.A)
 	ssz.DefineUint64(codec, &t.B)
@@ -50,11 +50,11 @@ func (t *testMissizedType) DefineSSZ(codec *ssz.Codec) {
 func TestEncodeOversized(t *testing.T) {
 	obj := new(testMissizedType)
 
-	blob := make([]byte, obj.SizeSSZ()-1)
-	if err := ssz.EncodeToBytes(blob, obj); !errors.Is(err, ssz.ErrBufferTooSmall) {
+	blob := make([]byte, ssz.Size(obj, ssz.ForkUnknown)-1)
+	if err := ssz.EncodeToBytes(blob, obj, ssz.ForkUnknown); !errors.Is(err, ssz.ErrBufferTooSmall) {
 		t.Errorf("encode to bytes error mismatch: have %v, want %v", err, ssz.ErrBufferTooSmall)
 	}
-	if err := ssz.EncodeToStream(&testEncodeOversizedStream{blob}, obj); err == nil {
+	if err := ssz.EncodeToStream(&testEncodeOversizedStream{blob}, obj, ssz.ForkUnknown); err == nil {
 		t.Errorf("encode to stream error mismatch: have nil, want stream full") // wonky, but should be fine
 	}
 }
@@ -85,7 +85,7 @@ func TestZeroCounterOffset(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	err = ssz.DecodeFromBytes(inSSZ, new(types.ExecutionPayload))
+	err = ssz.DecodeFromBytes(inSSZ, new(types.ExecutionPayload), ssz.ForkUnknown)
 	if !errors.Is(err, ssz.ErrZeroCounterOffset) {
 		t.Errorf("decode error mismatch: have %v, want %v", err, ssz.ErrZeroCounterOffset)
 	}
@@ -97,7 +97,7 @@ func TestInvalidBoolean(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	err = ssz.DecodeFromBytes(inSSZ, new(types.Validator))
+	err = ssz.DecodeFromBytes(inSSZ, new(types.Validator), ssz.ForkUnknown)
 	if !errors.Is(err, ssz.ErrInvalidBoolean) {
 		t.Errorf("decode error mismatch: have %v, want %v", err, ssz.ErrInvalidBoolean)
 	}

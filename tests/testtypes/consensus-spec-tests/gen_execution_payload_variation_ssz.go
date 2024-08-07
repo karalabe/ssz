@@ -6,13 +6,13 @@ import "github.com/karalabe/ssz"
 
 // SizeSSZ returns either the static size of the object if fixed == true, or
 // the total size otherwise.
-func (obj *ExecutionPayloadVariation) SizeSSZ(fixed bool) uint32 {
-	var size = uint32(32 + 20 + 32 + 32 + 256 + 32 + 8 + 8 + 8 + 8 + 4 + 32 + 32 + 4)
+func (obj *ExecutionPayloadVariation) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size uint32) {
+	size = 32 + 20 + 32 + 32 + 256 + 32 + 8 + 8 + 8 + 8 + 4 + 32 + 32 + 4
 	if fixed {
 		return size
 	}
-	size += ssz.SizeDynamicBytes(obj.ExtraData)
-	size += ssz.SizeSliceOfDynamicBytes(obj.Transactions)
+	size += ssz.SizeDynamicBytes(sizer, obj.ExtraData)
+	size += ssz.SizeSliceOfDynamicBytes(sizer, obj.Transactions)
 
 	return size
 }

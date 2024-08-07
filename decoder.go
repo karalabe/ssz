@@ -57,9 +57,10 @@ type Decoder struct {
 	inBufPtrs []uintptr // Stack of starting pointers from outer calls (buffered mode)
 	inBufEnd  uintptr   // Ending pointer in the input buffer (buffered mode)
 
-	err error // Any write error to halt future encoding calls
+	err   error  // Any write error to halt future encoding calls
+	codec *Codec // Self-referencing to pass DefineSSZ calls through (API trick)
+	sizer *Sizer // Self-referencing to pass SizeSSZ call through (API trick)
 
-	codec  *Codec      // Self-referencing to pass DefineSSZ calls through (API trick)
 	buf    [32]byte    // Integer conversion buffer
 	bufInt uint256.Int // Big.Int conversion buffer (not pointer, alloc free)
 
@@ -71,6 +72,11 @@ type Decoder struct {
 
 	sizes  []uint32   // Computed sizes for the dynamic objects
 	sizess [][]uint32 // Stack of computed sizes from outer calls
+}
+
+// Fork retrieves the current fork (if any) that the decoder is operating in.
+func (dec *Decoder) Fork() Fork {
+	return dec.codec.fork
 }
 
 // DecodeBool parses a boolean.
@@ -354,7 +360,7 @@ func DecodeDynamicObjectContent[T newableDynamicObject[U], U any](dec *Decoder, 
 	if *obj == nil {
 		*obj = T(new(U))
 	}
-	dec.startDynamics((*obj).SizeSSZ(true))
+	dec.startDynamics((*obj).SizeSSZ(dec.sizer, true))
 	(*obj).DefineSSZ(dec.codec)
 	dec.flushDynamics()
 }
@@ -743,7 +749,7 @@ func DecodeSliceOfStaticObjectsContent[T newableStaticObject[U], U any](dec *Dec
 	// Compute the number of items based on the item size of the type
 	var sizer T // SizeSSZ is on *U, objects is static, so nil T is fine
 
-	itemSize := sizer.SizeSSZ()
+	itemSize := sizer.SizeSSZ(dec.sizer)
 	if size%itemSize != 0 {
 		dec.err = fmt.Errorf("%w: length %d, item size %d", ErrDynamicStaticsIndivisible, size, itemSize)
 		return

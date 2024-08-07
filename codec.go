@@ -15,6 +15,8 @@ import (
 // define their schemas once and have that work for both operations at once
 // (with the same speed as explicitly typing them out would, of course).
 type Codec struct {
+	fork Fork // Context for cross-fork monolith types
+
 	enc *Encoder
 	dec *Decoder
 	has *Hasher
@@ -51,6 +53,11 @@ func (c *Codec) DefineHasher(impl func(has *Hasher)) {
 	if c.has != nil {
 		impl(c.has)
 	}
+}
+
+// Fork retrieves the current fork (if any) that the codec is operating in.
+func (c *Codec) Fork() Fork {
+	return c.fork
 }
 
 // DefineBool defines the next field as a 1 byte boolean.

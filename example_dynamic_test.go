@@ -32,16 +32,16 @@ type ExecutionPayload struct {
 	Withdrawals   []*Withdrawal `ssz-max:"16"`
 }
 
-func (e *ExecutionPayload) SizeSSZ(fixed bool) uint32 {
+func (e *ExecutionPayload) SizeSSZ(siz *ssz.Sizer, fixed bool) uint32 {
 	// Start out with the static size
 	size := uint32(512)
 	if fixed {
 		return size
 	}
 	// Append all the dynamic sizes
-	size += ssz.SizeDynamicBytes(e.ExtraData)           // Field (10) - ExtraData    - max 32 bytes (not enforced)
-	size += ssz.SizeSliceOfDynamicBytes(e.Transactions) // Field (13) - Transactions - max 1048576 items, 1073741824 bytes each (not enforced)
-	size += ssz.SizeSliceOfStaticObjects(e.Withdrawals) // Field (14) - Withdrawals  - max 16 items, 44 bytes each (not enforced)
+	size += ssz.SizeDynamicBytes(siz, e.ExtraData)           // Field (10) - ExtraData    - max 32 bytes (not enforced)
+	size += ssz.SizeSliceOfDynamicBytes(siz, e.Transactions) // Field (13) - Transactions - max 1048576 items, 1073741824 bytes each (not enforced)
+	size += ssz.SizeSliceOfStaticObjects(siz, e.Withdrawals) // Field (14) - Withdrawals  - max 16 items, 44 bytes each (not enforced)
 
 	return size
 }
@@ -72,8 +72,8 @@ func (e *ExecutionPayload) DefineSSZ(codec *ssz.Codec) {
 func ExampleEncodeDynamicObject() {
 	obj := new(ExecutionPayload)
 
-	blob := make([]byte, obj.SizeSSZ(false))
-	if err := ssz.EncodeToBytes(blob, obj); err != nil {
+	blob := make([]byte, ssz.Size(obj, ssz.ForkUnknown))
+	if err := ssz.EncodeToBytes(blob, obj, ssz.ForkUnknown); err != nil {
 		panic(err)
 	}
 	fmt.Printf("ssz: %#x\n", blob)

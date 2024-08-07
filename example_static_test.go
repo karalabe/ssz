@@ -20,7 +20,7 @@ type Withdrawal struct {
 	Amount    uint64  `ssz-size:"8"`
 }
 
-func (w *Withdrawal) SizeSSZ() uint32 { return 44 }
+func (w *Withdrawal) SizeSSZ(siz *ssz.Sizer) uint32 { return 44 }
 
 func (w *Withdrawal) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUint64(codec, &w.Index)        // Field (0) - Index          -  8 bytes
@@ -31,10 +31,10 @@ func (w *Withdrawal) DefineSSZ(codec *ssz.Codec) {
 
 func ExampleEncodeStaticObject() {
 	out := new(bytes.Buffer)
-	if err := ssz.EncodeToStream(out, new(Withdrawal)); err != nil {
+	if err := ssz.EncodeToStream(out, new(Withdrawal), ssz.ForkUnknown); err != nil {
 		panic(err)
 	}
-	hash := ssz.HashSequential(new(Withdrawal))
+	hash := ssz.HashSequential(new(Withdrawal), ssz.ForkUnknown)
 
 	fmt.Printf("ssz: %#x\nhash: %#x\n", out, hash)
 	// Output:

@@ -5,7 +5,7 @@ package consensus_spec_tests
 import "github.com/karalabe/ssz"
 
 // SizeSSZ returns the total size of the static ssz object.
-func (obj *SmallTestStruct) SizeSSZ() uint32 {
+func (obj *SmallTestStruct) SizeSSZ(sizer *ssz.Sizer) uint32 {
 	return 2 + 2
 }
 

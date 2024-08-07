@@ -5,22 +5,28 @@ package consensus_spec_tests
 import "github.com/karalabe/ssz"
 
 // Cached static size computed on package init.
-var staticSizeCacheBeaconBlockBodyCapella = 96 + (*Eth1Data)(nil).SizeSSZ() + 32 + 4 + 4 + 4 + 4 + 4 + (*SyncAggregate)(nil).SizeSSZ() + 4 + 4
+var staticSizeCacheBeaconBlockBodyCapella = ssz.PrecomputeStaticSizeCache((*BeaconBlockBodyCapella)(nil))
 
 // SizeSSZ returns either the static size of the object if fixed == true, or
 // the total size otherwise.
-func (obj *BeaconBlockBodyCapella) SizeSSZ(fixed bool) uint32 {
-	var size = uint32(staticSizeCacheBeaconBlockBodyCapella)
+func (obj *BeaconBlockBodyCapella) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size uint32) {
+	// Load static size if already precomputed, calculate otherwise
+	if fork := int(sizer.Fork()); fork < len(staticSizeCacheBeaconBlockBodyCapella) {
+		size = staticSizeCacheBeaconBlockBodyCapella[fork]
+	} else {
+		size = 96 + (*Eth1Data)(nil).SizeSSZ(sizer) + 32 + 4 + 4 + 4 + 4 + 4 + (*SyncAggregate)(nil).SizeSSZ(sizer) + 4 + 4
+	}
+	// Either return the static size or accumulate the dynamic too
 	if fixed {
 		return size
 	}
-	size += ssz.SizeSliceOfStaticObjects(obj.ProposerSlashings)
-	size += ssz.SizeSliceOfDynamicObjects(obj.AttesterSlashings)
-	size += ssz.SizeSliceOfDynamicObjects(obj.Attestations)
-	size += ssz.SizeSliceOfStaticObjects(obj.Deposits)
-	size += ssz.SizeSliceOfStaticObjects(obj.VoluntaryExits)
-	size += ssz.SizeDynamicObject(obj.ExecutionPayload)
-	size += ssz.SizeSliceOfStaticObjects(obj.BlsToExecutionChanges)
+	size += ssz.SizeSliceOfStaticObjects(sizer, obj.ProposerSlashings)
+	size += ssz.SizeSliceOfDynamicObjects(sizer, obj.AttesterSlashings)
+	size += ssz.SizeSliceOfDynamicObjects(sizer, obj.Attestations)
+	size += ssz.SizeSliceOfStaticObjects(sizer, obj.Deposits)
+	size += ssz.SizeSliceOfStaticObjects(sizer, obj.VoluntaryExits)
+	size += ssz.SizeDynamicObject(sizer, obj.ExecutionPayload)
+	size += ssz.SizeSliceOfStaticObjects(sizer, obj.BlsToExecutionChanges)
 
 	return size
 }

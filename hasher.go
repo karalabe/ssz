@@ -52,7 +52,9 @@ type Hasher struct {
 	groups []groupStats // Hashing progress tracking for the chunk groups
 	layer  int          // Layer depth being hasher now
 
-	codec  *Codec // Self-referencing to pass DefineSSZ calls through (API trick)
+	codec *Codec // Self-referencing to pass DefineSSZ calls through (API trick)
+	sizer *Sizer // Self-referencing to pass SizeSSZ call through (API trick)
+
 	bitbuf []byte // Bitlist conversion buffer
 }
 
@@ -62,6 +64,11 @@ type groupStats struct {
 	layer  int // Layer this chunk group is from
 	depth  int // Depth this chunk group is from
 	chunks int // Number of chunks in this group
+}
+
+// Fork retrieves the current fork (if any) that the hasher is operating in.
+func (h *Hasher) Fork() Fork {
+	return h.codec.fork
 }
 
 // HashBool hashes a boolean.
@@ -314,7 +321,7 @@ func HashSliceOfStaticObjects[T StaticObject](h *Hasher, objects []T, maxItems u
 	defer h.ascendMixinLayer(uint64(len(objects)), maxItems)
 
 	// If threading is disabled, or hashing nothing, do it sequentially
-	if !h.threads || len(objects) == 0 || len(objects)*int(Size(objects[0])) < concurrencyThreshold {
+	if !h.threads || len(objects) == 0 || len(objects)*int(Size(objects[0], h.Fork())) < concurrencyThreshold {
 		for _, obj := range objects {
 			h.descendLayer()
 			obj.DefineSSZ(h.codec)

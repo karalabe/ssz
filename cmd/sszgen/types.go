@@ -13,9 +13,10 @@ type sszContainer struct {
 	*types.Struct
 	named  *types.Named
 	static bool
-	fields []string
-	types  []types.Type
-	opsets []opset
+	fields []string     // Name of the struct field
+	types  []types.Type // Type of the struct field
+	opsets []opset      // Opset for the struct field
+	forks  []string     // Fork constraint for the struct field
 }
 
 // makeContainer iterates over the fields of the struct and attempt to match each
@@ -26,6 +27,7 @@ func (p *parseContext) makeContainer(named *types.Named, typ *types.Struct) (*ss
 		fields []string
 		types  []types.Type
 		opsets []opset
+		forks  []string
 	)
 	// Iterate over all the fields of the struct
 	for i := 0; i < typ.NumFields(); i++ {
@@ -34,7 +36,7 @@ func (p *parseContext) makeContainer(named *types.Named, typ *types.Struct) (*ss
 		if !f.Exported() {
 			continue
 		}
-		ignore, tags, err := parseTags(typ.Tag(i))
+		ignore, tags, fork, err := parseTags(typ.Tag(i))
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse field %s.%s tags: %v", named.Obj().Name(), f.Name(), err)
 		}
@@ -52,6 +54,7 @@ func (p *parseContext) makeContainer(named *types.Named, typ *types.Struct) (*ss
 		fields = append(fields, f.Name())
 		types = append(types, f.Type())
 		opsets = append(opsets, opset)
+		forks = append(forks, fork)
 	}
 	return &sszContainer{
 		Struct: typ,
@@ -60,6 +63,7 @@ func (p *parseContext) makeContainer(named *types.Named, typ *types.Struct) (*ss
 		fields: fields,
 		types:  types,
 		opsets: opsets,
+		forks:  forks,
 	}, nil
 }
 
