@@ -48,13 +48,13 @@ func commonPrefix(a []byte, b []byte) []byte {
 // TestConsensusSpecBasics iterates over the basic container tests from the
 // consensus spec tests repo and runs the encoding/decoding/hashing round.
 func TestConsensusSpecBasics(t *testing.T) {
-	testConsensusSpecBasicType[*types.SingleFieldTestStruct](t, "SingleFieldTestStruct")
-	testConsensusSpecBasicType[*types.SmallTestStruct](t, "SmallTestStruct")
-	testConsensusSpecBasicType[*types.FixedTestStruct](t, "FixedTestStruct")
-	testConsensusSpecBasicType[*types.BitsStruct](t, "BitsStruct")
+	testConsensusSpecBasicType[*ssz.Codec, *types.SingleFieldTestStruct, types.SingleFieldTestStruct](t, "SingleFieldTestStruct")
+	testConsensusSpecBasicType[*ssz.Codec, *types.SmallTestStruct, types.SmallTestStruct](t, "SmallTestStruct")
+	testConsensusSpecBasicType[*ssz.Codec, *types.FixedTestStruct, types.FixedTestStruct](t, "FixedTestStruct")
+	testConsensusSpecBasicType[*ssz.Codec, *types.BitsStruct, types.BitsStruct](t, "BitsStruct")
 }
 
-func testConsensusSpecBasicType[T newableObject[U], U any](t *testing.T, kind string) {
+func testConsensusSpecBasicType[C ssz.CodecI[C], T newableObject[C, U], U any](t *testing.T, kind string) {
 	// Filter out the valid tests for this specific type
 	path := filepath.Join(consensusSpecTestsBasicsRoot, "valid")
 
@@ -177,52 +177,52 @@ func testConsensusSpecBasicType[T newableObject[U], U any](t *testing.T, kind st
 // TestConsensusSpecs iterates over all the (supported) consensus SSZ types and
 // runs the encoding/decoding/hashing round.
 func TestConsensusSpecs(t *testing.T) {
-	testConsensusSpecType[*types.AggregateAndProof](t, "AggregateAndProof", "altair", "bellatrix", "capella", "deneb", "eip7594", "phase0", "whisk")
-	testConsensusSpecType[*types.Attestation](t, "Attestation", "altair", "bellatrix", "capella", "deneb", "eip7594", "phase0", "whisk")
-	testConsensusSpecType[*types.AttestationData](t, "AttestationData")
-	testConsensusSpecType[*types.AttesterSlashing](t, "AttesterSlashing", "phase0", "altair", "bellatrix", "capella", "deneb")
-	testConsensusSpecType[*types.BeaconBlock](t, "BeaconBlock", "phase0")
-	testConsensusSpecType[*types.BeaconBlockBody](t, "BeaconBlockBody", "phase0")
-	testConsensusSpecType[*types.BeaconBlockBodyAltair](t, "BeaconBlockBody", "altair")
-	testConsensusSpecType[*types.BeaconBlockBodyBellatrix](t, "BeaconBlockBody", "bellatrix")
-	testConsensusSpecType[*types.BeaconBlockBodyCapella](t, "BeaconBlockBody", "capella")
-	testConsensusSpecType[*types.BeaconBlockBodyDeneb](t, "BeaconBlockBody", "deneb", "eip7594")
-	testConsensusSpecType[*types.BeaconBlockHeader](t, "BeaconBlockHeader")
-	testConsensusSpecType[*types.BeaconState](t, "BeaconState", "phase0")
-	testConsensusSpecType[*types.BeaconStateCapella](t, "BeaconState", "capella")
-	testConsensusSpecType[*types.BeaconStateDeneb](t, "BeaconState", "deneb")
-	testConsensusSpecType[*types.BLSToExecutionChange](t, "BLSToExecutionChange")
-	testConsensusSpecType[*types.Checkpoint](t, "Checkpoint")
-	testConsensusSpecType[*types.Deposit](t, "Deposit")
-	testConsensusSpecType[*types.DepositData](t, "DepositData")
-	testConsensusSpecType[*types.DepositMessage](t, "DepositMessage")
-	testConsensusSpecType[*types.Eth1Block](t, "Eth1Block")
-	testConsensusSpecType[*types.Eth1Data](t, "Eth1Data")
-	testConsensusSpecType[*types.ExecutionPayload](t, "ExecutionPayload", "bellatrix")
-	testConsensusSpecType[*types.ExecutionPayloadHeader](t, "ExecutionPayloadHeader", "bellatrix")
-	testConsensusSpecType[*types.ExecutionPayloadCapella](t, "ExecutionPayload", "capella")
-	testConsensusSpecType[*types.ExecutionPayloadHeaderCapella](t, "ExecutionPayloadHeader", "capella")
-	testConsensusSpecType[*types.ExecutionPayloadDeneb](t, "ExecutionPayload", "deneb", "eip7594")
-	testConsensusSpecType[*types.ExecutionPayloadHeaderDeneb](t, "ExecutionPayloadHeader", "deneb", "eip7594")
-	testConsensusSpecType[*types.Fork](t, "Fork")
-	testConsensusSpecType[*types.HistoricalBatch](t, "HistoricalBatch")
-	testConsensusSpecType[*types.HistoricalSummary](t, "HistoricalSummary")
-	testConsensusSpecType[*types.IndexedAttestation](t, "IndexedAttestation", "phase0", "altair", "bellatrix", "capella", "deneb")
-	testConsensusSpecType[*types.PendingAttestation](t, "PendingAttestation")
-	testConsensusSpecType[*types.ProposerSlashing](t, "ProposerSlashing")
-	testConsensusSpecType[*types.SignedBeaconBlockHeader](t, "SignedBeaconBlockHeader")
-	testConsensusSpecType[*types.SignedBLSToExecutionChange](t, "SignedBLSToExecutionChange")
-	testConsensusSpecType[*types.SignedVoluntaryExit](t, "SignedVoluntaryExit")
-	testConsensusSpecType[*types.SyncAggregate](t, "SyncAggregate")
-	testConsensusSpecType[*types.SyncCommittee](t, "SyncCommittee")
-	testConsensusSpecType[*types.Validator](t, "Validator")
-	testConsensusSpecType[*types.VoluntaryExit](t, "VoluntaryExit")
-	testConsensusSpecType[*types.Withdrawal](t, "Withdrawal")
+	testConsensusSpecType[*ssz.Codec, *types.AggregateAndProof](t, "AggregateAndProof", "altair", "bellatrix", "capella", "deneb", "eip7594", "phase0", "whisk")
+	testConsensusSpecType[*ssz.Codec, *types.Attestation](t, "Attestation", "altair", "bellatrix", "capella", "deneb", "eip7594", "phase0", "whisk")
+	testConsensusSpecType[*ssz.Codec, *types.AttestationData](t, "AttestationData")
+	testConsensusSpecType[*ssz.Codec, *types.AttesterSlashing](t, "AttesterSlashing", "phase0", "altair", "bellatrix", "capella", "deneb")
+	testConsensusSpecType[*ssz.Codec, *types.BeaconBlock](t, "BeaconBlock", "phase0")
+	testConsensusSpecType[*ssz.Codec, *types.BeaconBlockBody](t, "BeaconBlockBody", "phase0")
+	testConsensusSpecType[*ssz.Codec, *types.BeaconBlockBodyAltair](t, "BeaconBlockBody", "altair")
+	testConsensusSpecType[*ssz.Codec, *types.BeaconBlockBodyBellatrix](t, "BeaconBlockBody", "bellatrix")
+	testConsensusSpecType[*ssz.Codec, *types.BeaconBlockBodyCapella](t, "BeaconBlockBody", "capella")
+	testConsensusSpecType[*ssz.Codec, *types.BeaconBlockBodyDeneb](t, "BeaconBlockBody", "deneb", "eip7594")
+	testConsensusSpecType[*ssz.Codec, *types.BeaconBlockHeader](t, "BeaconBlockHeader")
+	testConsensusSpecType[*ssz.Codec, *types.BeaconState](t, "BeaconState", "phase0")
+	testConsensusSpecType[*ssz.Codec, *types.BeaconStateCapella](t, "BeaconState", "capella")
+	testConsensusSpecType[*ssz.Codec, *types.BeaconStateDeneb](t, "BeaconState", "deneb")
+	testConsensusSpecType[*ssz.Codec, *types.BLSToExecutionChange](t, "BLSToExecutionChange")
+	testConsensusSpecType[*ssz.Codec, *types.Checkpoint](t, "Checkpoint")
+	testConsensusSpecType[*ssz.Codec, *types.Deposit](t, "Deposit")
+	testConsensusSpecType[*ssz.Codec, *types.DepositData](t, "DepositData")
+	testConsensusSpecType[*ssz.Codec, *types.DepositMessage](t, "DepositMessage")
+	testConsensusSpecType[*ssz.Codec, *types.Eth1Block](t, "Eth1Block")
+	testConsensusSpecType[*ssz.Codec, *types.Eth1Data](t, "Eth1Data")
+	testConsensusSpecType[*ssz.Codec, *types.ExecutionPayload](t, "ExecutionPayload", "bellatrix")
+	testConsensusSpecType[*ssz.Codec, *types.ExecutionPayloadHeader](t, "ExecutionPayloadHeader", "bellatrix")
+	testConsensusSpecType[*ssz.Codec, *types.ExecutionPayloadCapella](t, "ExecutionPayload", "capella")
+	testConsensusSpecType[*ssz.Codec, *types.ExecutionPayloadHeaderCapella](t, "ExecutionPayloadHeader", "capella")
+	testConsensusSpecType[*ssz.Codec, *types.ExecutionPayloadDeneb](t, "ExecutionPayload", "deneb", "eip7594")
+	testConsensusSpecType[*ssz.Codec, *types.ExecutionPayloadHeaderDeneb](t, "ExecutionPayloadHeader", "deneb", "eip7594")
+	testConsensusSpecType[*ssz.Codec, *types.Fork](t, "Fork")
+	testConsensusSpecType[*ssz.Codec, *types.HistoricalBatch](t, "HistoricalBatch")
+	testConsensusSpecType[*ssz.Codec, *types.HistoricalSummary](t, "HistoricalSummary")
+	testConsensusSpecType[*ssz.Codec, *types.IndexedAttestation](t, "IndexedAttestation", "phase0", "altair", "bellatrix", "capella", "deneb")
+	testConsensusSpecType[*ssz.Codec, *types.PendingAttestation](t, "PendingAttestation")
+	testConsensusSpecType[*ssz.Codec, *types.ProposerSlashing](t, "ProposerSlashing")
+	testConsensusSpecType[*ssz.Codec, *types.SignedBeaconBlockHeader](t, "SignedBeaconBlockHeader")
+	testConsensusSpecType[*ssz.Codec, *types.SignedBLSToExecutionChange](t, "SignedBLSToExecutionChange")
+	testConsensusSpecType[*ssz.Codec, *types.SignedVoluntaryExit](t, "SignedVoluntaryExit")
+	testConsensusSpecType[*ssz.Codec, *types.SyncAggregate](t, "SyncAggregate")
+	testConsensusSpecType[*ssz.Codec, *types.SyncCommittee](t, "SyncCommittee")
+	testConsensusSpecType[*ssz.Codec, *types.Validator](t, "Validator")
+	testConsensusSpecType[*ssz.Codec, *types.VoluntaryExit](t, "VoluntaryExit")
+	testConsensusSpecType[*ssz.Codec, *types.Withdrawal](t, "Withdrawal")
 
 	// Add some API variations to test different codec implementations
-	testConsensusSpecType[*types.ExecutionPayloadVariation](t, "ExecutionPayload", "bellatrix")
-	testConsensusSpecType[*types.HistoricalBatchVariation](t, "HistoricalBatch")
-	testConsensusSpecType[*types.WithdrawalVariation](t, "Withdrawal")
+	testConsensusSpecType[*ssz.Codec, *types.ExecutionPayloadVariation](t, "ExecutionPayload", "bellatrix")
+	testConsensusSpecType[*ssz.Codec, *types.HistoricalBatchVariation](t, "HistoricalBatch")
+	testConsensusSpecType[*ssz.Codec, *types.WithdrawalVariation](t, "Withdrawal")
 
 	// Iterate over all the untouched tests and report them
 	// 	forks, err := os.ReadDir(consensusSpecTestsRoot)
@@ -249,12 +249,12 @@ func TestConsensusSpecs(t *testing.T) {
 // newableObject is a generic type whose purpose is to enforce that ssz.Object
 // is specifically implemented on a struct pointer. That's needed to allow us
 // to instantiate new structs via `new` when parsing.
-type newableObject[U any] interface {
-	ssz.Object
+type newableObject[C ssz.CodecI[C], U any] interface {
+	ssz.Object[C]
 	*U
 }
 
-func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string, forks ...string) {
+func testConsensusSpecType[C ssz.CodecI[C], T newableObject[C, U], U any](t *testing.T, kind string, forks ...string) {
 	// If no fork was specified, iterate over all of them and use the same type
 	if len(forks) == 0 {
 		forks, err := os.ReadDir(consensusSpecTestsRoot)
@@ -264,7 +264,7 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 		}
 		for _, fork := range forks {
 			if _, err := os.Stat(filepath.Join(consensusSpecTestsRoot, fork.Name(), "ssz_static", kind, "ssz_random")); err == nil {
-				testConsensusSpecType[T, U](t, kind, fork.Name())
+				testConsensusSpecType[C, T, U](t, kind, fork.Name())
 			}
 		}
 		return
@@ -358,42 +358,42 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 // BenchmarkConsensusSpecs iterates over all the (supported) consensus SSZ types and
 // runs the encoding/decoding/hashing benchmark round.
 func BenchmarkConsensusSpecs(b *testing.B) {
-	benchmarkConsensusSpecType[*types.ExecutionPayloadVariation](b, "bellatrix", "ExecutionPayload")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.ExecutionPayloadVariation](b, "bellatrix", "ExecutionPayload")
 
-	benchmarkConsensusSpecType[*types.AggregateAndProof](b, "deneb", "AggregateAndProof")
-	benchmarkConsensusSpecType[*types.Attestation](b, "deneb", "Attestation")
-	benchmarkConsensusSpecType[*types.AttestationData](b, "deneb", "AttestationData")
-	benchmarkConsensusSpecType[*types.AttesterSlashing](b, "deneb", "AttesterSlashing")
-	benchmarkConsensusSpecType[*types.BeaconBlock](b, "phase0", "BeaconBlock")
-	benchmarkConsensusSpecType[*types.BeaconBlockBodyDeneb](b, "deneb", "BeaconBlockBody")
-	benchmarkConsensusSpecType[*types.BeaconBlockHeader](b, "deneb", "BeaconBlockHeader")
-	benchmarkConsensusSpecType[*types.BeaconState](b, "phase0", "BeaconState")
-	benchmarkConsensusSpecType[*types.BLSToExecutionChange](b, "deneb", "BLSToExecutionChange")
-	benchmarkConsensusSpecType[*types.Checkpoint](b, "deneb", "Checkpoint")
-	benchmarkConsensusSpecType[*types.Deposit](b, "deneb", "Deposit")
-	benchmarkConsensusSpecType[*types.DepositData](b, "deneb", "DepositData")
-	benchmarkConsensusSpecType[*types.DepositMessage](b, "deneb", "DepositMessage")
-	benchmarkConsensusSpecType[*types.Eth1Block](b, "deneb", "Eth1Block")
-	benchmarkConsensusSpecType[*types.Eth1Data](b, "deneb", "Eth1Data")
-	benchmarkConsensusSpecType[*types.ExecutionPayloadDeneb](b, "deneb", "ExecutionPayload")
-	benchmarkConsensusSpecType[*types.ExecutionPayloadHeaderDeneb](b, "deneb", "ExecutionPayloadHeader")
-	benchmarkConsensusSpecType[*types.Fork](b, "deneb", "Fork")
-	benchmarkConsensusSpecType[*types.HistoricalBatch](b, "deneb", "HistoricalBatch")
-	benchmarkConsensusSpecType[*types.HistoricalSummary](b, "deneb", "HistoricalSummary")
-	benchmarkConsensusSpecType[*types.IndexedAttestation](b, "deneb", "IndexedAttestation")
-	benchmarkConsensusSpecType[*types.PendingAttestation](b, "deneb", "PendingAttestation")
-	benchmarkConsensusSpecType[*types.ProposerSlashing](b, "deneb", "ProposerSlashing")
-	benchmarkConsensusSpecType[*types.SignedBeaconBlockHeader](b, "deneb", "SignedBeaconBlockHeader")
-	benchmarkConsensusSpecType[*types.SignedBLSToExecutionChange](b, "deneb", "SignedBLSToExecutionChange")
-	benchmarkConsensusSpecType[*types.SignedVoluntaryExit](b, "deneb", "SignedVoluntaryExit")
-	benchmarkConsensusSpecType[*types.SyncAggregate](b, "deneb", "SyncAggregate")
-	benchmarkConsensusSpecType[*types.SyncCommittee](b, "deneb", "SyncCommittee")
-	benchmarkConsensusSpecType[*types.Validator](b, "deneb", "Validator")
-	benchmarkConsensusSpecType[*types.VoluntaryExit](b, "deneb", "VoluntaryExit")
-	benchmarkConsensusSpecType[*types.Withdrawal](b, "deneb", "Withdrawal")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.AggregateAndProof](b, "deneb", "AggregateAndProof")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.Attestation](b, "deneb", "Attestation")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.AttestationData](b, "deneb", "AttestationData")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.AttesterSlashing](b, "deneb", "AttesterSlashing")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.BeaconBlock](b, "phase0", "BeaconBlock")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.BeaconBlockBodyDeneb](b, "deneb", "BeaconBlockBody")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.BeaconBlockHeader](b, "deneb", "BeaconBlockHeader")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.BeaconState](b, "phase0", "BeaconState")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.BLSToExecutionChange](b, "deneb", "BLSToExecutionChange")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.Checkpoint](b, "deneb", "Checkpoint")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.Deposit](b, "deneb", "Deposit")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.DepositData](b, "deneb", "DepositData")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.DepositMessage](b, "deneb", "DepositMessage")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.Eth1Block](b, "deneb", "Eth1Block")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.Eth1Data](b, "deneb", "Eth1Data")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.ExecutionPayloadDeneb](b, "deneb", "ExecutionPayload")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.ExecutionPayloadHeaderDeneb](b, "deneb", "ExecutionPayloadHeader")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.Fork](b, "deneb", "Fork")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.HistoricalBatch](b, "deneb", "HistoricalBatch")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.HistoricalSummary](b, "deneb", "HistoricalSummary")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.IndexedAttestation](b, "deneb", "IndexedAttestation")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.PendingAttestation](b, "deneb", "PendingAttestation")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.ProposerSlashing](b, "deneb", "ProposerSlashing")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.SignedBeaconBlockHeader](b, "deneb", "SignedBeaconBlockHeader")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.SignedBLSToExecutionChange](b, "deneb", "SignedBLSToExecutionChange")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.SignedVoluntaryExit](b, "deneb", "SignedVoluntaryExit")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.SyncAggregate](b, "deneb", "SyncAggregate")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.SyncCommittee](b, "deneb", "SyncCommittee")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.Validator](b, "deneb", "Validator")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.VoluntaryExit](b, "deneb", "VoluntaryExit")
+	benchmarkConsensusSpecType[*ssz.Codec, *types.Withdrawal](b, "deneb", "Withdrawal")
 }
 
-func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, kind string) {
+func benchmarkConsensusSpecType[C ssz.CodecI[C], T newableObject[C, U], U any](b *testing.B, fork, kind string) {
 	path := filepath.Join(consensusSpecTestsRoot, fork, "ssz_static", kind, "ssz_random", "case_4")
 
 	// Parse the input SSZ data for this specific dataset and decode it
@@ -496,134 +496,134 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 // etc. to test different functions.
 
 func FuzzConsensusSpecsAggregateAndProof(f *testing.F) {
-	fuzzConsensusSpecType[*types.AggregateAndProof](f, "AggregateAndProof")
+	fuzzConsensusSpecType[*ssz.Codec, *types.AggregateAndProof](f, "AggregateAndProof")
 }
 func FuzzConsensusSpecsAttestation(f *testing.F) {
-	fuzzConsensusSpecType[*types.Attestation](f, "Attestation")
+	fuzzConsensusSpecType[*ssz.Codec, *types.Attestation](f, "Attestation")
 }
 func FuzzConsensusSpecsAttestationData(f *testing.F) {
-	fuzzConsensusSpecType[*types.AttestationData](f, "AttestationData")
+	fuzzConsensusSpecType[*ssz.Codec, *types.AttestationData](f, "AttestationData")
 }
 func FuzzConsensusSpecsAttesterSlashing(f *testing.F) {
-	fuzzConsensusSpecType[*types.AttesterSlashing](f, "AttesterSlashing")
+	fuzzConsensusSpecType[*ssz.Codec, *types.AttesterSlashing](f, "AttesterSlashing")
 }
 func FuzzConsensusSpecsBeaconBlock(f *testing.F) {
-	fuzzConsensusSpecType[*types.BeaconBlock](f, "BeaconBlock")
+	fuzzConsensusSpecType[*ssz.Codec, *types.BeaconBlock](f, "BeaconBlock")
 }
 func FuzzConsensusSpecsBeaconBlockBody(f *testing.F) {
-	fuzzConsensusSpecType[*types.BeaconBlockBody](f, "BeaconBlockBody")
+	fuzzConsensusSpecType[*ssz.Codec, *types.BeaconBlockBody](f, "BeaconBlockBody")
 }
 func FuzzConsensusSpecsBeaconBlockBodyAltair(f *testing.F) {
-	fuzzConsensusSpecType[*types.BeaconBlockBodyAltair](f, "BeaconBlockBody")
+	fuzzConsensusSpecType[*ssz.Codec, *types.BeaconBlockBodyAltair](f, "BeaconBlockBody")
 }
 func FuzzConsensusSpecsBeaconBlockBodyBellatrix(f *testing.F) {
-	fuzzConsensusSpecType[*types.BeaconBlockBodyBellatrix](f, "BeaconBlockBody")
+	fuzzConsensusSpecType[*ssz.Codec, *types.BeaconBlockBodyBellatrix](f, "BeaconBlockBody")
 }
 func FuzzConsensusSpecsBeaconBlockBodyCapella(f *testing.F) {
-	fuzzConsensusSpecType[*types.BeaconBlockBodyCapella](f, "BeaconBlockBody")
+	fuzzConsensusSpecType[*ssz.Codec, *types.BeaconBlockBodyCapella](f, "BeaconBlockBody")
 }
 func FuzzConsensusSpecsBeaconBlockBodyDeneb(f *testing.F) {
-	fuzzConsensusSpecType[*types.BeaconBlockBodyDeneb](f, "BeaconBlockBody")
+	fuzzConsensusSpecType[*ssz.Codec, *types.BeaconBlockBodyDeneb](f, "BeaconBlockBody")
 }
 func FuzzConsensusSpecsBeaconBlockHeader(f *testing.F) {
-	fuzzConsensusSpecType[*types.BeaconBlockHeader](f, "BeaconBlockHeader")
+	fuzzConsensusSpecType[*ssz.Codec, *types.BeaconBlockHeader](f, "BeaconBlockHeader")
 }
 func FuzzConsensusSpecsBeaconState(f *testing.F) {
-	fuzzConsensusSpecType[*types.BeaconState](f, "BeaconState")
+	fuzzConsensusSpecType[*ssz.Codec, *types.BeaconState](f, "BeaconState")
 }
 func FuzzConsensusSpecsBLSToExecutionChange(f *testing.F) {
-	fuzzConsensusSpecType[*types.BLSToExecutionChange](f, "BLSToExecutionChange")
+	fuzzConsensusSpecType[*ssz.Codec, *types.BLSToExecutionChange](f, "BLSToExecutionChange")
 }
 func FuzzConsensusSpecsCheckpoint(f *testing.F) {
-	fuzzConsensusSpecType[*types.Checkpoint](f, "Checkpoint")
+	fuzzConsensusSpecType[*ssz.Codec, *types.Checkpoint](f, "Checkpoint")
 }
 func FuzzConsensusSpecsDeposit(f *testing.F) {
-	fuzzConsensusSpecType[*types.Deposit](f, "Deposit")
+	fuzzConsensusSpecType[*ssz.Codec, *types.Deposit](f, "Deposit")
 }
 func FuzzConsensusSpecsDepositData(f *testing.F) {
-	fuzzConsensusSpecType[*types.DepositData](f, "DepositData")
+	fuzzConsensusSpecType[*ssz.Codec, *types.DepositData](f, "DepositData")
 }
 func FuzzConsensusSpecsDepositMessage(f *testing.F) {
-	fuzzConsensusSpecType[*types.DepositMessage](f, "DepositMessage")
+	fuzzConsensusSpecType[*ssz.Codec, *types.DepositMessage](f, "DepositMessage")
 }
 func FuzzConsensusSpecsEth1Block(f *testing.F) {
-	fuzzConsensusSpecType[*types.Eth1Block](f, "Eth1Block")
+	fuzzConsensusSpecType[*ssz.Codec, *types.Eth1Block](f, "Eth1Block")
 }
 func FuzzConsensusSpecsEth1Data(f *testing.F) {
-	fuzzConsensusSpecType[*types.Eth1Data](f, "Eth1Data")
+	fuzzConsensusSpecType[*ssz.Codec, *types.Eth1Data](f, "Eth1Data")
 }
 func FuzzConsensusSpecsExecutionPayload(f *testing.F) {
-	fuzzConsensusSpecType[*types.ExecutionPayload](f, "ExecutionPayload")
+	fuzzConsensusSpecType[*ssz.Codec, *types.ExecutionPayload](f, "ExecutionPayload")
 }
 func FuzzConsensusSpecsExecutionPayloadCapella(f *testing.F) {
-	fuzzConsensusSpecType[*types.ExecutionPayloadCapella](f, "ExecutionPayload")
+	fuzzConsensusSpecType[*ssz.Codec, *types.ExecutionPayloadCapella](f, "ExecutionPayload")
 }
 func FuzzConsensusSpecsExecutionPayloadDeneb(f *testing.F) {
-	fuzzConsensusSpecType[*types.ExecutionPayloadDeneb](f, "ExecutionPayload")
+	fuzzConsensusSpecType[*ssz.Codec, *types.ExecutionPayloadDeneb](f, "ExecutionPayload")
 }
 func FuzzConsensusSpecsExecutionPayloadHeader(f *testing.F) {
-	fuzzConsensusSpecType[*types.ExecutionPayloadHeader](f, "ExecutionPayloadHeader")
+	fuzzConsensusSpecType[*ssz.Codec, *types.ExecutionPayloadHeader](f, "ExecutionPayloadHeader")
 }
 func FuzzConsensusSpecsExecutionPayloadHeaderCapella(f *testing.F) {
-	fuzzConsensusSpecType[*types.ExecutionPayloadHeaderCapella](f, "ExecutionPayloadHeader")
+	fuzzConsensusSpecType[*ssz.Codec, *types.ExecutionPayloadHeaderCapella](f, "ExecutionPayloadHeader")
 }
 func FuzzConsensusSpecsExecutionPayloadHeaderDeneb(f *testing.F) {
-	fuzzConsensusSpecType[*types.ExecutionPayloadHeaderDeneb](f, "ExecutionPayloadHeader")
+	fuzzConsensusSpecType[*ssz.Codec, *types.ExecutionPayloadHeaderDeneb](f, "ExecutionPayloadHeader")
 }
 func FuzzConsensusSpecsFork(f *testing.F) {
-	fuzzConsensusSpecType[*types.Fork](f, "Fork")
+	fuzzConsensusSpecType[*ssz.Codec, *types.Fork](f, "Fork")
 }
 func FuzzConsensusSpecsHistoricalBatch(f *testing.F) {
-	fuzzConsensusSpecType[*types.HistoricalBatch](f, "HistoricalBatch")
+	fuzzConsensusSpecType[*ssz.Codec, *types.HistoricalBatch](f, "HistoricalBatch")
 }
 func FuzzConsensusSpecsHistoricalSummary(f *testing.F) {
-	fuzzConsensusSpecType[*types.HistoricalSummary](f, "HistoricalSummary")
+	fuzzConsensusSpecType[*ssz.Codec, *types.HistoricalSummary](f, "HistoricalSummary")
 }
 func FuzzConsensusSpecsIndexedAttestation(f *testing.F) {
-	fuzzConsensusSpecType[*types.IndexedAttestation](f, "IndexedAttestation")
+	fuzzConsensusSpecType[*ssz.Codec, *types.IndexedAttestation](f, "IndexedAttestation")
 }
 func FuzzConsensusSpecsPendingAttestation(f *testing.F) {
-	fuzzConsensusSpecType[*types.PendingAttestation](f, "PendingAttestation")
+	fuzzConsensusSpecType[*ssz.Codec, *types.PendingAttestation](f, "PendingAttestation")
 }
 func FuzzConsensusSpecsProposerSlashing(f *testing.F) {
-	fuzzConsensusSpecType[*types.ProposerSlashing](f, "ProposerSlashing")
+	fuzzConsensusSpecType[*ssz.Codec, *types.ProposerSlashing](f, "ProposerSlashing")
 }
 func FuzzConsensusSpecsSignedBeaconBlockHeader(f *testing.F) {
-	fuzzConsensusSpecType[*types.SignedBeaconBlockHeader](f, "SignedBeaconBlockHeader")
+	fuzzConsensusSpecType[*ssz.Codec, *types.SignedBeaconBlockHeader](f, "SignedBeaconBlockHeader")
 }
 func FuzzConsensusSpecsSignedBLSToExecutionChange(f *testing.F) {
-	fuzzConsensusSpecType[*types.SignedBLSToExecutionChange](f, "SignedBLSToExecutionChange")
+	fuzzConsensusSpecType[*ssz.Codec, *types.SignedBLSToExecutionChange](f, "SignedBLSToExecutionChange")
 }
 func FuzzConsensusSpecsSignedVoluntaryExit(f *testing.F) {
-	fuzzConsensusSpecType[*types.SignedVoluntaryExit](f, "SignedVoluntaryExit")
+	fuzzConsensusSpecType[*ssz.Codec, *types.SignedVoluntaryExit](f, "SignedVoluntaryExit")
 }
 func FuzzConsensusSpecsSyncAggregate(f *testing.F) {
-	fuzzConsensusSpecType[*types.SyncAggregate](f, "SyncAggregate")
+	fuzzConsensusSpecType[*ssz.Codec, *types.SyncAggregate](f, "SyncAggregate")
 }
 func FuzzConsensusSpecsSyncCommittee(f *testing.F) {
-	fuzzConsensusSpecType[*types.SyncCommittee](f, "SyncCommittee")
+	fuzzConsensusSpecType[*ssz.Codec, *types.SyncCommittee](f, "SyncCommittee")
 }
 func FuzzConsensusSpecsValidator(f *testing.F) {
-	fuzzConsensusSpecType[*types.Validator](f, "Validator")
+	fuzzConsensusSpecType[*ssz.Codec, *types.Validator](f, "Validator")
 }
 func FuzzConsensusSpecsVoluntaryExit(f *testing.F) {
-	fuzzConsensusSpecType[*types.VoluntaryExit](f, "VoluntaryExit")
+	fuzzConsensusSpecType[*ssz.Codec, *types.VoluntaryExit](f, "VoluntaryExit")
 }
 func FuzzConsensusSpecsWithdrawal(f *testing.F) {
-	fuzzConsensusSpecType[*types.Withdrawal](f, "Withdrawal")
+	fuzzConsensusSpecType[*ssz.Codec, *types.Withdrawal](f, "Withdrawal")
 }
 
 func FuzzConsensusSpecsExecutionPayloadVariation(f *testing.F) {
-	fuzzConsensusSpecType[*types.ExecutionPayloadVariation](f, "ExecutionPayload")
+	fuzzConsensusSpecType[*ssz.Codec, *types.ExecutionPayloadVariation](f, "ExecutionPayload")
 }
 func FuzzConsensusSpecsHistoricalBatchVariation(f *testing.F) {
-	fuzzConsensusSpecType[*types.HistoricalBatchVariation](f, "HistoricalBatch")
+	fuzzConsensusSpecType[*ssz.Codec, *types.HistoricalBatchVariation](f, "HistoricalBatch")
 }
 func FuzzConsensusSpecsWithdrawalVariation(f *testing.F) {
-	fuzzConsensusSpecType[*types.WithdrawalVariation](f, "Withdrawal")
+	fuzzConsensusSpecType[*ssz.Codec, *types.WithdrawalVariation](f, "Withdrawal")
 }
 
-func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string) {
+func fuzzConsensusSpecType[C ssz.CodecI[C], T newableObject[C, U], U any](f *testing.F, kind string) {
 	// Iterate over all the forks and collect all the sample data
 	forks, err := os.ReadDir(consensusSpecTestsRoot)
 	if err != nil {

@@ -45,14 +45,14 @@ func init() {
 }
 
 // Hasher is an SSZ Merkle Hash Root computer.
-type Hasher struct {
+type Hasher[C any] struct {
 	threads bool // Whether threaded hashing is allowed or not
 
 	chunks [][32]byte   // Scratch space for in-progress hashing chunks
 	groups []groupStats // Hashing progress tracking for the chunk groups
 	layer  int          // Layer depth being hasher now
 
-	codec  *Codec // Self-referencing to pass DefineSSZ calls through (API trick)
+	codec  C      // Self-referencing to pass DefineSSZ calls through (API trick)
 	bitbuf []byte // Bitlist conversion buffer
 }
 
@@ -65,7 +65,7 @@ type groupStats struct {
 }
 
 // HashBool hashes a boolean.
-func HashBool[T ~bool](h *Hasher, v T) {
+func HashBool[T ~bool, C CodecI[C]](h *Hasher[C], v T) {
 	if !v {
 		h.insertChunk(hasherBoolFalse, 0)
 	} else {
@@ -74,28 +74,28 @@ func HashBool[T ~bool](h *Hasher, v T) {
 }
 
 // HashUint8 hashes a uint8.
-func HashUint8[T ~uint8](h *Hasher, n T) {
+func HashUint8[T ~uint8, C CodecI[C]](h *Hasher[C], n T) {
 	var buffer [32]byte
 	buffer[0] = uint8(n)
 	h.insertChunk(buffer, 0)
 }
 
 // HashUint16 hashes a uint16.
-func HashUint16[T ~uint16](h *Hasher, n T) {
+func HashUint16[T ~uint16, C CodecI[C]](h *Hasher[C], n T) {
 	var buffer [32]byte
 	binary.LittleEndian.PutUint16(buffer[:], uint16(n))
 	h.insertChunk(buffer, 0)
 }
 
 // HashUint32 hashes a uint32.
-func HashUint32[T ~uint32](h *Hasher, n T) {
+func HashUint32[T ~uint32, C CodecI[C]](h *Hasher[C], n T) {
 	var buffer [32]byte
 	binary.LittleEndian.PutUint32(buffer[:], uint32(n))
 	h.insertChunk(buffer, 0)
 }
 
 // HashUint64 hashes a uint64.
-func HashUint64[T ~uint64](h *Hasher, n T) {
+func HashUint64[T ~uint64, C CodecI[C]](h *Hasher[C], n T) {
 	var buffer [32]byte
 	binary.LittleEndian.PutUint64(buffer[:], uint64(n))
 	h.insertChunk(buffer, 0)
@@ -104,7 +104,7 @@ func HashUint64[T ~uint64](h *Hasher, n T) {
 // HashUint256 hashes a uint256.
 //
 // Note, a nil pointer is hashed as zero.
-func HashUint256(h *Hasher, n *uint256.Int) {
+func HashUint256[C CodecI[C]](h *Hasher[C], n *uint256.Int) {
 	var buffer [32]byte
 	if n != nil {
 		n.MarshalSSZInto(buffer[:])
@@ -115,7 +115,7 @@ func HashUint256(h *Hasher, n *uint256.Int) {
 // HashUint256BigInt hashes a big.Int as uint256.
 //
 // Note, a nil pointer is hashed as zero.
-func HashUint256BigInt(h *Hasher, n *big.Int) {
+func HashUint256BigInt[C CodecI[C]](h *Hasher[C], n *big.Int) {
 	var buffer [32]byte
 	if n != nil {
 		var bufint uint256.Int // No pointer, alloc free
@@ -129,47 +129,47 @@ func HashUint256BigInt(h *Hasher, n *big.Int) {
 //
 // The blob is passed by pointer to avoid high stack copy costs and a potential
 // escape to the heap.
-func HashStaticBytes[T commonBytesLengths](h *Hasher, blob *T) {
+func HashStaticBytes[T commonBytesLengths, C CodecI[C]](h *Hasher[C], blob *T) {
 	// The code below should have used `blob[:]`, alas Go's generics compiler
 	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 	h.hashBytes(unsafe.Slice(&(*blob)[0], len(*blob)))
 }
 
 // HashCheckedStaticBytes hashes a static binary blob.
-func HashCheckedStaticBytes(h *Hasher, blob []byte) {
+func HashCheckedStaticBytes[C CodecI[C]](h *Hasher[C], blob []byte) {
 	h.hashBytes(blob)
 }
 
 // HashDynamicBytes hashes a dynamic binary blob.
-func HashDynamicBytes(h *Hasher, blob []byte, maxSize uint64) {
+func HashDynamicBytes[C CodecI[C]](h *Hasher[C], blob []byte, maxSize uint64) {
 	h.descendMixinLayer()
 	h.insertBlobChunks(blob)
 	h.ascendMixinLayer(uint64(len(blob)), (maxSize+31)/32)
 }
 
 // HashStaticObject hashes a static ssz object.
-func HashStaticObject(h *Hasher, obj StaticObject) {
+func HashStaticObject[C CodecI[C]](h *Hasher[C], obj StaticObject[C]) {
 	h.descendLayer()
 	obj.DefineSSZ(h.codec)
 	h.ascendLayer(0)
 }
 
 // HashDynamicObject hashes a dynamic ssz object.
-func HashDynamicObject(h *Hasher, obj DynamicObject) {
+func HashDynamicObject[C CodecI[C]](h *Hasher[C], obj DynamicObject[C]) {
 	h.descendLayer()
 	obj.DefineSSZ(h.codec)
 	h.ascendLayer(0)
 }
 
 // HashArrayOfBits hashes a static array of (packed) bits.
-func HashArrayOfBits[T commonBitsLengths](h *Hasher, bits *T) {
+func HashArrayOfBits[T commonBitsLengths, C CodecI[C]](h *Hasher[C], bits *T) {
 	// The code below should have used `*bits[:]`, alas Go's generics compiler
 	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 	h.hashBytes(unsafe.Slice(&(*bits)[0], len(*bits)))
 }
 
 // HashSliceOfBits hashes a dynamic slice of (packed) bits.
-func HashSliceOfBits(h *Hasher, bits bitfield.Bitlist, maxBits uint64) {
+func HashSliceOfBits[C CodecI[C]](h *Hasher[C], bits bitfield.Bitlist, maxBits uint64) {
 	// Parse the bit-list into a hashable representation
 	var (
 		msb  = uint8(bitops.Len8(bits[len(bits)-1])) - 1
@@ -202,7 +202,7 @@ func HashSliceOfBits(h *Hasher, bits bitfield.Bitlist, maxBits uint64) {
 // The reason the ns is passed by pointer and not by value is to prevent it from
 // escaping to the heap (and incurring an allocation) when passing it to the
 // hasher.
-func HashArrayOfUint64s[T commonUint64sLengths](h *Hasher, ns *T) {
+func HashArrayOfUint64s[T commonUint64sLengths, C CodecI[C]](h *Hasher[C], ns *T) {
 	// The code below should have used `*blob[:]`, alas Go's generics compiler
 	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 	nums := unsafe.Slice(&(*ns)[0], len(*ns))
@@ -229,7 +229,7 @@ func HashArrayOfUint64s[T commonUint64sLengths](h *Hasher, ns *T) {
 }
 
 // HashSliceOfUint64s hashes a dynamic slice of uint64s.
-func HashSliceOfUint64s[T ~uint64](h *Hasher, ns []T, maxItems uint64) {
+func HashSliceOfUint64s[T ~uint64, C CodecI[C]](h *Hasher[C], ns []T, maxItems uint64) {
 	h.descendMixinLayer()
 	nums := ns
 
@@ -258,14 +258,14 @@ func HashSliceOfUint64s[T ~uint64](h *Hasher, ns []T, maxItems uint64) {
 // The reason the blobs is passed by pointer and not by value is to prevent it
 // from escaping to the heap (and incurring an allocation) when passing it to
 // the output stream.
-func HashArrayOfStaticBytes[T commonBytesArrayLengths[U], U commonBytesLengths](h *Hasher, blobs *T) {
+func HashArrayOfStaticBytes[T commonBytesArrayLengths[U], U commonBytesLengths, C CodecI[C]](h *Hasher[C], blobs *T) {
 	// The code below should have used `(*blobs)[:]`, alas Go's generics compiler
 	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 	HashUnsafeArrayOfStaticBytes(h, unsafe.Slice(&(*blobs)[0], len(*blobs)))
 }
 
 // HashUnsafeArrayOfStaticBytes hashes a static array of static binary blobs.
-func HashUnsafeArrayOfStaticBytes[T commonBytesLengths](h *Hasher, blobs []T) {
+func HashUnsafeArrayOfStaticBytes[T commonBytesLengths, C CodecI[C]](h *Hasher[C], blobs []T) {
 	h.descendLayer()
 	for i := 0; i < len(blobs); i++ {
 		// The code below should have used `blobs[i][:]`, alas Go's generics compiler
@@ -276,7 +276,7 @@ func HashUnsafeArrayOfStaticBytes[T commonBytesLengths](h *Hasher, blobs []T) {
 }
 
 // HashCheckedArrayOfStaticBytes hashes a static array of static binary blobs.
-func HashCheckedArrayOfStaticBytes[T commonBytesLengths](h *Hasher, blobs []T) {
+func HashCheckedArrayOfStaticBytes[T commonBytesLengths, C CodecI[C]](h *Hasher[C], blobs []T) {
 	h.descendLayer()
 	for i := 0; i < len(blobs); i++ {
 		// The code below should have used `blobs[i][:]`, alas Go's generics compiler
@@ -287,7 +287,7 @@ func HashCheckedArrayOfStaticBytes[T commonBytesLengths](h *Hasher, blobs []T) {
 }
 
 // HashSliceOfStaticBytes hashes a dynamic slice of static binary blobs.
-func HashSliceOfStaticBytes[T commonBytesLengths](h *Hasher, blobs []T, maxItems uint64) {
+func HashSliceOfStaticBytes[T commonBytesLengths, C CodecI[C]](h *Hasher[C], blobs []T, maxItems uint64) {
 	h.descendMixinLayer()
 	for i := 0; i < len(blobs); i++ {
 		// The code below should have used `blobs[i][:]`, alas Go's generics compiler
@@ -298,7 +298,7 @@ func HashSliceOfStaticBytes[T commonBytesLengths](h *Hasher, blobs []T, maxItems
 }
 
 // HashSliceOfDynamicBytes hashes a dynamic slice of dynamic binary blobs.
-func HashSliceOfDynamicBytes(h *Hasher, blobs [][]byte, maxItems uint64, maxSize uint64) {
+func HashSliceOfDynamicBytes[C CodecI[C]](h *Hasher[C], blobs [][]byte, maxItems uint64, maxSize uint64) {
 	h.descendMixinLayer()
 	for _, blob := range blobs {
 		h.descendMixinLayer()
@@ -309,7 +309,7 @@ func HashSliceOfDynamicBytes(h *Hasher, blobs [][]byte, maxItems uint64, maxSize
 }
 
 // HashSliceOfStaticObjects hashes a dynamic slice of static ssz objects.
-func HashSliceOfStaticObjects[T StaticObject](h *Hasher, objects []T, maxItems uint64) {
+func HashSliceOfStaticObjects[T StaticObject[C], C CodecI[C]](h *Hasher[C], objects []T, maxItems uint64) {
 	h.descendMixinLayer()
 	defer h.ascendMixinLayer(uint64(len(objects)), maxItems)
 
@@ -343,20 +343,20 @@ func HashSliceOfStaticObjects[T StaticObject](h *Hasher, objects []T, maxItems u
 		worker := i // Take care, closure
 
 		workers.Go(func() error {
-			codec := hasherPool.Get().(*Codec)
+			codec := hasherPool.Get().(C)
 			defer hasherPool.Put(codec)
-			defer codec.has.Reset()
-			codec.has.threads = true
+			defer codec.Has().Reset()
+			codec.Has().threads = true
 
 			for i := worker * subtask; i < (worker+1)*subtask && i < len(objects); i++ {
-				codec.has.descendLayer()
+				codec.Has().descendLayer()
 				objects[i].DefineSSZ(codec)
-				codec.has.ascendLayer(0)
+				codec.Has().ascendLayer(0)
 			}
-			codec.has.balanceLayer()
+			codec.Has().balanceLayer()
 
-			resultChunks[worker] = codec.has.chunks[0]
-			resultDepths[worker] = codec.has.groups[0].depth
+			resultChunks[worker] = codec.Has().chunks[0]
+			resultDepths[worker] = codec.Has().groups[0].depth
 			return nil
 		})
 	}
@@ -368,7 +368,7 @@ func HashSliceOfStaticObjects[T StaticObject](h *Hasher, objects []T, maxItems u
 }
 
 // HashSliceOfDynamicObjects hashes a dynamic slice of dynamic ssz objects.
-func HashSliceOfDynamicObjects[T DynamicObject](h *Hasher, objects []T, maxItems uint64) {
+func HashSliceOfDynamicObjects[T DynamicObject[C], C CodecI[C]](h *Hasher[C], objects []T, maxItems uint64) {
 	h.descendMixinLayer()
 	for _, obj := range objects {
 		h.descendLayer()
@@ -380,7 +380,7 @@ func HashSliceOfDynamicObjects[T DynamicObject](h *Hasher, objects []T, maxItems
 
 // hashBytes either appends the blob to the hasher's scratch space if it's small
 // enough to fit into a single chunk, or chunks it up and merkleizes it first.
-func (h *Hasher) hashBytes(blob []byte) {
+func (h *Hasher[C]) hashBytes(blob []byte) {
 	// If the blob is small, accumulate as a single chunk
 	if len(blob) <= 32 {
 		var buffer [32]byte
@@ -395,7 +395,7 @@ func (h *Hasher) hashBytes(blob []byte) {
 }
 
 // insertChunk adds a chunk to the accumulators, collapsing matching pairs.
-func (h *Hasher) insertChunk(chunk [32]byte, depth int) {
+func (h *Hasher[C]) insertChunk(chunk [32]byte, depth int) {
 	// Insert the chunk into the accumulator
 	h.chunks = append(h.chunks, chunk)
 
@@ -453,7 +453,7 @@ func (h *Hasher) insertChunk(chunk [32]byte, depth int) {
 
 // insertBlobChunks splits up the blob into 32 byte chunks and adds them to the
 // accumulators, collapsing matching pairs.
-func (h *Hasher) insertBlobChunks(blob []byte) {
+func (h *Hasher[C]) insertBlobChunks(blob []byte) {
 	var buffer [32]byte
 	for len(blob) >= 32 {
 		copy(buffer[:], blob)
@@ -469,20 +469,20 @@ func (h *Hasher) insertBlobChunks(blob []byte) {
 
 // descendLayer starts a new hashing layer, acting as a barrier to prevent the
 // chunks from being collapsed into previous pending ones.
-func (h *Hasher) descendLayer() {
+func (h *Hasher[C]) descendLayer() {
 	h.layer++
 }
 
 // descendMixinLayer is similar to descendLayer, but actually descends two at the
 // same time, using the outer for mixing in a list length during ascent.
-func (h *Hasher) descendMixinLayer() {
+func (h *Hasher[C]) descendMixinLayer() {
 	h.layer += 2
 }
 
 // ascendLayer terminates a hashing layer, moving the result up one level and
 // collapsing anything unblocked. The capacity param controls how many chunks
 // a dynamic list is expected to be composed of at maximum (0 == only balance).
-func (h *Hasher) ascendLayer(capacity uint64) {
+func (h *Hasher[C]) ascendLayer(capacity uint64) {
 	// Before even considering extending the layer to capacity, balance any
 	// partial sub-tries to their completion.
 	h.balanceLayer()
@@ -523,7 +523,7 @@ func (h *Hasher) ascendLayer(capacity uint64) {
 // balanceLayer can be used to take a partial hashing result of an unbalanced
 // trie and append enough empty chunks (virtually) at the end to collapse it
 // down to a single root.
-func (h *Hasher) balanceLayer() {
+func (h *Hasher[C]) balanceLayer() {
 	// If the layer is incomplete, append in zero chunks. First up, before even
 	// caring about maximum length, we must balance the tree (i.e. reduce it to
 	// a single root hash).
@@ -572,7 +572,7 @@ func (h *Hasher) balanceLayer() {
 
 // ascendMixinLayer is similar to ascendLayer, but actually ascends one for the
 // data content, and then mixes in the provided length and ascends once more.
-func (h *Hasher) ascendMixinLayer(size uint64, chunks uint64) {
+func (h *Hasher[C]) ascendMixinLayer(size uint64, chunks uint64) {
 	// If no items have been added, there's nothing to ascend out of. Fix that
 	// corner-case here.
 	var buffer [32]byte
@@ -588,7 +588,7 @@ func (h *Hasher) ascendMixinLayer(size uint64, chunks uint64) {
 }
 
 // Reset resets the Hasher obj
-func (h *Hasher) Reset() {
+func (h *Hasher[C]) Reset() {
 	h.chunks = h.chunks[:0]
 	h.groups = h.groups[:0]
 	h.threads = false

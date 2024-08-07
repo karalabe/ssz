@@ -36,7 +36,7 @@ import (
 //     a common interface. Unfortunately, the DecodeXYZ methods are using Go's
 //     generic system, which is not supported on struct/interface *methods*. As
 //     such, `Decoder.DecodeUint64s[T ~uint64](ns []T)` style methods cannot be
-//     used, only `DecodeUint64s[T ~uint64](end *Decoder, ns []T)`. The latter
+//     used, only `DecodeUint64s[T ~uint64](end *Decoder[*Codec], ns []T)`. The latter
 //     form then requires each method internally to do some soft of type cast to
 //     handle different decoder implementations. To avoid runtime type asserts,
 //     we've opted for a combo decoder with 2 possible outputs and switching on
@@ -47,7 +47,7 @@ import (
 //     copied verbatim). Unfortunately the Go compiler doesn't inline functions
 //     aggressively enough (neither does it allow explicitly directing it to),
 //     and in such tight loops, extra calls matter on performance.
-type Decoder struct {
+type Decoder[C any] struct {
 	inReader io.Reader // Underlying input stream to read from (streaming mode)
 	inRead   uint32    // Bytes already consumed from the reader (streaming mode)
 	inReads  []uint32  // Stack of consumed bytes from outer calls (streaming mode)
@@ -59,7 +59,7 @@ type Decoder struct {
 
 	err error // Any write error to halt future encoding calls
 
-	codec  *Codec      // Self-referencing to pass DefineSSZ calls through (API trick)
+	codec  C           // Self-referencing to pass DefineSSZ calls through (API trick)
 	buf    [32]byte    // Integer conversion buffer
 	bufInt uint256.Int // Big.Int conversion buffer (not pointer, alloc free)
 
@@ -74,7 +74,7 @@ type Decoder struct {
 }
 
 // DecodeBool parses a boolean.
-func DecodeBool[T ~bool](dec *Decoder, v *T) {
+func DecodeBool[C CodecI[C], T ~bool](dec *Decoder[C], v *T) {
 	if dec.err != nil {
 		return
 	}
@@ -110,7 +110,7 @@ func DecodeBool[T ~bool](dec *Decoder, v *T) {
 }
 
 // DecodeUint8 parses a uint8.
-func DecodeUint8[T ~uint8](dec *Decoder, n *T) {
+func DecodeUint8[C CodecI[C], T ~uint8](dec *Decoder[C], n *T) {
 	if dec.err != nil {
 		return
 	}
@@ -129,7 +129,7 @@ func DecodeUint8[T ~uint8](dec *Decoder, n *T) {
 }
 
 // DecodeUint16 parses a uint16.
-func DecodeUint16[T ~uint16](dec *Decoder, n *T) {
+func DecodeUint16[C CodecI[C], T ~uint16](dec *Decoder[C], n *T) {
 	if dec.err != nil {
 		return
 	}
@@ -148,7 +148,7 @@ func DecodeUint16[T ~uint16](dec *Decoder, n *T) {
 }
 
 // DecodeUint32 parses a uint32.
-func DecodeUint32[T ~uint32](dec *Decoder, n *T) {
+func DecodeUint32[C CodecI[C], T ~uint32](dec *Decoder[C], n *T) {
 	if dec.err != nil {
 		return
 	}
@@ -167,7 +167,7 @@ func DecodeUint32[T ~uint32](dec *Decoder, n *T) {
 }
 
 // DecodeUint64 parses a uint64.
-func DecodeUint64[T ~uint64](dec *Decoder, n *T) {
+func DecodeUint64[C CodecI[C], T ~uint64](dec *Decoder[C], n *T) {
 	if dec.err != nil {
 		return
 	}
@@ -186,7 +186,7 @@ func DecodeUint64[T ~uint64](dec *Decoder, n *T) {
 }
 
 // DecodeUint256 parses a uint256.
-func DecodeUint256(dec *Decoder, n **uint256.Int) {
+func DecodeUint256[C CodecI[C]](dec *Decoder[C], n **uint256.Int) {
 	if dec.err != nil {
 		return
 	}
@@ -215,7 +215,7 @@ func DecodeUint256(dec *Decoder, n **uint256.Int) {
 }
 
 // DecodeUint256BigInt parses a uint256 into a big.Int.
-func DecodeUint256BigInt(dec *Decoder, n **big.Int) {
+func DecodeUint256BigInt[C CodecI[C]](dec *Decoder[C], n **big.Int) {
 	if dec.err != nil {
 		return
 	}
@@ -240,7 +240,7 @@ func DecodeUint256BigInt(dec *Decoder, n **big.Int) {
 }
 
 // DecodeStaticBytes parses a static binary blob.
-func DecodeStaticBytes[T commonBytesLengths](dec *Decoder, blob *T) {
+func DecodeStaticBytes[C CodecI[C], T commonBytesLengths](dec *Decoder[C], blob *T) {
 	if dec.err != nil {
 		return
 	}
@@ -262,7 +262,7 @@ func DecodeStaticBytes[T commonBytesLengths](dec *Decoder, blob *T) {
 }
 
 // DecodeCheckedStaticBytes parses a static binary blob.
-func DecodeCheckedStaticBytes(dec *Decoder, blob *[]byte, size uint64) {
+func DecodeCheckedStaticBytes[C CodecI[C]](dec *Decoder[C], blob *[]byte, size uint64) {
 	if dec.err != nil {
 		return
 	}
@@ -286,12 +286,12 @@ func DecodeCheckedStaticBytes(dec *Decoder, blob *[]byte, size uint64) {
 }
 
 // DecodeDynamicBytesOffset parses a dynamic binary blob.
-func DecodeDynamicBytesOffset(dec *Decoder, blob *[]byte) {
+func DecodeDynamicBytesOffset[C CodecI[C]](dec *Decoder[C], blob *[]byte) {
 	dec.decodeOffset(false)
 }
 
 // DecodeDynamicBytesContent is the lazy data reader of DecodeDynamicBytesOffset.
-func DecodeDynamicBytesContent(dec *Decoder, blob *[]byte, maxSize uint64) {
+func DecodeDynamicBytesContent[C CodecI[C]](dec *Decoder[C], blob *[]byte, maxSize uint64) {
 	if dec.err != nil {
 		return
 	}
@@ -324,7 +324,7 @@ func DecodeDynamicBytesContent(dec *Decoder, blob *[]byte, maxSize uint64) {
 }
 
 // DecodeStaticObject parses a static ssz object.
-func DecodeStaticObject[T newableStaticObject[U], U any](dec *Decoder, obj *T) {
+func DecodeStaticObject[C CodecI[C], T newableStaticObject[C, U], U any](dec *Decoder[C], obj *T) {
 	if dec.err != nil {
 		return
 	}
@@ -335,12 +335,12 @@ func DecodeStaticObject[T newableStaticObject[U], U any](dec *Decoder, obj *T) {
 }
 
 // DecodeDynamicObjectOffset parses a dynamic ssz object.
-func DecodeDynamicObjectOffset[T newableDynamicObject[U], U any](dec *Decoder, obj *T) {
+func DecodeDynamicObjectOffset[C CodecI[C], T newableDynamicObject[C, U], U any](dec *Decoder[C], obj *T) {
 	dec.decodeOffset(false)
 }
 
 // DecodeDynamicObjectContent is the lazy data reader of DecodeDynamicObjectOffset.
-func DecodeDynamicObjectContent[T newableDynamicObject[U], U any](dec *Decoder, obj *T) {
+func DecodeDynamicObjectContent[C CodecI[C], T newableDynamicObject[C, U], U any](dec *Decoder[C], obj *T) {
 	if dec.err != nil {
 		return
 	}
@@ -360,7 +360,7 @@ func DecodeDynamicObjectContent[T newableDynamicObject[U], U any](dec *Decoder, 
 }
 
 // DecodeArrayOfBits parses a static array of (packed) bits.
-func DecodeArrayOfBits[T commonBitsLengths](dec *Decoder, bits *T, size uint64) {
+func DecodeArrayOfBits[C CodecI[C], T commonBitsLengths](dec *Decoder[C], bits *T, size uint64) {
 	if dec.err != nil {
 		return
 	}
@@ -392,12 +392,12 @@ func DecodeArrayOfBits[T commonBitsLengths](dec *Decoder, bits *T, size uint64) 
 }
 
 // DecodeSliceOfBitsOffset parses a dynamic slice of (packed) bits.
-func DecodeSliceOfBitsOffset(dec *Decoder, bitlist *bitfield.Bitlist) {
+func DecodeSliceOfBitsOffset[C CodecI[C]](dec *Decoder[C], bitlist *bitfield.Bitlist) {
 	dec.decodeOffset(false)
 }
 
 // DecodeSliceOfBitsContent is the lazy data reader of DecodeSliceOfBitsOffset.
-func DecodeSliceOfBitsContent(dec *Decoder, bitlist *bitfield.Bitlist, maxBits uint64) {
+func DecodeSliceOfBitsContent[C CodecI[C]](dec *Decoder[C], bitlist *bitfield.Bitlist, maxBits uint64) {
 	if dec.err != nil {
 		return
 	}
@@ -445,7 +445,7 @@ func DecodeSliceOfBitsContent(dec *Decoder, bitlist *bitfield.Bitlist, maxBits u
 }
 
 // DecodeArrayOfUint64s parses a static array of uint64s.
-func DecodeArrayOfUint64s[T commonUint64sLengths](dec *Decoder, ns *T) {
+func DecodeArrayOfUint64s[T commonUint64sLengths, C CodecI[C]](dec *Decoder[C], ns *T) {
 	if dec.err != nil {
 		return
 	}
@@ -475,12 +475,12 @@ func DecodeArrayOfUint64s[T commonUint64sLengths](dec *Decoder, ns *T) {
 }
 
 // DecodeSliceOfUint64sOffset parses a dynamic slice of uint64s.
-func DecodeSliceOfUint64sOffset[T ~uint64](dec *Decoder, ns *[]T) {
+func DecodeSliceOfUint64sOffset[T ~uint64, C CodecI[C]](dec *Decoder[C], ns *[]T) {
 	dec.decodeOffset(false)
 }
 
 // DecodeSliceOfUint64sContent is the lazy data reader of DecodeSliceOfUint64sOffset.
-func DecodeSliceOfUint64sContent[T ~uint64](dec *Decoder, ns *[]T, maxItems uint64) {
+func DecodeSliceOfUint64sContent[T ~uint64, C CodecI[C]](dec *Decoder[C], ns *[]T, maxItems uint64) {
 	if dec.err != nil {
 		return
 	}
@@ -529,14 +529,14 @@ func DecodeSliceOfUint64sContent[T ~uint64](dec *Decoder, ns *[]T, maxItems uint
 }
 
 // DecodeArrayOfStaticBytes parses a static array of static binary blobs.
-func DecodeArrayOfStaticBytes[T commonBytesArrayLengths[U], U commonBytesLengths](dec *Decoder, blobs *T) {
+func DecodeArrayOfStaticBytes[T commonBytesArrayLengths[U], U commonBytesLengths, C CodecI[C]](dec *Decoder[C], blobs *T) {
 	// The code below should have used `(*blobs)[:]`, alas Go's generics compiler
 	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 	DecodeUnsafeArrayOfStaticBytes(dec, unsafe.Slice(&(*blobs)[0], len(*blobs)))
 }
 
 // DecodeUnsafeArrayOfStaticBytes parses a static array of static binary blobs.
-func DecodeUnsafeArrayOfStaticBytes[T commonBytesLengths](dec *Decoder, blobs []T) {
+func DecodeUnsafeArrayOfStaticBytes[T commonBytesLengths, C CodecI[C]](dec *Decoder[C], blobs []T) {
 	if dec.err != nil {
 		return
 	}
@@ -565,7 +565,7 @@ func DecodeUnsafeArrayOfStaticBytes[T commonBytesLengths](dec *Decoder, blobs []
 }
 
 // DecodeCheckedArrayOfStaticBytes parses a static array of static binary blobs.
-func DecodeCheckedArrayOfStaticBytes[T commonBytesLengths](dec *Decoder, blobs *[]T, size uint64) {
+func DecodeCheckedArrayOfStaticBytes[T commonBytesLengths, C CodecI[C]](dec *Decoder[C], blobs *[]T, size uint64) {
 	if dec.err != nil {
 		return
 	}
@@ -600,12 +600,12 @@ func DecodeCheckedArrayOfStaticBytes[T commonBytesLengths](dec *Decoder, blobs *
 }
 
 // DecodeSliceOfStaticBytesOffset parses a dynamic slice of static binary blobs.
-func DecodeSliceOfStaticBytesOffset[T commonBytesLengths](dec *Decoder, blobs *[]T) {
+func DecodeSliceOfStaticBytesOffset[T commonBytesLengths, C CodecI[C]](dec *Decoder[C], blobs *[]T) {
 	dec.decodeOffset(false)
 }
 
 // DecodeSliceOfStaticBytesContent is the lazy data reader of DecodeSliceOfStaticBytesOffset.
-func DecodeSliceOfStaticBytesContent[T commonBytesLengths](dec *Decoder, blobs *[]T, maxItems uint64) {
+func DecodeSliceOfStaticBytesContent[T commonBytesLengths, C CodecI[C]](dec *Decoder[C], blobs *[]T, maxItems uint64) {
 	if dec.err != nil {
 		return
 	}
@@ -664,12 +664,12 @@ func DecodeSliceOfStaticBytesContent[T commonBytesLengths](dec *Decoder, blobs *
 }
 
 // DecodeSliceOfDynamicBytesOffset parses a dynamic slice of dynamic binary blobs.
-func DecodeSliceOfDynamicBytesOffset(dec *Decoder, blobs *[][]byte) {
+func DecodeSliceOfDynamicBytesOffset[C CodecI[C]](dec *Decoder[C], blobs *[][]byte) {
 	dec.decodeOffset(false)
 }
 
 // DecodeSliceOfDynamicBytesContent is the lazy data reader of DecodeSliceOfDynamicBytesOffset.
-func DecodeSliceOfDynamicBytesContent(dec *Decoder, blobs *[][]byte, maxItems uint64, maxSize uint64) {
+func DecodeSliceOfDynamicBytesContent[C CodecI[C]](dec *Decoder[C], blobs *[][]byte, maxItems uint64, maxSize uint64) {
 	if dec.err != nil {
 		return
 	}
@@ -724,12 +724,12 @@ func DecodeSliceOfDynamicBytesContent(dec *Decoder, blobs *[][]byte, maxItems ui
 }
 
 // DecodeSliceOfStaticObjectsOffset parses a dynamic slice of static ssz objects.
-func DecodeSliceOfStaticObjectsOffset[T newableStaticObject[U], U any](dec *Decoder, objects *[]T) {
+func DecodeSliceOfStaticObjectsOffset[T newableStaticObject[C, U], U any, C CodecI[C]](dec *Decoder[C], objects *[]T) {
 	dec.decodeOffset(false)
 }
 
 // DecodeSliceOfStaticObjectsContent is the lazy data reader of DecodeSliceOfStaticObjectsOffset.
-func DecodeSliceOfStaticObjectsContent[T newableStaticObject[U], U any](dec *Decoder, objects *[]T, maxItems uint64) {
+func DecodeSliceOfStaticObjectsContent[T newableStaticObject[C, U], U any, C CodecI[C]](dec *Decoder[C], objects *[]T, maxItems uint64) {
 	if dec.err != nil {
 		return
 	}
@@ -775,12 +775,12 @@ func DecodeSliceOfStaticObjectsContent[T newableStaticObject[U], U any](dec *Dec
 }
 
 // DecodeSliceOfDynamicObjectsOffset parses a dynamic slice of dynamic ssz objects.
-func DecodeSliceOfDynamicObjectsOffset[T newableDynamicObject[U], U any](dec *Decoder, objects *[]T) {
+func DecodeSliceOfDynamicObjectsOffset[C CodecI[C], T newableDynamicObject[C, U], U any](dec *Decoder[C], objects *[]T) {
 	dec.decodeOffset(false)
 }
 
 // DecodeSliceOfDynamicObjectsContent is the lazy data reader of DecodeSliceOfDynamicObjectsOffset.
-func DecodeSliceOfDynamicObjectsContent[T newableDynamicObject[U], U any](dec *Decoder, objects *[]T, maxItems uint64) {
+func DecodeSliceOfDynamicObjectsContent[C CodecI[C], T newableDynamicObject[C, U], U any](dec *Decoder[C], objects *[]T, maxItems uint64) {
 	if dec.err != nil {
 		return
 	}
@@ -835,8 +835,14 @@ func DecodeSliceOfDynamicObjectsContent[T newableDynamicObject[U], U any](dec *D
 	}
 }
 
+// WithCodec sets the codec to use for decoding.
+func (dec *Decoder[C]) WithCodec(codec C) *Decoder[C] {
+	dec.codec = codec
+	return dec
+}
+
 // decodeOffset decodes the next uint32 as an offset and validates it.
-func (dec *Decoder) decodeOffset(list bool) {
+func (dec *Decoder[C]) decodeOffset(list bool) {
 	if dec.err != nil {
 		return
 	}
@@ -873,7 +879,7 @@ func (dec *Decoder) decodeOffset(list bool) {
 
 // retrieveSize retrieves the length of the nest dynamic item based on the seen
 // and cached offsets.
-func (dec *Decoder) retrieveSize() uint32 {
+func (dec *Decoder[C]) retrieveSize() uint32 {
 	// If sizes aren't yet available, pre-compute them all. The reason we use a
 	// reverse order is to permit popping them off without thrashing the slice.
 	if len(dec.sizes) == 0 {
@@ -906,7 +912,7 @@ func (dec *Decoder) retrieveSize() uint32 {
 // descendIntoSlot starts the decoding of a data slot with a new length. For the
 // static objects, the length is used to enforce that all data is consumed. For
 // the dynamic objects, the length is used to decode the last dynamic item.
-func (dec *Decoder) descendIntoSlot(length uint32) {
+func (dec *Decoder[C]) descendIntoSlot(length uint32) {
 	dec.lengths = append(dec.lengths, dec.length)
 	dec.length = length
 
@@ -926,7 +932,7 @@ func (dec *Decoder) descendIntoSlot(length uint32) {
 
 // ascendFromSlot is the counterpart of descendIntoSlot that enforces the read
 // bytes and restores the previously suspended decoding state.
-func (dec *Decoder) ascendFromSlot() {
+func (dec *Decoder[C]) ascendFromSlot() {
 	dec.flushDynamics()
 
 	// For static objects, enforce that the data they read actually corresponds
@@ -963,7 +969,7 @@ func (dec *Decoder) ascendFromSlot() {
 
 // startDynamics marks the item being decoded as a dynamic type, setting the starting
 // offset for the dynamic fields.
-func (dec *Decoder) startDynamics(offset uint32) {
+func (dec *Decoder[C]) startDynamics(offset uint32) {
 	dec.offset = offset
 
 	// Try to reuse older computed size slices to avoid allocations
@@ -980,7 +986,7 @@ func (dec *Decoder) startDynamics(offset uint32) {
 
 // flushDynamics marks the end of the dynamic fields, decoding anything queued up and
 // restoring any previous states for outer call continuation.
-func (dec *Decoder) flushDynamics() {
+func (dec *Decoder[C]) flushDynamics() {
 	// Clear out any leftovers from partial dynamic decodes
 	dec.offsets = dec.offsets[:0]
 	dec.sizes = dec.sizes[:0]
