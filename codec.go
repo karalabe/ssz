@@ -214,6 +214,10 @@ func DefineStaticObject[T newableStaticObject[U], U any](c *Codec, obj *T) {
 
 // DefineDynamicObjectOffset defines the next field as a dynamic ssz object.
 func DefineDynamicObjectOffset[T newableDynamicObject[U], U any](c *Codec, obj *T) {
+	if *obj == nil {
+		obj = new(T)
+	}
+
 	if c.enc != nil {
 		EncodeDynamicObjectOffset(c.enc, *obj)
 		return
@@ -227,6 +231,9 @@ func DefineDynamicObjectOffset[T newableDynamicObject[U], U any](c *Codec, obj *
 
 // DefineDynamicObjectContent defines the next field as a dynamic ssz object.
 func DefineDynamicObjectContent[T newableDynamicObject[U], U any](c *Codec, obj *T) {
+	if obj == nil {
+		obj = new(T)
+	}
 	if c.enc != nil {
 		EncodeDynamicObjectContent(c.enc, *obj)
 		return

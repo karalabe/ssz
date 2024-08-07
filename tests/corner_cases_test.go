@@ -102,3 +102,26 @@ func TestInvalidBoolean(t *testing.T) {
 		t.Errorf("decode error mismatch: have %v, want %v", err, ssz.ErrInvalidBoolean)
 	}
 }
+
+type MyType struct {
+	Field1 *types.ExecutionPayloadDeneb
+	Field2 uint64
+}
+
+func (m *MyType) SizeSSZ(fixed bool) uint32 {
+	if fixed {
+		return 12
+	}
+	return 12 + ssz.SizeDynamicObject(m.Field1)
+}
+
+func (m *MyType) DefineSSZ(codec *ssz.Codec) {
+	ssz.DefineDynamicObjectOffset(codec, &m.Field1)
+	ssz.DefineUint64(codec, &m.Field2)
+	ssz.DefineDynamicObjectContent(codec, &m.Field1)
+}
+
+// TestNilFields tests that decoding a nil field is rejected.
+func TestNestedNil(t *testing.T) {
+	ssz.HashSequential(&MyType{})
+}
