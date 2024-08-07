@@ -23,7 +23,7 @@ generate:
 setup:
 	@mkdir -p coverage
 	@echo "Downloading consensus tests... This may take a while due to the large repository size."
-	@git submodule update --init --recursive --depth=1
+	@git submodule update --init --recursive --force --depth=1
 	@echo "Consensus tests download completed."
 
 check_consensus_tests:
@@ -33,4 +33,4 @@ check_consensus_tests:
 	fi
 
 # Phony targets
-.PHONY: all build test tidy generate setup check_consensus_tests
+.PHONY: all build coverage test tidy generate setup check_consensus_tests
