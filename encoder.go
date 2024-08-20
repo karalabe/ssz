@@ -149,7 +149,6 @@ func EncodeUint32[T ~uint32](enc *Encoder, n T) {
 
 // EncodeUint64 serializes a uint64.
 func EncodeUint64[T ~uint64](enc *Encoder, n T) {
-	// Nope, dive into actual encoding
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -158,6 +157,30 @@ func EncodeUint64[T ~uint64](enc *Encoder, n T) {
 		_, enc.err = enc.outWriter.Write(enc.buf[:8])
 	} else {
 		binary.LittleEndian.PutUint64(enc.outBuffer, (uint64)(n))
+		enc.outBuffer = enc.outBuffer[8:]
+	}
+}
+
+// EncodeUint64Ptr serializes a uint64.
+//
+// Note, a nil pointer is serialized as zero.
+func EncodeUint64Ptr[T ~uint64](enc *Encoder, n *T) {
+	if enc.outWriter != nil {
+		if enc.err != nil {
+			return
+		}
+		if n != nil {
+			binary.LittleEndian.PutUint64(enc.buf[:8], (uint64)(*n))
+			_, enc.err = enc.outWriter.Write(enc.buf[:8])
+		} else {
+			_, enc.err = enc.outWriter.Write(uint256Zero[:8])
+		}
+	} else {
+		if n != nil {
+			binary.LittleEndian.PutUint64(enc.outBuffer, (uint64)(*n))
+		} else {
+			copy(enc.outBuffer, uint256Zero[:8])
+		}
 		enc.outBuffer = enc.outBuffer[8:]
 	}
 }
@@ -226,6 +249,31 @@ func EncodeStaticBytes[T commonBytesLengths](enc *Encoder, blob *T) {
 		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 		_, enc.err = enc.outWriter.Write(unsafe.Slice(&(*blob)[0], len(*blob)))
 	} else {
+		// The code below should have used `blob[:]`, alas Go's generics compiler
+		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+		copy(enc.outBuffer, unsafe.Slice(&(*blob)[0], len(*blob)))
+		enc.outBuffer = enc.outBuffer[len(*blob):]
+	}
+}
+
+// EncodeStaticBytesPtr serializes a static binary blob.
+//
+// Note, a nil pointer is serialized as a zero-value blob.
+func EncodeStaticBytesPtr[T commonBytesLengths](enc *Encoder, blob *T) {
+	if enc.outWriter != nil {
+		if enc.err != nil {
+			return
+		}
+		if blob == nil {
+			blob = new(T) // TODO(karalabe): Make this alloc free somehow?
+		}
+		// The code below should have used `*blob[:]`, alas Go's generics compiler
+		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+		_, enc.err = enc.outWriter.Write(unsafe.Slice(&(*blob)[0], len(*blob)))
+	} else {
+		if blob == nil {
+			blob = new(T) // TODO(karalabe): Make this alloc free somehow?
+		}
 		// The code below should have used `blob[:]`, alas Go's generics compiler
 		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 		copy(enc.outBuffer, unsafe.Slice(&(*blob)[0], len(*blob)))

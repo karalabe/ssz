@@ -125,6 +125,19 @@ func DefineUint64[T ~uint64](c *Codec, n *T) {
 	HashUint64(c.has, *n)
 }
 
+// DefineUint64Ptr defines the next field as a uint64.
+func DefineUint64Ptr[T ~uint64](c *Codec, n **T) {
+	if c.enc != nil {
+		EncodeUint64Ptr(c.enc, *n)
+		return
+	}
+	if c.dec != nil {
+		DecodeUint64Ptr(c.dec, n)
+		return
+	}
+	HashUint64Ptr(c.has, *n)
+}
+
 // DefineUint256 defines the next field as a uint256.
 func DefineUint256(c *Codec, n **uint256.Int) {
 	if c.enc != nil {
@@ -163,6 +176,20 @@ func DefineStaticBytes[T commonBytesLengths](c *Codec, blob *T) {
 		return
 	}
 	HashStaticBytes(c.has, blob)
+}
+
+// DefineStaticBytesPtr defines the next field as static binary blob. This method
+// can be used for byte arrays.
+func DefineStaticBytesPtr[T commonBytesLengths](c *Codec, blob **T) {
+	if c.enc != nil {
+		EncodeStaticBytesPtr(c.enc, *blob)
+		return
+	}
+	if c.dec != nil {
+		DecodeStaticBytesPtr(c.dec, blob)
+		return
+	}
+	HashStaticBytesPtr(c.has, *blob)
 }
 
 // DefineCheckedStaticBytes defines the next field as static binary blob. This

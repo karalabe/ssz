@@ -191,6 +191,34 @@ func DecodeUint64[T ~uint64](dec *Decoder, n *T) {
 	}
 }
 
+// DecodeUint64Ptr parses a uint64.
+func DecodeUint64Ptr[T ~uint64](dec *Decoder, n **T) {
+	if dec.err != nil {
+		return
+	}
+	if dec.inReader != nil {
+		_, dec.err = io.ReadFull(dec.inReader, dec.buf[:8])
+		if dec.err != nil {
+			return
+		}
+		if *n == nil {
+			*n = new(T)
+		}
+		*(*n) = T(binary.LittleEndian.Uint64(dec.buf[:8]))
+		dec.inRead += 8
+	} else {
+		if len(dec.inBuffer) < 8 {
+			dec.err = io.ErrUnexpectedEOF
+			return
+		}
+		if *n == nil {
+			*n = new(T)
+		}
+		*(*n) = T(binary.LittleEndian.Uint64(dec.inBuffer))
+		dec.inBuffer = dec.inBuffer[8:]
+	}
+}
+
 // DecodeUint256 parses a uint256.
 func DecodeUint256(dec *Decoder, n **uint256.Int) {
 	if dec.err != nil {
@@ -264,6 +292,34 @@ func DecodeStaticBytes[T commonBytesLengths](dec *Decoder, blob *T) {
 		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 		copy(unsafe.Slice(&(*blob)[0], len(*blob)), dec.inBuffer)
 		dec.inBuffer = dec.inBuffer[len(*blob):]
+	}
+}
+
+// DecodeStaticBytesPtr parses a static binary blob.
+func DecodeStaticBytesPtr[T commonBytesLengths](dec *Decoder, blob **T) {
+	if dec.err != nil {
+		return
+	}
+	if dec.inReader != nil {
+		if *blob == nil {
+			*blob = new(T)
+		}
+		// The code below should have used `**blob[:]`, alas Go's generics compiler
+		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+		_, dec.err = io.ReadFull(dec.inReader, unsafe.Slice(&(*(*blob))[0], len(*(*blob))))
+		dec.inRead += uint32(len(*(*blob)))
+	} else {
+		if *blob == nil {
+			*blob = new(T)
+		}
+		if len(dec.inBuffer) < len(*(*blob)) {
+			dec.err = io.ErrUnexpectedEOF
+			return
+		}
+		// The code below should have used `**blob[:]`, alas Go's generics compiler
+		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+		copy(unsafe.Slice(&(*(*blob))[0], len(*(*blob))), dec.inBuffer)
+		dec.inBuffer = dec.inBuffer[len(*(*blob)):]
 	}
 }
 

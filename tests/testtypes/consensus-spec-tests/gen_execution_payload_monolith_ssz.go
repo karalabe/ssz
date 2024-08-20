@@ -46,8 +46,8 @@ func (obj *ExecutionPayloadMonolith) DefineSSZ(codec *ssz.Codec) {
 		ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.Withdrawals, 16) // Offset (14) -   Withdrawals -   4 bytes
 	}
 	if codec.Fork() >= ssz.ForkDeneb {
-		ssz.DefineUint64(codec, &obj.BlobGasUsed)   // Field  (15) -   BlobGasUsed -   8 bytes
-		ssz.DefineUint64(codec, &obj.ExcessBlobGas) // Field  (16) - ExcessBlobGas -   8 bytes
+		ssz.DefineUint64Ptr(codec, &obj.BlobGasUsed)   // Field  (15) -   BlobGasUsed -   8 bytes
+		ssz.DefineUint64Ptr(codec, &obj.ExcessBlobGas) // Field  (16) - ExcessBlobGas -   8 bytes
 	}
 	// Define the dynamic data (fields)
 	ssz.DefineDynamicBytesContent(codec, &obj.ExtraData, 32)                            // Field  (10) -     ExtraData - ? bytes

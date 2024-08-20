@@ -44,7 +44,7 @@ func (p *parseContext) makeContainer(named *types.Named, typ *types.Struct) (*ss
 			continue
 		}
 		// Required field found, validate type with tag content
-		opset, err := p.resolveOpset(f.Type(), tags)
+		opset, err := p.resolveOpset(f.Type(), tags, false)
 		if err != nil {
 			return nil, fmt.Errorf("failed to validate field %s.%s: %v", named.Obj().Name(), f.Name(), err)
 		}
@@ -71,24 +71,32 @@ func (p *parseContext) makeContainer(named *types.Named, typ *types.Struct) (*ss
 // whether there's a collision between them, or if more tags are needed to fully
 // derive the size. If the type/tags are in sync and well-defined, an opset will
 // be returned that the generator can use to create the code.
-func (p *parseContext) resolveOpset(typ types.Type, tags *sizeTag) (opset, error) {
+func (p *parseContext) resolveOpset(typ types.Type, tags *sizeTag, pointer bool) (opset, error) {
 	switch t := typ.(type) {
 	case *types.Named:
 		if isBitlist(typ) {
 			return p.resolveBitlistOpset(tags)
 		}
-		return p.resolveOpset(t.Underlying(), tags)
+		return p.resolveOpset(t.Underlying(), tags, pointer)
 
 	case *types.Basic:
-		return p.resolveBasicOpset(t, tags)
+		return p.resolveBasicOpset(t, tags, pointer)
 
 	case *types.Array:
-		return p.resolveArrayOpset(t.Elem(), int(t.Len()), tags)
+		return p.resolveArrayOpset(t.Elem(), int(t.Len()), tags, pointer)
 
 	case *types.Slice:
 		return p.resolveSliceOpset(t.Elem(), tags)
 
 	case *types.Pointer:
+		switch tt := t.Elem().(type) {
+		case *types.Basic:
+			return p.resolveBasicOpset(tt, tags, true)
+
+		case *types.Array:
+			return p.resolveArrayOpset(tt.Elem(), int(tt.Len()), tags, true)
+
+		}
 		return p.resolvePointerOpset(t, tags)
 	}
 	return nil, fmt.Errorf("unsupported type %s", typ.String())

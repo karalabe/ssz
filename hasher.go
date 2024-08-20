@@ -108,6 +108,17 @@ func HashUint64[T ~uint64](h *Hasher, n T) {
 	h.insertChunk(buffer, 0)
 }
 
+// HashUint64Ptr hashes a uint64.
+//
+// Note, a nil pointer is hashed as zero.
+func HashUint64Ptr[T ~uint64](h *Hasher, n *T) {
+	var buffer [32]byte
+	if n != nil {
+		binary.LittleEndian.PutUint64(buffer[:], uint64(*n))
+	}
+	h.insertChunk(buffer, 0)
+}
+
 // HashUint256 hashes a uint256.
 //
 // Note, a nil pointer is hashed as zero.
@@ -137,6 +148,16 @@ func HashUint256BigInt(h *Hasher, n *big.Int) {
 // The blob is passed by pointer to avoid high stack copy costs and a potential
 // escape to the heap.
 func HashStaticBytes[T commonBytesLengths](h *Hasher, blob *T) {
+	// The code below should have used `blob[:]`, alas Go's generics compiler
+	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
+	h.hashBytes(unsafe.Slice(&(*blob)[0], len(*blob)))
+}
+
+// HashStaticBytesPtr hashes a static binary blob.
+func HashStaticBytesPtr[T commonBytesLengths](h *Hasher, blob *T) {
+	if blob == nil {
+		blob = new(T) // TODO(karalabe): Make this alloc free somehow?
+	}
 	// The code below should have used `blob[:]`, alas Go's generics compiler
 	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 	h.hashBytes(unsafe.Slice(&(*blob)[0], len(*blob)))

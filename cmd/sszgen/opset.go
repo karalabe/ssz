@@ -41,7 +41,7 @@ type opsetDynamic struct {
 // resolveBasicOpset retrieves the opset required to handle a basic struct
 // field. Yes, we could maybe have some of these be "computed" instead of hard
 // coded, but it makes things brittle for corner-cases.
-func (p *parseContext) resolveBasicOpset(typ *types.Basic, tags *sizeTag) (opset, error) {
+func (p *parseContext) resolveBasicOpset(typ *types.Basic, tags *sizeTag, pointer bool) (opset, error) {
 	// Sanity check a few tag constraints relevant for all basic types
 	if tags != nil {
 		if tags.limit != nil {
@@ -57,52 +57,77 @@ func (p *parseContext) resolveBasicOpset(typ *types.Basic, tags *sizeTag) (opset
 		if tags != nil && tags.size[0] != 1 {
 			return nil, fmt.Errorf("boolean basic type requires ssz-size=1: have %d", tags.size[0])
 		}
-		return &opsetStatic{
-			"DefineBool({{.Codec}}, &{{.Field}})",
-			"EncodeBool({{.Codec}}, &{{.Field}})",
-			"DecodeBool({{.Codec}}, &{{.Field}})",
-			[]int{1},
-		}, nil
+		if !pointer {
+			return &opsetStatic{
+				"DefineBool({{.Codec}}, &{{.Field}})",
+				"EncodeBool({{.Codec}}, &{{.Field}})",
+				"DecodeBool({{.Codec}}, &{{.Field}})",
+				[]int{1},
+			}, nil
+		} else {
+			return nil, fmt.Errorf("pointer of boolean basic type not supported yet")
+		}
 	case types.Uint8:
 		if tags != nil && tags.size[0] != 1 {
 			return nil, fmt.Errorf("byte basic type requires ssz-size=1: have %d", tags.size[0])
 		}
-		return &opsetStatic{
-			"DefineUint8({{.Codec}}, &{{.Field}})",
-			"EncodeUint8({{.Codec}}, &{{.Field}})",
-			"DecodeUint8({{.Codec}}, &{{.Field}})",
-			[]int{1},
-		}, nil
+		if !pointer {
+			return &opsetStatic{
+				"DefineUint8({{.Codec}}, &{{.Field}})",
+				"EncodeUint8({{.Codec}}, &{{.Field}})",
+				"DecodeUint8({{.Codec}}, &{{.Field}})",
+				[]int{1},
+			}, nil
+		} else {
+			return nil, fmt.Errorf("pointer of byte basic type not supported yet")
+		}
 	case types.Uint16:
 		if tags != nil && tags.size[0] != 2 {
 			return nil, fmt.Errorf("uint16 basic type requires ssz-size=2: have %d", tags.size[0])
 		}
-		return &opsetStatic{
-			"DefineUint16({{.Codec}}, &{{.Field}})",
-			"EncodeUint16({{.Codec}}, &{{.Field}})",
-			"DecodeUint16({{.Codec}}, &{{.Field}})",
-			[]int{2},
-		}, nil
+		if !pointer {
+			return &opsetStatic{
+				"DefineUint16({{.Codec}}, &{{.Field}})",
+				"EncodeUint16({{.Codec}}, &{{.Field}})",
+				"DecodeUint16({{.Codec}}, &{{.Field}})",
+				[]int{2},
+			}, nil
+		} else {
+			return nil, fmt.Errorf("pointer of uint16 basic type not supported yet")
+		}
 	case types.Uint32:
 		if tags != nil && tags.size[0] != 4 {
 			return nil, fmt.Errorf("uint32 basic type requires ssz-size=4: have %d", tags.size[0])
 		}
-		return &opsetStatic{
-			"DefineUint32({{.Codec}}, &{{.Field}})",
-			"EncodeUint32({{.Codec}}, &{{.Field}})",
-			"DecodeUint32({{.Codec}}, &{{.Field}})",
-			[]int{4},
-		}, nil
+		if !pointer {
+			return &opsetStatic{
+				"DefineUint32({{.Codec}}, &{{.Field}})",
+				"EncodeUint32({{.Codec}}, &{{.Field}})",
+				"DecodeUint32({{.Codec}}, &{{.Field}})",
+				[]int{4},
+			}, nil
+		} else {
+			return nil, fmt.Errorf("pointer of uint32 basic type not supported yet")
+		}
 	case types.Uint64:
 		if tags != nil && tags.size[0] != 8 {
 			return nil, fmt.Errorf("uint64 basic type requires ssz-size=8: have %d", tags.size[0])
 		}
-		return &opsetStatic{
-			"DefineUint64({{.Codec}}, &{{.Field}})",
-			"EncodeUint64({{.Codec}}, &{{.Field}})",
-			"DecodeUint64({{.Codec}}, &{{.Field}})",
-			[]int{8},
-		}, nil
+		if !pointer {
+			return &opsetStatic{
+				"DefineUint64({{.Codec}}, &{{.Field}})",
+				"EncodeUint64({{.Codec}}, &{{.Field}})",
+				"DecodeUint64({{.Codec}}, &{{.Field}})",
+				[]int{8},
+			}, nil
+		} else {
+			return &opsetStatic{
+				"DefineUint64Ptr({{.Codec}}, &{{.Field}})",
+				"EncodeUint64Ptr({{.Codec}}, &{{.Field}})",
+				"DecodeUint64Ptr({{.Codec}}, &{{.Field}})",
+				[]int{8},
+			}, nil
+		}
 	default:
 		return nil, fmt.Errorf("unsupported basic type: %s", typ)
 	}
@@ -130,7 +155,7 @@ func (p *parseContext) resolveBitlistOpset(tags *sizeTag) (opset, error) {
 	}, nil
 }
 
-func (p *parseContext) resolveArrayOpset(typ types.Type, size int, tags *sizeTag) (opset, error) {
+func (p *parseContext) resolveArrayOpset(typ types.Type, size int, tags *sizeTag, pointer bool) (opset, error) {
 	switch typ := typ.(type) {
 	case *types.Basic:
 		// Sanity check a few tag constraints relevant for all arrays of basic types
@@ -146,12 +171,16 @@ func (p *parseContext) resolveArrayOpset(typ types.Type, size int, tags *sizeTag
 				if len(tags.size) != 1 || tags.size[0] < (size-1)*8+1 || tags.size[0] > size*8 {
 					return nil, fmt.Errorf("array of bits tag conflict: field supports %d-%d bits, tag wants %v bits", (size-1)*8+1, size*8, tags.size)
 				}
-				return &opsetStatic{
-					fmt.Sprintf("DefineArrayOfBits({{.Codec}}, &{{.Field}}, %d)", tags.size[0]), // inject bit-size directly
-					fmt.Sprintf("EncodeArrayOfBits({{.Codec}}, &{{.Field}}, %d)", tags.size[0]), // inject bit-size directly
-					fmt.Sprintf("DecodeArrayOfBits({{.Codec}}, &{{.Field}}, %d)", tags.size[0]), // inject bit-size directly
-					[]int{size},
-				}, nil
+				if !pointer {
+					return &opsetStatic{
+						fmt.Sprintf("DefineArrayOfBits({{.Codec}}, &{{.Field}}, %d)", tags.size[0]), // inject bit-size directly
+						fmt.Sprintf("EncodeArrayOfBits({{.Codec}}, &{{.Field}}, %d)", tags.size[0]), // inject bit-size directly
+						fmt.Sprintf("DecodeArrayOfBits({{.Codec}}, &{{.Field}}, %d)", tags.size[0]), // inject bit-size directly
+						[]int{size},
+					}, nil
+				} else {
+					return nil, fmt.Errorf("pointer of array of bits not supported")
+				}
 			}
 			// Not a bitvector, interpret as plain byte array
 			if tags != nil {
@@ -161,13 +190,22 @@ func (p *parseContext) resolveArrayOpset(typ types.Type, size int, tags *sizeTag
 					return nil, fmt.Errorf("array of byte basic type tag conflict: field is %d bytes, tag wants %v bytes", size, tags.size)
 				}
 			}
-			return &opsetStatic{
-				"DefineStaticBytes({{.Codec}}, &{{.Field}})",
-				"EncodeStaticBytes({{.Codec}}, &{{.Field}})",
-				"DecodeStaticBytes({{.Codec}}, &{{.Field}})",
-				[]int{size},
-			}, nil
+			if !pointer {
+				return &opsetStatic{
+					"DefineStaticBytes({{.Codec}}, &{{.Field}})",
+					"EncodeStaticBytes({{.Codec}}, &{{.Field}})",
+					"DecodeStaticBytes({{.Codec}}, &{{.Field}})",
+					[]int{size},
+				}, nil
+			} else {
+				return &opsetStatic{
+					"DefineStaticBytesPtr({{.Codec}}, &{{.Field}})",
+					"EncodeStaticBytesPtr({{.Codec}}, &{{.Field}})",
+					"DecodeStaticBytesPtr({{.Codec}}, &{{.Field}})",
+					[]int{size},
+				}, nil
 
+			}
 		case types.Uint64:
 			if tags != nil {
 				if (len(tags.size) != 1 && len(tags.size) != 2) ||
@@ -176,13 +214,16 @@ func (p *parseContext) resolveArrayOpset(typ types.Type, size int, tags *sizeTag
 					return nil, fmt.Errorf("array of byte basic type tag conflict: field is %d bytes, tag wants %v bytes", size, tags.size)
 				}
 			}
-			return &opsetStatic{
-				"DefineArrayOfUint64s({{.Codec}}, &{{.Field}})",
-				"EncodeArrayOfUint64s({{.Codec}}, &{{.Field}})",
-				"DecodeArrayOfUint64s({{.Codec}}, &{{.Field}})",
-				[]int{size, 8},
-			}, nil
-
+			if !pointer {
+				return &opsetStatic{
+					"DefineArrayOfUint64s({{.Codec}}, &{{.Field}})",
+					"EncodeArrayOfUint64s({{.Codec}}, &{{.Field}})",
+					"DecodeArrayOfUint64s({{.Codec}}, &{{.Field}})",
+					[]int{size, 8},
+				}, nil
+			} else {
+				return nil, fmt.Errorf("pointer of array of byte basic type not supported")
+			}
 		default:
 			return nil, fmt.Errorf("unsupported array item basic type: %s", typ)
 		}
@@ -190,7 +231,7 @@ func (p *parseContext) resolveArrayOpset(typ types.Type, size int, tags *sizeTag
 		return p.resolveArrayOfArrayOpset(typ.Elem(), size, int(typ.Len()), tags)
 
 	case *types.Named:
-		return p.resolveArrayOpset(typ.Underlying(), size, tags)
+		return p.resolveArrayOpset(typ.Underlying(), size, tags, pointer)
 
 	default:
 		return nil, fmt.Errorf("unsupported array item type: %s", typ)
@@ -456,7 +497,7 @@ func (p *parseContext) resolvePointerOpset(typ *types.Pointer, tags *sizeTag) (o
 				return nil, fmt.Errorf("uint256 basic type cannot have ssz-max tag")
 			}
 			if len(tags.size) != 1 || tags.size[0] != 32 {
-				return nil, fmt.Errorf("uint256 basic type tag conflict: filed is [32] bytes, tag wants %v", tags.size)
+				return nil, fmt.Errorf("uint256 basic type tag conflict: field is [32] bytes, tag wants %v", tags.size)
 			}
 		}
 		return &opsetStatic{
@@ -472,7 +513,7 @@ func (p *parseContext) resolvePointerOpset(typ *types.Pointer, tags *sizeTag) (o
 				return nil, fmt.Errorf("big.Int (uint256) basic type cannot have ssz-max tag")
 			}
 			if len(tags.size) != 1 || tags.size[0] != 32 {
-				return nil, fmt.Errorf("big.Int (uint256) basic type tag conflict: filed is [32] bytes, tag wants %v", tags.size)
+				return nil, fmt.Errorf("big.Int (uint256) basic type tag conflict: field is [32] bytes, tag wants %v", tags.size)
 			}
 		}
 		return &opsetStatic{
@@ -508,5 +549,9 @@ func (p *parseContext) resolvePointerOpset(typ *types.Pointer, tags *sizeTag) (o
 			nil, nil,
 		}, nil
 	}
-	return nil, fmt.Errorf("unsupported pointer type %s", typ.String())
+	named, ok := typ.Elem().(*types.Named)
+	if !ok {
+		return nil, fmt.Errorf("unsupported pointer type %s", typ.String())
+	}
+	return p.resolveOpset(named.Underlying(), tags, true)
 }

@@ -54,8 +54,8 @@ type BeaconStateMonolith struct {
 	CurrentSyncCommittee         *SyncCommittee                  `                        ssz-fork:"altair"`
 	NextSyncCommittee            *SyncCommittee                  `                        ssz-fork:"altair"`
 	LatestExecutionPayloadHeader *ExecutionPayloadHeaderMonolith `                        ssz-fork:"bellatrix"`
-	NextWithdrawalIndex          uint64                          `                        ssz-fork:"capella"`
-	NextWithdrawalValidatorIndex uint64                          `                        ssz-fork:"capella"`
+	NextWithdrawalIndex          *uint64                         `                        ssz-fork:"capella"`
+	NextWithdrawalValidatorIndex *uint64                         `                        ssz-fork:"capella"`
 	HistoricalSummaries          []*HistoricalSummary            `ssz-max:"16777216"      ssz-fork:"capella"`
 }
 
@@ -75,8 +75,8 @@ type ExecutionPayloadMonolith struct {
 	BlockHash     Hash
 	Transactions  [][]byte      `ssz-max:"1048576,1073741824"`
 	Withdrawals   []*Withdrawal `ssz-max:"16" ssz-fork:"capella"`
-	BlobGasUsed   uint64        `             ssz-fork:"deneb"`
-	ExcessBlobGas uint64        `             ssz-fork:"deneb"`
+	BlobGasUsed   *uint64       `             ssz-fork:"deneb"`
+	ExcessBlobGas *uint64       `             ssz-fork:"deneb"`
 }
 
 type ExecutionPayloadHeaderMonolith struct {
@@ -94,7 +94,7 @@ type ExecutionPayloadHeaderMonolith struct {
 	BaseFeePerGas    [32]byte
 	BlockHash        [32]byte
 	TransactionsRoot [32]byte
-	WithdrawalRoot   [32]byte `ssz-fork:"capella"`
-	BlobGasUsed      uint64   `ssz-fork:"deneb"`
-	ExcessBlobGas    uint64   `ssz-fork:"deneb"`
+	WithdrawalRoot   *[32]byte `ssz-fork:"capella"`
+	BlobGasUsed      *uint64   `ssz-fork:"deneb"`
+	ExcessBlobGas    *uint64   `ssz-fork:"deneb"`
 }
