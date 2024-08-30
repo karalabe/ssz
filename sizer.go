@@ -4,7 +4,9 @@
 
 package ssz
 
-import "github.com/prysmaticlabs/go-bitfield"
+import (
+	"github.com/prysmaticlabs/go-bitfield"
+)
 
 // Sizer is an SSZ static and dynamic size computer.
 type Sizer struct {
@@ -24,8 +26,13 @@ func SizeDynamicBytes(siz *Sizer, blobs []byte) uint32 {
 
 // SizeSliceOfBits returns the serialized size of the dynamic part of a slice of
 // bits.
+//
+// Note, a nil slice of bits is sized as an empty bit list.
 func SizeSliceOfBits(siz *Sizer, bits bitfield.Bitlist) uint32 {
-	return uint32(len(bits))
+	if bits != nil {
+		return uint32(len(bits))
+	}
+	return uint32(len(bitlistZero))
 }
 
 // SizeSliceOfUint64s returns the serialized size of the dynamic part of a dynamic
@@ -36,7 +43,12 @@ func SizeSliceOfUint64s[T ~uint64](siz *Sizer, ns []T) uint32 {
 
 // SizeDynamicObject returns the serialized size of the dynamic part of a dynamic
 // object.
-func SizeDynamicObject[T DynamicObject](siz *Sizer, obj T) uint32 {
+func SizeDynamicObject[T newableDynamicObject[U], U any](siz *Sizer, obj T) uint32 {
+	if obj == nil {
+		// If the object is nil, pull up it's zero value. This will be very slow,
+		// but it should not happen in production, only during tests mostly.
+		obj = zeroValueDynamic[T, U]()
+	}
 	return obj.SizeSSZ(siz, false)
 }
 

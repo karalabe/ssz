@@ -122,9 +122,9 @@ func (p *parseContext) resolveBasicOpset(typ *types.Basic, tags *sizeTag, pointe
 			}, nil
 		} else {
 			return &opsetStatic{
-				"DefineUint64Ptr({{.Codec}}, &{{.Field}})",
-				"EncodeUint64Ptr({{.Codec}}, &{{.Field}})",
-				"DecodeUint64Ptr({{.Codec}}, &{{.Field}})",
+				"DefineUint64Pointer({{.Codec}}, &{{.Field}})",
+				"EncodeUint64Pointer({{.Codec}}, &{{.Field}})",
+				"DecodeUint64Pointer({{.Codec}}, &{{.Field}})",
 				[]int{8},
 			}, nil
 		}
@@ -199,9 +199,9 @@ func (p *parseContext) resolveArrayOpset(typ types.Type, size int, tags *sizeTag
 				}, nil
 			} else {
 				return &opsetStatic{
-					"DefineStaticBytesPtr({{.Codec}}, &{{.Field}})",
-					"EncodeStaticBytesPtr({{.Codec}}, &{{.Field}})",
-					"DecodeStaticBytesPtr({{.Codec}}, &{{.Field}})",
+					"DefineStaticBytesPointer({{.Codec}}, &{{.Field}})",
+					"EncodeStaticBytesPointer({{.Codec}}, &{{.Field}})",
+					"DecodeStaticBytesPointer({{.Codec}}, &{{.Field}})",
 					[]int{size},
 				}, nil
 

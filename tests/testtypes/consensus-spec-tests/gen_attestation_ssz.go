@@ -2,7 +2,9 @@
 
 package consensus_spec_tests
 
-import "github.com/karalabe/ssz"
+import (
+	"github.com/karalabe/ssz"
+)
 
 // Cached static size computed on package init.
 var staticSizeCacheAttestation = ssz.PrecomputeStaticSizeCache((*Attestation)(nil))

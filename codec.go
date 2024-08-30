@@ -125,17 +125,17 @@ func DefineUint64[T ~uint64](c *Codec, n *T) {
 	HashUint64(c.has, *n)
 }
 
-// DefineUint64Ptr defines the next field as a uint64.
-func DefineUint64Ptr[T ~uint64](c *Codec, n **T) {
+// DefineUint64Pointer defines the next field as a uint64.
+func DefineUint64Pointer[T ~uint64](c *Codec, n **T) {
 	if c.enc != nil {
-		EncodeUint64Ptr(c.enc, *n)
+		EncodeUint64Pointer(c.enc, *n)
 		return
 	}
 	if c.dec != nil {
-		DecodeUint64Ptr(c.dec, n)
+		DecodeUint64Pointer(c.dec, n)
 		return
 	}
-	HashUint64Ptr(c.has, *n)
+	HashUint64Pointer(c.has, *n)
 }
 
 // DefineUint256 defines the next field as a uint256.
@@ -178,18 +178,18 @@ func DefineStaticBytes[T commonBytesLengths](c *Codec, blob *T) {
 	HashStaticBytes(c.has, blob)
 }
 
-// DefineStaticBytesPtr defines the next field as static binary blob. This method
+// DefineStaticBytesPointer defines the next field as static binary blob. This method
 // can be used for byte arrays.
-func DefineStaticBytesPtr[T commonBytesLengths](c *Codec, blob **T) {
+func DefineStaticBytesPointer[T commonBytesLengths](c *Codec, blob **T) {
 	if c.enc != nil {
-		EncodeStaticBytesPtr(c.enc, *blob)
+		EncodeStaticBytesPointer(c.enc, *blob)
 		return
 	}
 	if c.dec != nil {
-		DecodeStaticBytesPtr(c.dec, blob)
+		DecodeStaticBytesPointer(c.dec, blob)
 		return
 	}
-	HashStaticBytesPtr(c.has, *blob)
+	HashStaticBytesPointer(c.has, *blob)
 }
 
 // DefineCheckedStaticBytes defines the next field as static binary blob. This
@@ -197,7 +197,7 @@ func DefineStaticBytesPtr[T commonBytesLengths](c *Codec, blob **T) {
 // needs runtime size validation.
 func DefineCheckedStaticBytes(c *Codec, blob *[]byte, size uint64) {
 	if c.enc != nil {
-		EncodeCheckedStaticBytes(c.enc, *blob)
+		EncodeCheckedStaticBytes(c.enc, *blob, size)
 		return
 	}
 	if c.dec != nil {
@@ -385,7 +385,7 @@ func DefineUnsafeArrayOfStaticBytes[T commonBytesLengths](c *Codec, blobs []T) {
 // which is more expensive since it needs runtime size validation.
 func DefineCheckedArrayOfStaticBytes[T commonBytesLengths](c *Codec, blobs *[]T, size uint64) {
 	if c.enc != nil {
-		EncodeCheckedArrayOfStaticBytes(c.enc, *blobs)
+		EncodeCheckedArrayOfStaticBytes(c.enc, *blobs, size)
 		return
 	}
 	if c.dec != nil {

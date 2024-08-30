@@ -191,8 +191,11 @@ func DecodeUint64[T ~uint64](dec *Decoder, n *T) {
 	}
 }
 
-// DecodeUint64Ptr parses a uint64.
-func DecodeUint64Ptr[T ~uint64](dec *Decoder, n **T) {
+// DecodeUint64Pointer parses a uint64.
+//
+// This method is similar to DecodeUint64, but will also initialize the pointer
+// if it is not allocated yet.
+func DecodeUint64Pointer[T ~uint64](dec *Decoder, n **T) {
 	if dec.err != nil {
 		return
 	}
@@ -295,8 +298,11 @@ func DecodeStaticBytes[T commonBytesLengths](dec *Decoder, blob *T) {
 	}
 }
 
-// DecodeStaticBytesPtr parses a static binary blob.
-func DecodeStaticBytesPtr[T commonBytesLengths](dec *Decoder, blob **T) {
+// DecodeStaticBytesPointer parses a static binary blob.
+//
+// This method is similar to DecodeStaticBytes, but will also initialize the
+// pointer if it is not allocated yet.
+func DecodeStaticBytesPointer[T commonBytesLengths](dec *Decoder, blob **T) {
 	if dec.err != nil {
 		return
 	}
@@ -933,7 +939,7 @@ func (dec *Decoder) decodeOffset(list bool) {
 	dec.offsets = append(dec.offsets, offset)
 }
 
-// retrieveSize retrieves the length of the nest dynamic item based on the seen
+// retrieveSize retrieves the length of the next dynamic item based on the seen
 // and cached offsets.
 func (dec *Decoder) retrieveSize() uint32 {
 	// If sizes aren't yet available, pre-compute them all. The reason we use a

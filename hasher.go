@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"math/big"
 	bitops "math/bits"
+	"reflect"
 	"runtime"
 	"unsafe"
 
@@ -27,6 +28,7 @@ const concurrencyThreshold = 65536
 
 // Some helpers to avoid occasional allocations
 var (
+	hasherZeroChunk = [32]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 	hasherBoolFalse = [32]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 	hasherBoolTrue  = [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
@@ -108,10 +110,10 @@ func HashUint64[T ~uint64](h *Hasher, n T) {
 	h.insertChunk(buffer, 0)
 }
 
-// HashUint64Ptr hashes a uint64.
+// HashUint64Pointer hashes a uint64.
 //
 // Note, a nil pointer is hashed as zero.
-func HashUint64Ptr[T ~uint64](h *Hasher, n *T) {
+func HashUint64Pointer[T ~uint64](h *Hasher, n *T) {
 	var buffer [32]byte
 	if n != nil {
 		binary.LittleEndian.PutUint64(buffer[:], uint64(*n))
@@ -153,10 +155,18 @@ func HashStaticBytes[T commonBytesLengths](h *Hasher, blob *T) {
 	h.hashBytes(unsafe.Slice(&(*blob)[0], len(*blob)))
 }
 
-// HashStaticBytesPtr hashes a static binary blob.
-func HashStaticBytesPtr[T commonBytesLengths](h *Hasher, blob *T) {
+// HashStaticBytesPointer hashes a static binary blob.
+//
+// Note, a nil pointer is hashed as an empty binary blob.
+func HashStaticBytesPointer[T commonBytesLengths](h *Hasher, blob *T) {
+	// If the pointer is nil, hash as an empty blob
 	if blob == nil {
-		blob = new(T) // TODO(karalabe): Make this alloc free somehow?
+		// Go generics cannot do len(T{}), so we either allocate and bear the GC
+		// costs, or we use reflect. Both is kind of crappy.
+		//
+		// https://github.com/golang/go/issues/69100
+		h.hashBytesEmpty(reflect.TypeOf(blob).Elem().Len())
+		return
 	}
 	// The code below should have used `blob[:]`, alas Go's generics compiler
 	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
@@ -176,15 +186,25 @@ func HashDynamicBytes(h *Hasher, blob []byte, maxSize uint64) {
 }
 
 // HashStaticObject hashes a static ssz object.
-func HashStaticObject(h *Hasher, obj StaticObject) {
+func HashStaticObject[T newableStaticObject[U], U any](h *Hasher, obj T) {
 	h.descendLayer()
+	if obj == nil {
+		// If the object is nil, pull up it's zero value. This will be very slow,
+		// but it should not happen in production, only during tests mostly.
+		obj = zeroValueStatic[T, U]()
+	}
 	obj.DefineSSZ(h.codec)
 	h.ascendLayer(0)
 }
 
 // HashDynamicObject hashes a dynamic ssz object.
-func HashDynamicObject(h *Hasher, obj DynamicObject) {
+func HashDynamicObject[T newableDynamicObject[U], U any](h *Hasher, obj T) {
 	h.descendLayer()
+	if obj == nil {
+		// If the object is nil, pull up it's zero value. This will be very slow,
+		// but it should not happen in production, only during tests mostly.
+		obj = zeroValueDynamic[T, U]()
+	}
 	obj.DefineSSZ(h.codec)
 	h.ascendLayer(0)
 }
@@ -197,7 +217,14 @@ func HashArrayOfBits[T commonBitsLengths](h *Hasher, bits *T) {
 }
 
 // HashSliceOfBits hashes a dynamic slice of (packed) bits.
+//
+// Note, a nil slice of bits is serialized as an empty bit list.
 func HashSliceOfBits(h *Hasher, bits bitfield.Bitlist, maxBits uint64) {
+	// If the slice of bits is nil (i.e. uninitialized), hash it as empty
+	if bits == nil {
+		HashSliceOfBits(h, bitlistZero, maxBits)
+		return
+	}
 	// Parse the bit-list into a hashable representation
 	var (
 		msb  = uint8(bitops.Len8(bits[len(bits)-1])) - 1
@@ -422,6 +449,21 @@ func (h *Hasher) hashBytes(blob []byte) {
 	h.ascendLayer(0)
 }
 
+// hashBytesEmpty is analogous to hashBytes, but where the input is all zeroes,
+// so it's passed by length, not by content. This allows hashing zero pointers
+// without allocating them first.
+func (h *Hasher) hashBytesEmpty(size int) {
+	// If the blob is small, accumulate as a single chunk
+	if size <= 32 {
+		h.insertChunk(hasherZeroChunk, 0)
+		return
+	}
+	// Otherwise hash it as its own tree
+	h.descendLayer()
+	h.insertBlobChunksEmpty(size)
+	h.ascendLayer(0)
+}
+
 // insertChunk adds a chunk to the accumulators, collapsing matching pairs.
 func (h *Hasher) insertChunk(chunk [32]byte, depth int) {
 	// Insert the chunk into the accumulator
@@ -492,6 +534,16 @@ func (h *Hasher) insertBlobChunks(blob []byte) {
 		buffer = [32]byte{}
 		copy(buffer[:], blob)
 		h.insertChunk(buffer, 0)
+	}
+}
+
+// insertBlobChunksEmpty is analogous to insertBlobChunks, but where the input
+// is all zeroes, so it's passed by length, not by content. This allows hashing
+// zero pointers without allocating them first.
+func (h *Hasher) insertBlobChunksEmpty(size int) {
+	for size > 0 { // will insert a full chunk for the last segment
+		h.insertChunk(hasherZeroChunk, 0)
+		size -= 32
 	}
 }
 

@@ -97,8 +97,8 @@ func (obj *BeaconStateMonolith) DefineSSZ(codec *ssz.Codec) {
 		ssz.DefineDynamicObjectOffset(codec, &obj.LatestExecutionPayloadHeader) // Offset (26) - LatestExecutionPayloadHeader -       4 bytes
 	}
 	if codec.Fork() >= ssz.ForkCapella {
-		ssz.DefineUint64Ptr(codec, &obj.NextWithdrawalIndex)                            // Field  (27) -          NextWithdrawalIndex -       8 bytes
-		ssz.DefineUint64Ptr(codec, &obj.NextWithdrawalValidatorIndex)                   // Field  (28) - NextWithdrawalValidatorIndex -       8 bytes
+		ssz.DefineUint64Pointer(codec, &obj.NextWithdrawalIndex)                        // Field  (27) -          NextWithdrawalIndex -       8 bytes
+		ssz.DefineUint64Pointer(codec, &obj.NextWithdrawalValidatorIndex)               // Field  (28) - NextWithdrawalValidatorIndex -       8 bytes
 		ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.HistoricalSummaries, 16777216) // Offset (29) -          HistoricalSummaries -       4 bytes
 	}
 	// Define the dynamic data (fields)

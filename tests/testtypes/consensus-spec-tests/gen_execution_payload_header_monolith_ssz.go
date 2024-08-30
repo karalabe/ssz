@@ -40,11 +40,11 @@ func (obj *ExecutionPayloadHeaderMonolith) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineStaticBytes(codec, &obj.BlockHash)            // Field  (12) -        BlockHash -  32 bytes
 	ssz.DefineStaticBytes(codec, &obj.TransactionsRoot)     // Field  (13) - TransactionsRoot -  32 bytes
 	if codec.Fork() >= ssz.ForkCapella {
-		ssz.DefineStaticBytesPtr(codec, &obj.WithdrawalRoot) // Field  (14) -   WithdrawalRoot -  32 bytes
+		ssz.DefineStaticBytesPointer(codec, &obj.WithdrawalRoot) // Field  (14) -   WithdrawalRoot -  32 bytes
 	}
 	if codec.Fork() >= ssz.ForkDeneb {
-		ssz.DefineUint64Ptr(codec, &obj.BlobGasUsed)   // Field  (15) -      BlobGasUsed -   8 bytes
-		ssz.DefineUint64Ptr(codec, &obj.ExcessBlobGas) // Field  (16) -    ExcessBlobGas -   8 bytes
+		ssz.DefineUint64Pointer(codec, &obj.BlobGasUsed)   // Field  (15) -      BlobGasUsed -   8 bytes
+		ssz.DefineUint64Pointer(codec, &obj.ExcessBlobGas) // Field  (16) -    ExcessBlobGas -   8 bytes
 	}
 	// Define the dynamic data (fields)
 	ssz.DefineDynamicBytesContent(codec, &obj.ExtraData, 32) // Field  (10) -        ExtraData - ? bytes

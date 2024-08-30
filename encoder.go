@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"io"
 	"math/big"
+	"reflect"
 	"unsafe"
 
 	"github.com/holiman/uint256"
@@ -19,6 +20,7 @@ var (
 	boolFalse   = []byte{0x00}
 	boolTrue    = []byte{0x01}
 	uint256Zero = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	bitlistZero = bitfield.NewBitlist(0)
 )
 
 // Encoder is a wrapper around an io.Writer or a []byte buffer to implement SSZ
@@ -161,10 +163,10 @@ func EncodeUint64[T ~uint64](enc *Encoder, n T) {
 	}
 }
 
-// EncodeUint64Ptr serializes a uint64.
+// EncodeUint64Pointer serializes a uint64.
 //
 // Note, a nil pointer is serialized as zero.
-func EncodeUint64Ptr[T ~uint64](enc *Encoder, n *T) {
+func EncodeUint64Pointer[T ~uint64](enc *Encoder, n *T) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -256,24 +258,24 @@ func EncodeStaticBytes[T commonBytesLengths](enc *Encoder, blob *T) {
 	}
 }
 
-// EncodeStaticBytesPtr serializes a static binary blob.
+// EncodeStaticBytesPointer serializes a static binary blob.
 //
 // Note, a nil pointer is serialized as a zero-value blob.
-func EncodeStaticBytesPtr[T commonBytesLengths](enc *Encoder, blob *T) {
+func EncodeStaticBytesPointer[T commonBytesLengths](enc *Encoder, blob *T) {
+	// If the blob is nil, write a batch of zeroes and exit
+	if blob == nil {
+		enc.encodeZeroes(reflect.TypeFor[T]().Len())
+		return
+	}
+	// Blob not nil, write the actual data content
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
-		}
-		if blob == nil {
-			blob = new(T) // TODO(karalabe): Make this alloc free somehow?
 		}
 		// The code below should have used `*blob[:]`, alas Go's generics compiler
 		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 		_, enc.err = enc.outWriter.Write(unsafe.Slice(&(*blob)[0], len(*blob)))
 	} else {
-		if blob == nil {
-			blob = new(T) // TODO(karalabe): Make this alloc free somehow?
-		}
 		// The code below should have used `blob[:]`, alas Go's generics compiler
 		// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 		copy(enc.outBuffer, unsafe.Slice(&(*blob)[0], len(*blob)))
@@ -282,7 +284,13 @@ func EncodeStaticBytesPtr[T commonBytesLengths](enc *Encoder, blob *T) {
 }
 
 // EncodeCheckedStaticBytes serializes a static binary blob.
-func EncodeCheckedStaticBytes(enc *Encoder, blob []byte) {
+func EncodeCheckedStaticBytes(enc *Encoder, blob []byte, size uint64) {
+	// If the blob is nil, write a batch of zeroes and exit
+	if blob == nil {
+		enc.encodeZeroes(int(size))
+		return
+	}
+	// Blob not nil, write the actual data content
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -323,15 +331,22 @@ func EncodeDynamicBytesContent(enc *Encoder, blob []byte) {
 }
 
 // EncodeStaticObject serializes a static ssz object.
-func EncodeStaticObject(enc *Encoder, obj StaticObject) {
+func EncodeStaticObject[T newableStaticObject[U], U any](enc *Encoder, obj T) {
 	if enc.err != nil {
 		return
+	}
+	if obj == nil {
+		// If the object is nil, pull up it's zero value. This will be very slow,
+		// but it should not happen in production, only during tests mostly.
+		obj = zeroValueStatic[T, U]()
 	}
 	obj.DefineSSZ(enc.codec)
 }
 
 // EncodeDynamicObjectOffset serializes a dynamic ssz object.
-func EncodeDynamicObjectOffset(enc *Encoder, obj DynamicObject) {
+//
+// Note, nil will be encoded as a zero-value initialized object.
+func EncodeDynamicObjectOffset[T newableDynamicObject[U], U any](enc *Encoder, obj T) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
@@ -342,13 +357,25 @@ func EncodeDynamicObjectOffset(enc *Encoder, obj DynamicObject) {
 		binary.LittleEndian.PutUint32(enc.outBuffer, enc.offset)
 		enc.outBuffer = enc.outBuffer[4:]
 	}
+	// If the object is nil, pull up it's zero value. This will be very slow, but
+	// it should not happen in production, only during tests mostly.
+	if obj == nil {
+		obj = zeroValueDynamic[T, U]()
+	}
 	enc.offset += obj.SizeSSZ(enc.sizer, false)
 }
 
 // EncodeDynamicObjectContent is the lazy data writer for EncodeDynamicObjectOffset.
-func EncodeDynamicObjectContent(enc *Encoder, obj DynamicObject) {
+//
+// Note, nil will be encoded as a zero-value initialized object.
+func EncodeDynamicObjectContent[T newableDynamicObject[U], U any](enc *Encoder, obj T) {
 	if enc.err != nil {
 		return
+	}
+	// If the object is nil, pull up it's zero value. This will be very slow, but
+	// it should not happen in production, only during tests mostly.
+	if obj == nil {
+		obj = zeroValueDynamic[T, U]()
 	}
 	enc.offsetDynamics(obj.SizeSSZ(enc.sizer, true))
 	obj.DefineSSZ(enc.codec)
@@ -372,6 +399,8 @@ func EncodeArrayOfBits[T commonBitsLengths](enc *Encoder, bits *T) {
 }
 
 // EncodeSliceOfBitsOffset serializes a dynamic slice of (packed) bits.
+//
+// Note, a nil slice of bits is serialized as an empty bit list.
 func EncodeSliceOfBitsOffset(enc *Encoder, bits bitfield.Bitlist) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
@@ -383,19 +412,34 @@ func EncodeSliceOfBitsOffset(enc *Encoder, bits bitfield.Bitlist) {
 		binary.LittleEndian.PutUint32(enc.outBuffer, enc.offset)
 		enc.outBuffer = enc.outBuffer[4:]
 	}
-	enc.offset += uint32(len(bits))
+	if bits != nil {
+		enc.offset += uint32(len(bits))
+	} else {
+		enc.offset += uint32(len(bitlistZero))
+	}
 }
 
 // EncodeSliceOfBitsContent is the lazy data writer for EncodeSliceOfBitsOffset.
+//
+// Note, a nil slice of bits is serialized as an empty bit list.
 func EncodeSliceOfBitsContent(enc *Encoder, bits bitfield.Bitlist) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
 			return
 		}
-		_, enc.err = enc.outWriter.Write(bits) // bitfield.Bitlist already has the length bit set
+		if bits != nil {
+			_, enc.err = enc.outWriter.Write(bits) // bitfield.Bitlist already has the length bit set
+		} else {
+			_, enc.err = enc.outWriter.Write(bitlistZero)
+		}
 	} else {
-		copy(enc.outBuffer, bits)
-		enc.outBuffer = enc.outBuffer[len(bits):] // bitfield.Bitlist already has the length bit set
+		if bits != nil {
+			copy(enc.outBuffer, bits)
+			enc.outBuffer = enc.outBuffer[len(bits):] // bitfield.Bitlist already has the length bit set
+		} else {
+			copy(enc.outBuffer, bitlistZero)
+			enc.outBuffer = enc.outBuffer[len(bitlistZero):]
+		}
 	}
 }
 
@@ -502,7 +546,12 @@ func EncodeUnsafeArrayOfStaticBytes[T commonBytesLengths](enc *Encoder, blobs []
 
 // EncodeCheckedArrayOfStaticBytes serializes a static array of static binary
 // blobs.
-func EncodeCheckedArrayOfStaticBytes[T commonBytesLengths](enc *Encoder, blobs []T) {
+func EncodeCheckedArrayOfStaticBytes[T commonBytesLengths](enc *Encoder, blobs []T, size uint64) {
+	// If the blobs are nil, write a batch of zeroes and exit
+	if blobs == nil {
+		enc.encodeZeroes(int(size) * reflect.TypeFor[T]().Len())
+		return
+	}
 	// Internally this method is essentially calling EncodeStaticBytes on all
 	// the blobs in a loop. Practically, we've inlined that call to make things
 	// a *lot* faster.
@@ -720,4 +769,34 @@ func EncodeSliceOfDynamicObjectsContent[T DynamicObject](enc *Encoder, objects [
 // offset for the dynamic fields.
 func (enc *Encoder) offsetDynamics(offset uint32) {
 	enc.offset = offset
+}
+
+// encodeZeroes is a helper to append a bunch of zero values to the output stream.
+// This method is mainly used for encoding uninitialized fields without allocating
+// them beforehand.
+func (enc *Encoder) encodeZeroes(size int) {
+	if enc.outWriter != nil {
+		if enc.err != nil {
+			return
+		}
+		for size >= 32 {
+			if _, enc.err = enc.outWriter.Write(uint256Zero); enc.err != nil {
+				return
+			}
+			size -= 32
+		}
+		if size > 0 {
+			_, enc.err = enc.outWriter.Write(uint256Zero[:size])
+		}
+	} else {
+		for size >= 32 {
+			copy(enc.outBuffer, uint256Zero)
+			enc.outBuffer = enc.outBuffer[32:]
+			size -= 32
+		}
+		if size > 0 {
+			copy(enc.outBuffer, uint256Zero[:size])
+			enc.outBuffer = enc.outBuffer[size:]
+		}
+	}
 }

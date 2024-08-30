@@ -56,6 +56,12 @@ func TestConsensusSpecBasics(t *testing.T) {
 }
 
 func testConsensusSpecBasicType[T newableObject[U], U any](t *testing.T, kind string) {
+	// Sanity check that the zero values can be handled before diving into the
+	// actual test datasets. This is mostly to catch implementation faults with
+	// uninitialized field handling.
+	t.Run(fmt.Sprintf("zero/%s", kind), func(t *testing.T) {
+		testZeroValue[T, U](t, ssz.ForkUnknown)
+	})
 	// Filter out the valid tests for this specific type
 	path := filepath.Join(consensusSpecTestsBasicsRoot, "valid")
 
@@ -286,6 +292,13 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 	}
 	// Some specific fork was requested, look that up explicitly
 	for _, fork := range forks {
+		// Sanity check that the zero values can be handled before diving into the
+		// actual test datasets. This is mostly to catch implementation faults with
+		// uninitialized field handling.
+		t.Run(fmt.Sprintf("zero/%s/%s", fork, kind), func(t *testing.T) {
+			testZeroValue[T, U](t, ssz.ForkMapping[fork])
+		})
+		// Zero value on this specific fork ok, pull in the consensus dataset
 		path := filepath.Join(consensusSpecTestsRoot, fork, "ssz_static", kind, "ssz_random")
 
 		tests, err := os.ReadDir(path)
