@@ -70,13 +70,13 @@ type ExecutionPayloadMonolith struct {
 	GasLimit      uint64
 	GasUsed       uint64
 	Timestamp     uint64
-	ExtraData     []byte `ssz-max:"32"`
+	ExtraData     []byte `ssz-max:"32" ssz-fork:"frontier"`
 	BaseFeePerGas *uint256.Int
 	BlockHash     Hash
 	Transactions  [][]byte      `ssz-max:"1048576,1073741824"`
-	Withdrawals   []*Withdrawal `ssz-max:"16" ssz-fork:"capella"`
-	BlobGasUsed   *uint64       `             ssz-fork:"deneb"`
-	ExcessBlobGas *uint64       `             ssz-fork:"deneb"`
+	Withdrawals   []*Withdrawal `ssz-max:"16" ssz-fork:"shanghai"`
+	BlobGasUsed   *uint64       `             ssz-fork:"cancun"`
+	ExcessBlobGas *uint64       `             ssz-fork:"cancun"`
 }
 
 type ExecutionPayloadHeaderMonolith struct {
@@ -90,11 +90,11 @@ type ExecutionPayloadHeaderMonolith struct {
 	GasLimit         uint64
 	GasUsed          uint64
 	Timestamp        uint64
-	ExtraData        []byte `ssz-max:"32"`
+	ExtraData        []byte `ssz-max:"32" ssz-fork:"frontier"`
 	BaseFeePerGas    [32]byte
 	BlockHash        [32]byte
 	TransactionsRoot [32]byte
-	WithdrawalRoot   *[32]byte `ssz-fork:"capella"`
-	BlobGasUsed      *uint64   `ssz-fork:"deneb"`
-	ExcessBlobGas    *uint64   `ssz-fork:"deneb"`
+	WithdrawalRoot   *[32]byte `ssz-fork:"shanghai"`
+	BlobGasUsed      *uint64   `ssz-fork:"cancun"`
+	ExcessBlobGas    *uint64   `ssz-fork:"cancun"`
 }

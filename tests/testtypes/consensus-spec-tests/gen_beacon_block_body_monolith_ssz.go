@@ -52,39 +52,26 @@ func (obj *BeaconBlockBodyMonolith) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size 
 // DefineSSZ defines how an object is encoded/decoded.
 func (obj *BeaconBlockBodyMonolith) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
-	ssz.DefineStaticBytes(codec, &obj.RandaoReveal)                         // Field  ( 0) -          RandaoReveal - 96 bytes
-	ssz.DefineStaticObject(codec, &obj.Eth1Data)                            // Field  ( 1) -              Eth1Data -  ? bytes (Eth1Data)
-	ssz.DefineStaticBytes(codec, &obj.Graffiti)                             // Field  ( 2) -              Graffiti - 32 bytes
-	ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.ProposerSlashings, 16) // Offset ( 3) -     ProposerSlashings -  4 bytes
-	ssz.DefineSliceOfDynamicObjectsOffset(codec, &obj.AttesterSlashings, 2) // Offset ( 4) -     AttesterSlashings -  4 bytes
-	ssz.DefineSliceOfDynamicObjectsOffset(codec, &obj.Attestations, 128)    // Offset ( 5) -          Attestations -  4 bytes
-	ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.Deposits, 16)          // Offset ( 6) -              Deposits -  4 bytes
-	ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.VoluntaryExits, 16)    // Offset ( 7) -        VoluntaryExits -  4 bytes
-	if codec.Fork() >= ssz.ForkAltair {
-		ssz.DefineStaticObject(codec, &obj.SyncAggregate) // Field  ( 8) -         SyncAggregate -  ? bytes (SyncAggregate)
-	}
-	if codec.Fork() >= ssz.ForkBellatrix {
-		ssz.DefineDynamicObjectOffset(codec, &obj.ExecutionPayload) // Offset ( 9) -      ExecutionPayload -  4 bytes
-	}
-	if codec.Fork() >= ssz.ForkCapella {
-		ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.BlsToExecutionChanges, 16) // Offset (10) - BlsToExecutionChanges -  4 bytes
-	}
-	if codec.Fork() >= ssz.ForkDeneb {
-		ssz.DefineSliceOfStaticBytesOffset(codec, &obj.BlobKzgCommitments, 4096) // Offset (11) -    BlobKzgCommitments -  4 bytes
-	}
+	ssz.DefineStaticBytes(codec, &obj.RandaoReveal)                                                                           // Field  ( 0) -          RandaoReveal - 96 bytes
+	ssz.DefineStaticObject(codec, &obj.Eth1Data)                                                                              // Field  ( 1) -              Eth1Data -  ? bytes (Eth1Data)
+	ssz.DefineStaticBytes(codec, &obj.Graffiti)                                                                               // Field  ( 2) -              Graffiti - 32 bytes
+	ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.ProposerSlashings, 16)                                                   // Offset ( 3) -     ProposerSlashings -  4 bytes
+	ssz.DefineSliceOfDynamicObjectsOffset(codec, &obj.AttesterSlashings, 2)                                                   // Offset ( 4) -     AttesterSlashings -  4 bytes
+	ssz.DefineSliceOfDynamicObjectsOffset(codec, &obj.Attestations, 128)                                                      // Offset ( 5) -          Attestations -  4 bytes
+	ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.Deposits, 16)                                                            // Offset ( 6) -              Deposits -  4 bytes
+	ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.VoluntaryExits, 16)                                                      // Offset ( 7) -        VoluntaryExits -  4 bytes
+	ssz.DefineStaticObjectOnFork(codec, &obj.SyncAggregate, ssz.ForkFilter{Added: ssz.ForkAltair})                            // Field  ( 8) -         SyncAggregate -  ? bytes (SyncAggregate)
+	ssz.DefineDynamicObjectOffsetOnFork(codec, &obj.ExecutionPayload, ssz.ForkFilter{Added: ssz.ForkBellatrix})               // Offset ( 9) -      ExecutionPayload -  4 bytes
+	ssz.DefineSliceOfStaticObjectsOffsetOnFork(codec, &obj.BlsToExecutionChanges, 16, ssz.ForkFilter{Added: ssz.ForkCapella}) // Offset (10) - BlsToExecutionChanges -  4 bytes
+	ssz.DefineSliceOfStaticBytesOffsetOnFork(codec, &obj.BlobKzgCommitments, 4096, ssz.ForkFilter{Added: ssz.ForkDeneb})      // Offset (11) -    BlobKzgCommitments -  4 bytes
+
 	// Define the dynamic data (fields)
-	ssz.DefineSliceOfStaticObjectsContent(codec, &obj.ProposerSlashings, 16) // Field  ( 3) -     ProposerSlashings - ? bytes
-	ssz.DefineSliceOfDynamicObjectsContent(codec, &obj.AttesterSlashings, 2) // Field  ( 4) -     AttesterSlashings - ? bytes
-	ssz.DefineSliceOfDynamicObjectsContent(codec, &obj.Attestations, 128)    // Field  ( 5) -          Attestations - ? bytes
-	ssz.DefineSliceOfStaticObjectsContent(codec, &obj.Deposits, 16)          // Field  ( 6) -              Deposits - ? bytes
-	ssz.DefineSliceOfStaticObjectsContent(codec, &obj.VoluntaryExits, 16)    // Field  ( 7) -        VoluntaryExits - ? bytes
-	if codec.Fork() >= ssz.ForkBellatrix {
-		ssz.DefineDynamicObjectContent(codec, &obj.ExecutionPayload) // Field  ( 9) -      ExecutionPayload - ? bytes
-	}
-	if codec.Fork() >= ssz.ForkCapella {
-		ssz.DefineSliceOfStaticObjectsContent(codec, &obj.BlsToExecutionChanges, 16) // Field  (10) - BlsToExecutionChanges - ? bytes
-	}
-	if codec.Fork() >= ssz.ForkDeneb {
-		ssz.DefineSliceOfStaticBytesContent(codec, &obj.BlobKzgCommitments, 4096) // Field  (11) -    BlobKzgCommitments - ? bytes
-	}
+	ssz.DefineSliceOfStaticObjectsContent(codec, &obj.ProposerSlashings, 16)                                                   // Field  ( 3) -     ProposerSlashings - ? bytes
+	ssz.DefineSliceOfDynamicObjectsContent(codec, &obj.AttesterSlashings, 2)                                                   // Field  ( 4) -     AttesterSlashings - ? bytes
+	ssz.DefineSliceOfDynamicObjectsContent(codec, &obj.Attestations, 128)                                                      // Field  ( 5) -          Attestations - ? bytes
+	ssz.DefineSliceOfStaticObjectsContent(codec, &obj.Deposits, 16)                                                            // Field  ( 6) -              Deposits - ? bytes
+	ssz.DefineSliceOfStaticObjectsContent(codec, &obj.VoluntaryExits, 16)                                                      // Field  ( 7) -        VoluntaryExits - ? bytes
+	ssz.DefineDynamicObjectContentOnFork(codec, &obj.ExecutionPayload, ssz.ForkFilter{Added: ssz.ForkBellatrix})               // Field  ( 9) -      ExecutionPayload - ? bytes
+	ssz.DefineSliceOfStaticObjectsContentOnFork(codec, &obj.BlsToExecutionChanges, 16, ssz.ForkFilter{Added: ssz.ForkCapella}) // Field  (10) - BlsToExecutionChanges - ? bytes
+	ssz.DefineSliceOfStaticBytesContentOnFork(codec, &obj.BlobKzgCommitments, 4096, ssz.ForkFilter{Added: ssz.ForkDeneb})      // Field  (11) -    BlobKzgCommitments - ? bytes
 }

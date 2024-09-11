@@ -12,6 +12,7 @@ import (
 	"io"
 	"math"
 	"sort"
+	"strings"
 )
 
 const (
@@ -251,7 +252,7 @@ func generateSizeSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 						fmt.Fprintf(&b, "	if sizer.Fork() >= ssz.Fork%s {\n", dynForks[i])
 					}
 				}
-				call := generateCall(dynOpsets[i].(*opsetDynamic).size, "sizer", "obj."+dynFields[i])
+				call := generateCall(dynOpsets[i].(*opsetDynamic).size, "", "sizer", "obj."+dynFields[i])
 				fmt.Fprintf(&b, "	size += ssz.%s\n", call)
 				if dynForks[i] != "" && (i == len(dynForks)-1 || dynForks[i] != dynForks[i+1]) {
 					fmt.Fprintf(&b, "	}\n")
@@ -290,7 +291,7 @@ func generateSizeSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 						fmt.Fprintf(&b, "	if sizer.Fork() >= ssz.Fork%s {\n", dynForks[i])
 					}
 				}
-				call := generateCall(dynOpsets[i].(*opsetDynamic).size, "sizer", "obj."+dynFields[i])
+				call := generateCall(dynOpsets[i].(*opsetDynamic).size, "", "sizer", "obj."+dynFields[i])
 				fmt.Fprintf(&b, "	size += ssz.%s\n", call)
 				if dynForks[i] != "" && (i == len(dynForks)-1 || dynForks[i] != dynForks[i+1]) {
 					fmt.Fprintf(&b, "	}\n")
@@ -343,17 +344,10 @@ func generateDefineSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 		fmt.Fprint(&b, "	// Define the static data (fields and dynamic offsets)\n")
 	}
 	for i := 0; i < len(typ.fields); i++ {
-		if typ.forks[i] != "" && (i == 0 || typ.forks[i] != typ.forks[i-1]) {
-			if typ.forks[i][0] == '!' {
-				fmt.Fprintf(&b, "	if codec.Fork() < ssz.Fork%s {\n", typ.forks[i][1:])
-			} else {
-				fmt.Fprintf(&b, "	if codec.Fork() >= ssz.Fork%s {\n", typ.forks[i])
-			}
-		}
 		field := typ.fields[i]
 		switch opset := typ.opsets[i].(type) {
 		case *opsetStatic:
-			call := generateCall(opset.define, "codec", "obj."+field, opset.bytes...)
+			call := generateCall(opset.define, typ.forks[i], "codec", "obj."+field, opset.bytes...)
 			switch len(opset.bytes) {
 			case 0:
 				typ := typ.types[i].(*types.Pointer).Elem().(*types.Named)
@@ -364,18 +358,12 @@ func generateDefineSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 				fmt.Fprintf(&b, "	ssz.%s // Field  ("+indexRule+") - "+nameRule+" - %"+sizeRule+"d bytes\n", call, i, field, opset.bytes[0]*opset.bytes[1])
 			}
 		case *opsetDynamic:
-			call := generateCall(opset.defineOffset, "codec", "obj."+field, opset.limits...)
+			call := generateCall(opset.defineOffset, typ.forks[i], "codec", "obj."+field, opset.limits...)
 			fmt.Fprintf(&b, "	ssz.%s // Offset ("+indexRule+") - "+nameRule+" - %"+sizeRule+"d bytes\n", call, i, field, offsetBytes)
-		}
-		if typ.forks[i] != "" && (i == len(typ.forks)-1 || typ.forks[i] != typ.forks[i+1]) {
-			fmt.Fprintf(&b, "	}\n")
 		}
 	}
 	if !typ.static {
-		if typ.forks[len(typ.forks)-1] == "" {
-			fmt.Fprint(&b, "\n")
-		}
-		fmt.Fprint(&b, "	// Define the dynamic data (fields)\n")
+		fmt.Fprint(&b, "\n	// Define the dynamic data (fields)\n")
 		var (
 			dynIndices []int
 			dynFields  []string
@@ -393,18 +381,8 @@ func generateDefineSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 		for i := 0; i < len(dynFields); i++ {
 			opset := (dynOpsets[i]).(*opsetDynamic)
 
-			if dynForks[i] != "" && (i == 0 || dynForks[i] != dynForks[i-1]) {
-				if dynForks[i][0] == '!' {
-					fmt.Fprintf(&b, "	if codec.Fork() < ssz.Fork%s {\n", dynForks[i][1:])
-				} else {
-					fmt.Fprintf(&b, "	if codec.Fork() >= ssz.Fork%s {\n", dynForks[i])
-				}
-			}
-			call := generateCall(opset.defineContent, "codec", "obj."+dynFields[i], opset.limits...)
+			call := generateCall(opset.defineContent, dynForks[i], "codec", "obj."+dynFields[i], opset.limits...)
 			fmt.Fprintf(&b, "	ssz.%s // Field  ("+indexRule+") - "+nameRule+" - ? bytes\n", call, dynIndices[i], dynFields[i])
-			if dynForks[i] != "" && (i == len(dynForks)-1 || dynForks[i] != dynForks[i+1]) {
-				fmt.Fprintf(&b, "	}\n")
-			}
 		}
 	}
 	fmt.Fprint(&b, "}\n")
@@ -413,7 +391,8 @@ func generateDefineSSZ(ctx *genContext, typ *sszContainer) ([]byte, error) {
 
 // generateCall parses a Go template and fills it with the provided data. This
 // could be done more optimally, but we really don't care for a code generator.
-func generateCall(tmpl string, recv string, field string, limits ...int) string {
+func generateCall(tmpl string, fork string, recv string, field string, limits ...int) string {
+	// Generate the base call without taking forks into consideration
 	t, err := template.New("").Parse(tmpl)
 	if err != nil {
 		panic(err)
@@ -433,5 +412,21 @@ func generateCall(tmpl string, recv string, field string, limits ...int) string 
 	if err := t.Execute(buf, d); err != nil {
 		panic(err)
 	}
-	return string(buf.Bytes())
+	call := string(buf.Bytes())
+
+	// If a fork filter was specified, inject it now into the call
+	if fork != "" {
+		// Mutate the call to the fork variant
+		call = strings.ReplaceAll(call, "(", "OnFork(")
+
+		// Inject a fork filter as the last parameter
+		var filter string
+		if fork[0] == '!' {
+			filter = fmt.Sprintf("ssz.ForkFilter{Removed: ssz.Fork%s}", fork[1:])
+		} else {
+			filter = fmt.Sprintf("ssz.ForkFilter{Added: ssz.Fork%s}", fork)
+		}
+		call = strings.ReplaceAll(call, ")", ","+filter+")")
+	}
+	return call
 }

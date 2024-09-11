@@ -21,12 +21,10 @@ func (obj *AttestationDataVariation1) SizeSSZ(sizer *ssz.Sizer) (size uint32) {
 
 // DefineSSZ defines how an object is encoded/decoded.
 func (obj *AttestationDataVariation1) DefineSSZ(codec *ssz.Codec) {
-	if codec.Fork() >= ssz.ForkFuture {
-		ssz.DefineUint64(codec, &obj.Future) // Field  (0) -          Future -  8 bytes
-	}
-	ssz.DefineUint64(codec, &obj.Slot)                 // Field  (1) -            Slot -  8 bytes
-	ssz.DefineUint64(codec, &obj.Index)                // Field  (2) -           Index -  8 bytes
-	ssz.DefineStaticBytes(codec, &obj.BeaconBlockHash) // Field  (3) - BeaconBlockHash - 32 bytes
-	ssz.DefineStaticObject(codec, &obj.Source)         // Field  (4) -          Source -  ? bytes (Checkpoint)
-	ssz.DefineStaticObject(codec, &obj.Target)         // Field  (5) -          Target -  ? bytes (Checkpoint)
+	ssz.DefineUint64PointerOnFork(codec, &obj.Future, ssz.ForkFilter{Added: ssz.ForkFuture}) // Field  (0) -          Future -  8 bytes
+	ssz.DefineUint64(codec, &obj.Slot)                                                       // Field  (1) -            Slot -  8 bytes
+	ssz.DefineUint64(codec, &obj.Index)                                                      // Field  (2) -           Index -  8 bytes
+	ssz.DefineStaticBytes(codec, &obj.BeaconBlockHash)                                       // Field  (3) - BeaconBlockHash - 32 bytes
+	ssz.DefineStaticObject(codec, &obj.Source)                                               // Field  (4) -          Source -  ? bytes (Checkpoint)
+	ssz.DefineStaticObject(codec, &obj.Target)                                               // Field  (5) -          Target -  ? bytes (Checkpoint)
 }

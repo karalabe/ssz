@@ -31,12 +31,10 @@ func (obj *AttestationVariation1) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size ui
 // DefineSSZ defines how an object is encoded/decoded.
 func (obj *AttestationVariation1) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
-	if codec.Fork() >= ssz.ForkFuture {
-		ssz.DefineUint64(codec, &obj.Future) // Field  (0) -          Future -  8 bytes
-	}
-	ssz.DefineSliceOfBitsOffset(codec, &obj.AggregationBits, 2048) // Offset (1) - AggregationBits -  4 bytes
-	ssz.DefineStaticObject(codec, &obj.Data)                       // Field  (2) -            Data -  ? bytes (AttestationData)
-	ssz.DefineStaticBytes(codec, &obj.Signature)                   // Field  (3) -       Signature - 96 bytes
+	ssz.DefineUint64PointerOnFork(codec, &obj.Future, ssz.ForkFilter{Added: ssz.ForkFuture}) // Field  (0) -          Future -  8 bytes
+	ssz.DefineSliceOfBitsOffset(codec, &obj.AggregationBits, 2048)                           // Offset (1) - AggregationBits -  4 bytes
+	ssz.DefineStaticObject(codec, &obj.Data)                                                 // Field  (2) -            Data -  ? bytes (AttestationData)
+	ssz.DefineStaticBytes(codec, &obj.Signature)                                             // Field  (3) -       Signature - 96 bytes
 
 	// Define the dynamic data (fields)
 	ssz.DefineSliceOfBitsContent(codec, &obj.AggregationBits, 2048) // Field  (1) - AggregationBits - ? bytes

@@ -55,11 +55,6 @@ func (c *Codec) DefineHasher(impl func(has *Hasher)) {
 	}
 }
 
-// Fork retrieves the current fork (if any) that the codec is operating in.
-func (c *Codec) Fork() Fork {
-	return c.fork
-}
-
 // DefineBool defines the next field as a 1 byte boolean.
 func DefineBool[T ~bool](c *Codec, v *T) {
 	if c.enc != nil {
@@ -125,17 +120,17 @@ func DefineUint64[T ~uint64](c *Codec, n *T) {
 	HashUint64(c.has, *n)
 }
 
-// DefineUint64Pointer defines the next field as a uint64.
-func DefineUint64Pointer[T ~uint64](c *Codec, n **T) {
+// DefineUint64PointerOnFork defines the next field as a uint64 if present in a fork.
+func DefineUint64PointerOnFork[T ~uint64](c *Codec, n **T, filter ForkFilter) {
 	if c.enc != nil {
-		EncodeUint64Pointer(c.enc, *n)
+		EncodeUint64PointerOnFork(c.enc, *n, filter)
 		return
 	}
 	if c.dec != nil {
-		DecodeUint64Pointer(c.dec, n)
+		DecodeUint64PointerOnFork(c.dec, n, filter)
 		return
 	}
-	HashUint64Pointer(c.has, *n)
+	HashUint64PointerOnFork(c.has, *n, filter)
 }
 
 // DefineUint256 defines the next field as a uint256.
@@ -178,18 +173,18 @@ func DefineStaticBytes[T commonBytesLengths](c *Codec, blob *T) {
 	HashStaticBytes(c.has, blob)
 }
 
-// DefineStaticBytesPointer defines the next field as static binary blob. This method
-// can be used for byte arrays.
-func DefineStaticBytesPointer[T commonBytesLengths](c *Codec, blob **T) {
+// DefineStaticBytesPointerOnFork defines the next field as static binary blob if present
+// in a fork. This method can be used for byte arrays.
+func DefineStaticBytesPointerOnFork[T commonBytesLengths](c *Codec, blob **T, filter ForkFilter) {
 	if c.enc != nil {
-		EncodeStaticBytesPointer(c.enc, *blob)
+		EncodeStaticBytesPointerOnFork(c.enc, *blob, filter)
 		return
 	}
 	if c.dec != nil {
-		DecodeStaticBytesPointer(c.dec, blob)
+		DecodeStaticBytesPointerOnFork(c.dec, blob, filter)
 		return
 	}
-	HashStaticBytesPointer(c.has, *blob)
+	HashStaticBytesPointerOnFork(c.has, *blob, filter)
 }
 
 // DefineCheckedStaticBytes defines the next field as static binary blob. This
@@ -220,6 +215,20 @@ func DefineDynamicBytesOffset(c *Codec, blob *[]byte, maxSize uint64) {
 	HashDynamicBytes(c.has, *blob, maxSize)
 }
 
+// DefineDynamicBytesOffsetOnFork defines the next field as dynamic binary blob
+// if present in a fork.
+func DefineDynamicBytesOffsetOnFork(c *Codec, blob *[]byte, maxSize uint64, filter ForkFilter) {
+	if c.enc != nil {
+		EncodeDynamicBytesOffsetOnFork(c.enc, *blob, filter)
+		return
+	}
+	if c.dec != nil {
+		DecodeDynamicBytesOffsetOnFork(c.dec, blob, filter)
+		return
+	}
+	HashDynamicBytesOnFork(c.has, *blob, maxSize, filter)
+}
+
 // DefineDynamicBytesContent defines the next field as dynamic binary blob.
 func DefineDynamicBytesContent(c *Codec, blob *[]byte, maxSize uint64) {
 	if c.enc != nil {
@@ -228,6 +237,20 @@ func DefineDynamicBytesContent(c *Codec, blob *[]byte, maxSize uint64) {
 	}
 	if c.dec != nil {
 		DecodeDynamicBytesContent(c.dec, blob, maxSize)
+		return
+	}
+	// No hashing, done at the offset position
+}
+
+// DefineDynamicBytesContentOnFork defines the next field as dynamic binary blob
+// if present in a fork.
+func DefineDynamicBytesContentOnFork(c *Codec, blob *[]byte, maxSize uint64, filter ForkFilter) {
+	if c.enc != nil {
+		EncodeDynamicBytesContentOnFork(c.enc, *blob, filter)
+		return
+	}
+	if c.dec != nil {
+		DecodeDynamicBytesContentOnFork(c.dec, blob, maxSize, filter)
 		return
 	}
 	// No hashing, done at the offset position
@@ -246,6 +269,20 @@ func DefineStaticObject[T newableStaticObject[U], U any](c *Codec, obj *T) {
 	HashStaticObject(c.has, *obj)
 }
 
+// DefineStaticObjectOnFork defines the next field as a static ssz object if
+// present in a fork.
+func DefineStaticObjectOnFork[T newableStaticObject[U], U any](c *Codec, obj *T, filter ForkFilter) {
+	if c.enc != nil {
+		EncodeStaticObjectOnFork(c.enc, *obj, filter)
+		return
+	}
+	if c.dec != nil {
+		DecodeStaticObjectOnFork(c.dec, obj, filter)
+		return
+	}
+	HashStaticObjectOnFork(c.has, *obj, filter)
+}
+
 // DefineDynamicObjectOffset defines the next field as a dynamic ssz object.
 func DefineDynamicObjectOffset[T newableDynamicObject[U], U any](c *Codec, obj *T) {
 	if c.enc != nil {
@@ -259,6 +296,20 @@ func DefineDynamicObjectOffset[T newableDynamicObject[U], U any](c *Codec, obj *
 	HashDynamicObject(c.has, *obj)
 }
 
+// DefineDynamicObjectOffsetOnFork defines the next field as a dynamic ssz object
+// if present in a fork.
+func DefineDynamicObjectOffsetOnFork[T newableDynamicObject[U], U any](c *Codec, obj *T, filter ForkFilter) {
+	if c.enc != nil {
+		EncodeDynamicObjectOffsetOnFork(c.enc, *obj, filter)
+		return
+	}
+	if c.dec != nil {
+		DecodeDynamicObjectOffsetOnFork(c.dec, obj, filter)
+		return
+	}
+	HashDynamicObjectOnFork(c.has, *obj, filter)
+}
+
 // DefineDynamicObjectContent defines the next field as a dynamic ssz object.
 func DefineDynamicObjectContent[T newableDynamicObject[U], U any](c *Codec, obj *T) {
 	if c.enc != nil {
@@ -267,6 +318,20 @@ func DefineDynamicObjectContent[T newableDynamicObject[U], U any](c *Codec, obj 
 	}
 	if c.dec != nil {
 		DecodeDynamicObjectContent(c.dec, obj)
+		return
+	}
+	// No hashing, done at the offset position
+}
+
+// DefineDynamicObjectContentOnFork defines the next field as a dynamic ssz object
+// if present in a fork.
+func DefineDynamicObjectContentOnFork[T newableDynamicObject[U], U any](c *Codec, obj *T, filter ForkFilter) {
+	if c.enc != nil {
+		EncodeDynamicObjectContentOnFork(c.enc, *obj, filter)
+		return
+	}
+	if c.dec != nil {
+		DecodeDynamicObjectContentOnFork(c.dec, obj, filter)
 		return
 	}
 	// No hashing, done at the offset position
@@ -337,6 +402,20 @@ func DefineSliceOfUint64sOffset[T ~uint64](c *Codec, ns *[]T, maxItems uint64) {
 	HashSliceOfUint64s(c.has, *ns, maxItems)
 }
 
+// DefineSliceOfUint64sOffsetOnFork defines the next field as a dynamic slice of
+// uint64s if present in  fork.
+func DefineSliceOfUint64sOffsetOnFork[T ~uint64](c *Codec, ns *[]T, maxItems uint64, filter ForkFilter) {
+	if c.enc != nil {
+		EncodeSliceOfUint64sOffsetOnFork(c.enc, *ns, filter)
+		return
+	}
+	if c.dec != nil {
+		DecodeSliceOfUint64sOffsetOnFork(c.dec, ns, filter)
+		return
+	}
+	HashSliceOfUint64sOnFork(c.has, *ns, maxItems, filter)
+}
+
 // DefineSliceOfUint64sContent defines the next field as a dynamic slice of uint64s.
 func DefineSliceOfUint64sContent[T ~uint64](c *Codec, ns *[]T, maxItems uint64) {
 	if c.enc != nil {
@@ -345,6 +424,20 @@ func DefineSliceOfUint64sContent[T ~uint64](c *Codec, ns *[]T, maxItems uint64) 
 	}
 	if c.dec != nil {
 		DecodeSliceOfUint64sContent(c.dec, ns, maxItems)
+		return
+	}
+	// No hashing, done at the offset position
+}
+
+// DefineSliceOfUint64sContentOnFork defines the next field as a dynamic slice of
+// uint64s if present in a fork.
+func DefineSliceOfUint64sContentOnFork[T ~uint64](c *Codec, ns *[]T, maxItems uint64, filter ForkFilter) {
+	if c.enc != nil {
+		EncodeSliceOfUint64sContentOnFork(c.enc, *ns, filter)
+		return
+	}
+	if c.dec != nil {
+		DecodeSliceOfUint64sContentOnFork(c.dec, ns, maxItems, filter)
 		return
 	}
 	// No hashing, done at the offset position
@@ -395,8 +488,8 @@ func DefineCheckedArrayOfStaticBytes[T commonBytesLengths](c *Codec, blobs *[]T,
 	HashCheckedArrayOfStaticBytes(c.has, *blobs)
 }
 
-// DefineSliceOfStaticBytesOffset defines the next field as a dynamic slice of static
-// binary blobs.
+// DefineSliceOfStaticBytesOffset defines the next field as a dynamic slice of
+// static binary blobs.
 func DefineSliceOfStaticBytesOffset[T commonBytesLengths](c *Codec, bytes *[]T, maxItems uint64) {
 	if c.enc != nil {
 		EncodeSliceOfStaticBytesOffset(c.enc, *bytes)
@@ -409,6 +502,20 @@ func DefineSliceOfStaticBytesOffset[T commonBytesLengths](c *Codec, bytes *[]T, 
 	HashSliceOfStaticBytes(c.has, *bytes, maxItems)
 }
 
+// DefineSliceOfStaticBytesOffsetOnFork defines the next field as a dynamic slice
+// of static binary blobs if present in a fork.
+func DefineSliceOfStaticBytesOffsetOnFork[T commonBytesLengths](c *Codec, bytes *[]T, maxItems uint64, filter ForkFilter) {
+	if c.enc != nil {
+		EncodeSliceOfStaticBytesOffsetOnFork(c.enc, *bytes, filter)
+		return
+	}
+	if c.dec != nil {
+		DecodeSliceOfStaticBytesOffsetOnFork(c.dec, bytes, filter)
+		return
+	}
+	HashSliceOfStaticBytesOnFork(c.has, *bytes, maxItems, filter)
+}
+
 // DefineSliceOfStaticBytesContent defines the next field as a dynamic slice of static
 // binary blobs.
 func DefineSliceOfStaticBytesContent[T commonBytesLengths](c *Codec, blobs *[]T, maxItems uint64) {
@@ -418,6 +525,20 @@ func DefineSliceOfStaticBytesContent[T commonBytesLengths](c *Codec, blobs *[]T,
 	}
 	if c.dec != nil {
 		DecodeSliceOfStaticBytesContent(c.dec, blobs, maxItems)
+		return
+	}
+	// No hashing, done at the offset position
+}
+
+// DefineSliceOfStaticBytesContentOnFork defines the next field as a dynamic slice
+// of static binary blobs if present in a fork.
+func DefineSliceOfStaticBytesContentOnFork[T commonBytesLengths](c *Codec, blobs *[]T, maxItems uint64, filter ForkFilter) {
+	if c.enc != nil {
+		EncodeSliceOfStaticBytesContentOnFork(c.enc, *blobs, filter)
+		return
+	}
+	if c.dec != nil {
+		DecodeSliceOfStaticBytesContentOnFork(c.dec, blobs, maxItems, filter)
 		return
 	}
 	// No hashing, done at the offset position
@@ -437,8 +558,8 @@ func DefineSliceOfDynamicBytesOffset(c *Codec, blobs *[][]byte, maxItems uint64,
 	HashSliceOfDynamicBytes(c.has, *blobs, maxItems, maxSize)
 }
 
-// DefineSliceOfDynamicBytesContent defines the next field as a dynamic slice of dynamic
-// binary blobs.
+// DefineSliceOfDynamicBytesContent defines the next field as a dynamic slice of
+// dynamic binary blobs.
 func DefineSliceOfDynamicBytesContent(c *Codec, blobs *[][]byte, maxItems uint64, maxSize uint64) {
 	if c.enc != nil {
 		EncodeSliceOfDynamicBytesContent(c.enc, *blobs)
@@ -451,8 +572,8 @@ func DefineSliceOfDynamicBytesContent(c *Codec, blobs *[][]byte, maxItems uint64
 	// No hashing, done at the offset position
 }
 
-// DefineSliceOfStaticObjectsOffset defines the next field as a dynamic slice of static
-// ssz objects.
+// DefineSliceOfStaticObjectsOffset defines the next field as a dynamic slice of
+// static ssz objects.
 func DefineSliceOfStaticObjectsOffset[T newableStaticObject[U], U any](c *Codec, objects *[]T, maxItems uint64) {
 	if c.enc != nil {
 		EncodeSliceOfStaticObjectsOffset(c.enc, *objects)
@@ -463,6 +584,20 @@ func DefineSliceOfStaticObjectsOffset[T newableStaticObject[U], U any](c *Codec,
 		return
 	}
 	HashSliceOfStaticObjects(c.has, *objects, maxItems)
+}
+
+// DefineSliceOfStaticObjectsOffsetOnFork defines the next field as a dynamic
+// slice of static ssz objects if present in a fork.
+func DefineSliceOfStaticObjectsOffsetOnFork[T newableStaticObject[U], U any](c *Codec, objects *[]T, maxItems uint64, filter ForkFilter) {
+	if c.enc != nil {
+		EncodeSliceOfStaticObjectsOffsetOnFork(c.enc, *objects, filter)
+		return
+	}
+	if c.dec != nil {
+		DecodeSliceOfStaticObjectsOffsetOnFork(c.dec, objects, filter)
+		return
+	}
+	HashSliceOfStaticObjectsOnFork(c.has, *objects, maxItems, filter)
 }
 
 // DefineSliceOfStaticObjectsContent defines the next field as a dynamic slice of static
@@ -476,11 +611,25 @@ func DefineSliceOfStaticObjectsContent[T newableStaticObject[U], U any](c *Codec
 		DecodeSliceOfStaticObjectsContent(c.dec, objects, maxItems)
 		return
 	}
-	// No hashing, done at the offset posiiton
+	// No hashing, done at the offset position
 }
 
-// DefineSliceOfDynamicObjectsOffset defines the next field as a dynamic slice of dynamic
-// ssz objects.
+// DefineSliceOfStaticObjectsContentOnFork defines the next field as a dynamic
+// slice of static ssz objects if present in a fork.
+func DefineSliceOfStaticObjectsContentOnFork[T newableStaticObject[U], U any](c *Codec, objects *[]T, maxItems uint64, filter ForkFilter) {
+	if c.enc != nil {
+		EncodeSliceOfStaticObjectsContentOnFork(c.enc, *objects, filter)
+		return
+	}
+	if c.dec != nil {
+		DecodeSliceOfStaticObjectsContentOnFork(c.dec, objects, maxItems, filter)
+		return
+	}
+	// No hashing, done at the offset position
+}
+
+// DefineSliceOfDynamicObjectsOffset defines the next field as a dynamic slice of
+// dynamic ssz objects.
 func DefineSliceOfDynamicObjectsOffset[T newableDynamicObject[U], U any](c *Codec, objects *[]T, maxItems uint64) {
 	if c.enc != nil {
 		EncodeSliceOfDynamicObjectsOffset(c.enc, *objects)
@@ -493,8 +642,22 @@ func DefineSliceOfDynamicObjectsOffset[T newableDynamicObject[U], U any](c *Code
 	HashSliceOfDynamicObjects(c.has, *objects, maxItems)
 }
 
-// DefineSliceOfDynamicObjectsContent defines the next field as a dynamic slice of dynamic
-// ssz objects.
+// DefineSliceOfDynamicObjectsOffsetOnFork defines the next field as a dynamic
+// slice of dynamic ssz objects if present in a fork.
+func DefineSliceOfDynamicObjectsOffsetOnFork[T newableDynamicObject[U], U any](c *Codec, objects *[]T, maxItems uint64, filter ForkFilter) {
+	if c.enc != nil {
+		EncodeSliceOfDynamicObjectsOffsetOnFork(c.enc, *objects, filter)
+		return
+	}
+	if c.dec != nil {
+		DecodeSliceOfDynamicObjectsOffsetOnFork(c.dec, objects, filter)
+		return
+	}
+	HashSliceOfDynamicObjectsOnFork(c.has, *objects, maxItems, filter)
+}
+
+// DefineSliceOfDynamicObjectsContent defines the next field as a dynamic slice
+// of dynamic ssz objects.
 func DefineSliceOfDynamicObjectsContent[T newableDynamicObject[U], U any](c *Codec, objects *[]T, maxItems uint64) {
 	if c.enc != nil {
 		EncodeSliceOfDynamicObjectsContent(c.enc, *objects)
@@ -502,6 +665,20 @@ func DefineSliceOfDynamicObjectsContent[T newableDynamicObject[U], U any](c *Cod
 	}
 	if c.dec != nil {
 		DecodeSliceOfDynamicObjectsContent(c.dec, objects, maxItems)
+		return
+	}
+	// No hashing, done at the offset position
+}
+
+// DefineSliceOfDynamicObjectsContentOnFork defines the next field as a dynamic
+// slice of dynamic ssz objects if present in a fork.
+func DefineSliceOfDynamicObjectsContentOnFork[T newableDynamicObject[U], U any](c *Codec, objects *[]T, maxItems uint64, filter ForkFilter) {
+	if c.enc != nil {
+		EncodeSliceOfDynamicObjectsContentOnFork(c.enc, *objects, filter)
+		return
+	}
+	if c.dec != nil {
+		DecodeSliceOfDynamicObjectsContentOnFork(c.dec, objects, maxItems, filter)
 		return
 	}
 	// No hashing, done at the offset position

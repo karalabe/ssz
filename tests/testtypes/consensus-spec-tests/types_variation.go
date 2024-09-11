@@ -53,7 +53,7 @@ type ExecutionPayloadVariation struct {
 // types (i.e. static objects embedded) for various positions.
 
 type AttestationVariation1 struct {
-	Future          uint64           `ssz-fork:"future"` // Currently unused field
+	Future          *uint64          `ssz-fork:"future"` // Currently unused field
 	AggregationBits bitfield.Bitlist `ssz-max:"2048"`
 	Data            *AttestationData
 	Signature       [96]byte
@@ -61,18 +61,18 @@ type AttestationVariation1 struct {
 type AttestationVariation2 struct {
 	AggregationBits bitfield.Bitlist `ssz-max:"2048"`
 	Data            *AttestationData
-	Future          uint64 `ssz-fork:"future"` // Currently unused field
+	Future          *uint64 `ssz-fork:"future"` // Currently unused field
 	Signature       [96]byte
 }
 type AttestationVariation3 struct {
 	AggregationBits bitfield.Bitlist `ssz-max:"2048"`
 	Data            *AttestationData
 	Signature       [96]byte
-	Future          uint64 `ssz-fork:"future"` // Currently unused field
+	Future          *uint64 `ssz-fork:"future"` // Currently unused field
 }
 
 type AttestationDataVariation1 struct {
-	Future          uint64 `ssz-fork:"future"` // Currently unused field
+	Future          *uint64 `ssz-fork:"future"` // Currently unused field
 	Slot            Slot
 	Index           uint64
 	BeaconBlockHash Hash
@@ -83,7 +83,7 @@ type AttestationDataVariation2 struct {
 	Slot            Slot
 	Index           uint64
 	BeaconBlockHash Hash
-	Future          uint64 `ssz-fork:"future"` // Currently unused field
+	Future          *uint64 `ssz-fork:"future"` // Currently unused field
 	Source          *Checkpoint
 	Target          *Checkpoint
 }
@@ -93,5 +93,5 @@ type AttestationDataVariation3 struct {
 	BeaconBlockHash Hash
 	Source          *Checkpoint
 	Target          *Checkpoint
-	Future          uint64 `ssz-fork:"future"` // Currently unused field
+	Future          *uint64 `ssz-fork:"future"` // Currently unused field
 }

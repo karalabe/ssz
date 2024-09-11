@@ -61,64 +61,47 @@ func (obj *BeaconStateMonolith) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size uint
 // DefineSSZ defines how an object is encoded/decoded.
 func (obj *BeaconStateMonolith) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
-	ssz.DefineUint64(codec, &obj.GenesisTime)                                   // Field  ( 0) -                  GenesisTime -       8 bytes
-	ssz.DefineStaticBytes(codec, &obj.GenesisValidatorsRoot)                    // Field  ( 1) -        GenesisValidatorsRoot -      32 bytes
-	ssz.DefineUint64(codec, &obj.Slot)                                          // Field  ( 2) -                         Slot -       8 bytes
-	ssz.DefineStaticObject(codec, &obj.Fork)                                    // Field  ( 3) -                         Fork -       ? bytes (Fork)
-	ssz.DefineStaticObject(codec, &obj.LatestBlockHeader)                       // Field  ( 4) -            LatestBlockHeader -       ? bytes (BeaconBlockHeader)
-	ssz.DefineUnsafeArrayOfStaticBytes(codec, obj.BlockRoots[:])                // Field  ( 5) -                   BlockRoots -  262144 bytes
-	ssz.DefineUnsafeArrayOfStaticBytes(codec, obj.StateRoots[:])                // Field  ( 6) -                   StateRoots -  262144 bytes
-	ssz.DefineSliceOfStaticBytesOffset(codec, &obj.HistoricalRoots, 16777216)   // Offset ( 7) -              HistoricalRoots -       4 bytes
-	ssz.DefineStaticObject(codec, &obj.Eth1Data)                                // Field  ( 8) -                     Eth1Data -       ? bytes (Eth1Data)
-	ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.Eth1DataVotes, 2048)       // Offset ( 9) -                Eth1DataVotes -       4 bytes
-	ssz.DefineUint64(codec, &obj.Eth1DepositIndex)                              // Field  (10) -             Eth1DepositIndex -       8 bytes
-	ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.Validators, 1099511627776) // Offset (11) -                   Validators -       4 bytes
-	ssz.DefineSliceOfUint64sOffset(codec, &obj.Balances, 1099511627776)         // Offset (12) -                     Balances -       4 bytes
-	ssz.DefineUnsafeArrayOfStaticBytes(codec, obj.RandaoMixes[:])               // Field  (13) -                  RandaoMixes - 2097152 bytes
-	ssz.DefineArrayOfUint64s(codec, &obj.Slashings)                             // Field  (14) -                    Slashings -   65536 bytes
-	if codec.Fork() < ssz.ForkAltair {
-		ssz.DefineSliceOfDynamicObjectsOffset(codec, &obj.PreviousEpochAttestations, 4096) // Offset (15) -    PreviousEpochAttestations -       4 bytes
-		ssz.DefineSliceOfDynamicObjectsOffset(codec, &obj.CurrentEpochAttestations, 4096)  // Offset (16) -     CurrentEpochAttestations -       4 bytes
-	}
-	if codec.Fork() >= ssz.ForkAltair {
-		ssz.DefineDynamicBytesOffset(codec, &obj.PreviousEpochParticipation, 1099511627776) // Offset (17) -   PreviousEpochParticipation -       4 bytes
-		ssz.DefineDynamicBytesOffset(codec, &obj.CurrentEpochParticipation, 1099511627776)  // Offset (18) -    CurrentEpochParticipation -       4 bytes
-	}
-	ssz.DefineArrayOfBits(codec, &obj.JustificationBits, 4)         // Field  (19) -            JustificationBits -       1 bytes
-	ssz.DefineStaticObject(codec, &obj.PreviousJustifiedCheckpoint) // Field  (20) -  PreviousJustifiedCheckpoint -       ? bytes (Checkpoint)
-	ssz.DefineStaticObject(codec, &obj.CurrentJustifiedCheckpoint)  // Field  (21) -   CurrentJustifiedCheckpoint -       ? bytes (Checkpoint)
-	ssz.DefineStaticObject(codec, &obj.FinalizedCheckpoint)         // Field  (22) -          FinalizedCheckpoint -       ? bytes (Checkpoint)
-	if codec.Fork() >= ssz.ForkAltair {
-		ssz.DefineSliceOfUint64sOffset(codec, &obj.InactivityScores, 1099511627776) // Offset (23) -             InactivityScores -       4 bytes
-		ssz.DefineStaticObject(codec, &obj.CurrentSyncCommittee)                    // Field  (24) -         CurrentSyncCommittee -       ? bytes (SyncCommittee)
-		ssz.DefineStaticObject(codec, &obj.NextSyncCommittee)                       // Field  (25) -            NextSyncCommittee -       ? bytes (SyncCommittee)
-	}
-	if codec.Fork() >= ssz.ForkBellatrix {
-		ssz.DefineDynamicObjectOffset(codec, &obj.LatestExecutionPayloadHeader) // Offset (26) - LatestExecutionPayloadHeader -       4 bytes
-	}
-	if codec.Fork() >= ssz.ForkCapella {
-		ssz.DefineUint64Pointer(codec, &obj.NextWithdrawalIndex)                        // Field  (27) -          NextWithdrawalIndex -       8 bytes
-		ssz.DefineUint64Pointer(codec, &obj.NextWithdrawalValidatorIndex)               // Field  (28) - NextWithdrawalValidatorIndex -       8 bytes
-		ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.HistoricalSummaries, 16777216) // Offset (29) -          HistoricalSummaries -       4 bytes
-	}
+	ssz.DefineUint64(codec, &obj.GenesisTime)                                                                                         // Field  ( 0) -                  GenesisTime -       8 bytes
+	ssz.DefineStaticBytes(codec, &obj.GenesisValidatorsRoot)                                                                          // Field  ( 1) -        GenesisValidatorsRoot -      32 bytes
+	ssz.DefineUint64(codec, &obj.Slot)                                                                                                // Field  ( 2) -                         Slot -       8 bytes
+	ssz.DefineStaticObject(codec, &obj.Fork)                                                                                          // Field  ( 3) -                         Fork -       ? bytes (Fork)
+	ssz.DefineStaticObject(codec, &obj.LatestBlockHeader)                                                                             // Field  ( 4) -            LatestBlockHeader -       ? bytes (BeaconBlockHeader)
+	ssz.DefineUnsafeArrayOfStaticBytes(codec, obj.BlockRoots[:])                                                                      // Field  ( 5) -                   BlockRoots -  262144 bytes
+	ssz.DefineUnsafeArrayOfStaticBytes(codec, obj.StateRoots[:])                                                                      // Field  ( 6) -                   StateRoots -  262144 bytes
+	ssz.DefineSliceOfStaticBytesOffset(codec, &obj.HistoricalRoots, 16777216)                                                         // Offset ( 7) -              HistoricalRoots -       4 bytes
+	ssz.DefineStaticObject(codec, &obj.Eth1Data)                                                                                      // Field  ( 8) -                     Eth1Data -       ? bytes (Eth1Data)
+	ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.Eth1DataVotes, 2048)                                                             // Offset ( 9) -                Eth1DataVotes -       4 bytes
+	ssz.DefineUint64(codec, &obj.Eth1DepositIndex)                                                                                    // Field  (10) -             Eth1DepositIndex -       8 bytes
+	ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.Validators, 1099511627776)                                                       // Offset (11) -                   Validators -       4 bytes
+	ssz.DefineSliceOfUint64sOffset(codec, &obj.Balances, 1099511627776)                                                               // Offset (12) -                     Balances -       4 bytes
+	ssz.DefineUnsafeArrayOfStaticBytes(codec, obj.RandaoMixes[:])                                                                     // Field  (13) -                  RandaoMixes - 2097152 bytes
+	ssz.DefineArrayOfUint64s(codec, &obj.Slashings)                                                                                   // Field  (14) -                    Slashings -   65536 bytes
+	ssz.DefineSliceOfDynamicObjectsOffsetOnFork(codec, &obj.PreviousEpochAttestations, 4096, ssz.ForkFilter{Removed: ssz.ForkAltair}) // Offset (15) -    PreviousEpochAttestations -       4 bytes
+	ssz.DefineSliceOfDynamicObjectsOffsetOnFork(codec, &obj.CurrentEpochAttestations, 4096, ssz.ForkFilter{Removed: ssz.ForkAltair})  // Offset (16) -     CurrentEpochAttestations -       4 bytes
+	ssz.DefineDynamicBytesOffsetOnFork(codec, &obj.PreviousEpochParticipation, 1099511627776, ssz.ForkFilter{Added: ssz.ForkAltair})  // Offset (17) -   PreviousEpochParticipation -       4 bytes
+	ssz.DefineDynamicBytesOffsetOnFork(codec, &obj.CurrentEpochParticipation, 1099511627776, ssz.ForkFilter{Added: ssz.ForkAltair})   // Offset (18) -    CurrentEpochParticipation -       4 bytes
+	ssz.DefineArrayOfBits(codec, &obj.JustificationBits, 4)                                                                           // Field  (19) -            JustificationBits -       1 bytes
+	ssz.DefineStaticObject(codec, &obj.PreviousJustifiedCheckpoint)                                                                   // Field  (20) -  PreviousJustifiedCheckpoint -       ? bytes (Checkpoint)
+	ssz.DefineStaticObject(codec, &obj.CurrentJustifiedCheckpoint)                                                                    // Field  (21) -   CurrentJustifiedCheckpoint -       ? bytes (Checkpoint)
+	ssz.DefineStaticObject(codec, &obj.FinalizedCheckpoint)                                                                           // Field  (22) -          FinalizedCheckpoint -       ? bytes (Checkpoint)
+	ssz.DefineSliceOfUint64sOffsetOnFork(codec, &obj.InactivityScores, 1099511627776, ssz.ForkFilter{Added: ssz.ForkAltair})          // Offset (23) -             InactivityScores -       4 bytes
+	ssz.DefineStaticObjectOnFork(codec, &obj.CurrentSyncCommittee, ssz.ForkFilter{Added: ssz.ForkAltair})                             // Field  (24) -         CurrentSyncCommittee -       ? bytes (SyncCommittee)
+	ssz.DefineStaticObjectOnFork(codec, &obj.NextSyncCommittee, ssz.ForkFilter{Added: ssz.ForkAltair})                                // Field  (25) -            NextSyncCommittee -       ? bytes (SyncCommittee)
+	ssz.DefineDynamicObjectOffsetOnFork(codec, &obj.LatestExecutionPayloadHeader, ssz.ForkFilter{Added: ssz.ForkBellatrix})           // Offset (26) - LatestExecutionPayloadHeader -       4 bytes
+	ssz.DefineUint64PointerOnFork(codec, &obj.NextWithdrawalIndex, ssz.ForkFilter{Added: ssz.ForkCapella})                            // Field  (27) -          NextWithdrawalIndex -       8 bytes
+	ssz.DefineUint64PointerOnFork(codec, &obj.NextWithdrawalValidatorIndex, ssz.ForkFilter{Added: ssz.ForkCapella})                   // Field  (28) - NextWithdrawalValidatorIndex -       8 bytes
+	ssz.DefineSliceOfStaticObjectsOffsetOnFork(codec, &obj.HistoricalSummaries, 16777216, ssz.ForkFilter{Added: ssz.ForkCapella})     // Offset (29) -          HistoricalSummaries -       4 bytes
+
 	// Define the dynamic data (fields)
-	ssz.DefineSliceOfStaticBytesContent(codec, &obj.HistoricalRoots, 16777216)   // Field  ( 7) -              HistoricalRoots - ? bytes
-	ssz.DefineSliceOfStaticObjectsContent(codec, &obj.Eth1DataVotes, 2048)       // Field  ( 9) -                Eth1DataVotes - ? bytes
-	ssz.DefineSliceOfStaticObjectsContent(codec, &obj.Validators, 1099511627776) // Field  (11) -                   Validators - ? bytes
-	ssz.DefineSliceOfUint64sContent(codec, &obj.Balances, 1099511627776)         // Field  (12) -                     Balances - ? bytes
-	if codec.Fork() < ssz.ForkAltair {
-		ssz.DefineSliceOfDynamicObjectsContent(codec, &obj.PreviousEpochAttestations, 4096) // Field  (15) -    PreviousEpochAttestations - ? bytes
-		ssz.DefineSliceOfDynamicObjectsContent(codec, &obj.CurrentEpochAttestations, 4096)  // Field  (16) -     CurrentEpochAttestations - ? bytes
-	}
-	if codec.Fork() >= ssz.ForkAltair {
-		ssz.DefineDynamicBytesContent(codec, &obj.PreviousEpochParticipation, 1099511627776) // Field  (17) -   PreviousEpochParticipation - ? bytes
-		ssz.DefineDynamicBytesContent(codec, &obj.CurrentEpochParticipation, 1099511627776)  // Field  (18) -    CurrentEpochParticipation - ? bytes
-		ssz.DefineSliceOfUint64sContent(codec, &obj.InactivityScores, 1099511627776)         // Field  (23) -             InactivityScores - ? bytes
-	}
-	if codec.Fork() >= ssz.ForkBellatrix {
-		ssz.DefineDynamicObjectContent(codec, &obj.LatestExecutionPayloadHeader) // Field  (26) - LatestExecutionPayloadHeader - ? bytes
-	}
-	if codec.Fork() >= ssz.ForkCapella {
-		ssz.DefineSliceOfStaticObjectsContent(codec, &obj.HistoricalSummaries, 16777216) // Field  (29) -          HistoricalSummaries - ? bytes
-	}
+	ssz.DefineSliceOfStaticBytesContent(codec, &obj.HistoricalRoots, 16777216)                                                         // Field  ( 7) -              HistoricalRoots - ? bytes
+	ssz.DefineSliceOfStaticObjectsContent(codec, &obj.Eth1DataVotes, 2048)                                                             // Field  ( 9) -                Eth1DataVotes - ? bytes
+	ssz.DefineSliceOfStaticObjectsContent(codec, &obj.Validators, 1099511627776)                                                       // Field  (11) -                   Validators - ? bytes
+	ssz.DefineSliceOfUint64sContent(codec, &obj.Balances, 1099511627776)                                                               // Field  (12) -                     Balances - ? bytes
+	ssz.DefineSliceOfDynamicObjectsContentOnFork(codec, &obj.PreviousEpochAttestations, 4096, ssz.ForkFilter{Removed: ssz.ForkAltair}) // Field  (15) -    PreviousEpochAttestations - ? bytes
+	ssz.DefineSliceOfDynamicObjectsContentOnFork(codec, &obj.CurrentEpochAttestations, 4096, ssz.ForkFilter{Removed: ssz.ForkAltair})  // Field  (16) -     CurrentEpochAttestations - ? bytes
+	ssz.DefineDynamicBytesContentOnFork(codec, &obj.PreviousEpochParticipation, 1099511627776, ssz.ForkFilter{Added: ssz.ForkAltair})  // Field  (17) -   PreviousEpochParticipation - ? bytes
+	ssz.DefineDynamicBytesContentOnFork(codec, &obj.CurrentEpochParticipation, 1099511627776, ssz.ForkFilter{Added: ssz.ForkAltair})   // Field  (18) -    CurrentEpochParticipation - ? bytes
+	ssz.DefineSliceOfUint64sContentOnFork(codec, &obj.InactivityScores, 1099511627776, ssz.ForkFilter{Added: ssz.ForkAltair})          // Field  (23) -             InactivityScores - ? bytes
+	ssz.DefineDynamicObjectContentOnFork(codec, &obj.LatestExecutionPayloadHeader, ssz.ForkFilter{Added: ssz.ForkBellatrix})           // Field  (26) - LatestExecutionPayloadHeader - ? bytes
+	ssz.DefineSliceOfStaticObjectsContentOnFork(codec, &obj.HistoricalSummaries, 16777216, ssz.ForkFilter{Added: ssz.ForkCapella})     // Field  (29) -          HistoricalSummaries - ? bytes
 }

@@ -79,3 +79,10 @@ var ForkMapping = map[string]Fork{
 	"electra":        ForkElectra,
 	"future":         ForkFuture,
 }
+
+// ForkFilter can be used by the XXXOnFork methods inside monolithic types to
+// define certain fields appearing only in certain forks.
+type ForkFilter struct {
+	Added   Fork
+	Removed Fork
+}
