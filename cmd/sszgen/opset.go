@@ -65,7 +65,12 @@ func (p *parseContext) resolveBasicOpset(typ *types.Basic, tags *sizeTag, pointe
 				[]int{1},
 			}, nil
 		} else {
-			return nil, fmt.Errorf("pointer of boolean basic type not supported yet")
+			return &opsetStatic{
+				"DefineBoolPointer({{.Codec}}, &{{.Field}})",
+				"EncodeBoolPointer({{.Codec}}, &{{.Field}})",
+				"DecodeBoolPointer({{.Codec}}, &{{.Field}})",
+				[]int{1},
+			}, nil
 		}
 	case types.Uint8:
 		if tags != nil && tags.size[0] != 1 {
@@ -79,7 +84,12 @@ func (p *parseContext) resolveBasicOpset(typ *types.Basic, tags *sizeTag, pointe
 				[]int{1},
 			}, nil
 		} else {
-			return nil, fmt.Errorf("pointer of byte basic type not supported yet")
+			return &opsetStatic{
+				"DefineUint8Pointer({{.Codec}}, &{{.Field}})",
+				"EncodeUint8Pointer({{.Codec}}, &{{.Field}})",
+				"DecodeUint8Pointer({{.Codec}}, &{{.Field}})",
+				[]int{1},
+			}, nil
 		}
 	case types.Uint16:
 		if tags != nil && tags.size[0] != 2 {
@@ -93,7 +103,12 @@ func (p *parseContext) resolveBasicOpset(typ *types.Basic, tags *sizeTag, pointe
 				[]int{2},
 			}, nil
 		} else {
-			return nil, fmt.Errorf("pointer of uint16 basic type not supported yet")
+			return &opsetStatic{
+				"DefineUint16Pointer({{.Codec}}, &{{.Field}})",
+				"EncodeUint16Pointer({{.Codec}}, &{{.Field}})",
+				"DecodeUint16Pointer({{.Codec}}, &{{.Field}})",
+				[]int{2},
+			}, nil
 		}
 	case types.Uint32:
 		if tags != nil && tags.size[0] != 4 {
@@ -107,7 +122,12 @@ func (p *parseContext) resolveBasicOpset(typ *types.Basic, tags *sizeTag, pointe
 				[]int{4},
 			}, nil
 		} else {
-			return nil, fmt.Errorf("pointer of uint32 basic type not supported yet")
+			return &opsetStatic{
+				"DefineUint32Pointer({{.Codec}}, &{{.Field}})",
+				"EncodeUint32Pointer({{.Codec}}, &{{.Field}})",
+				"DecodeUint32Pointer({{.Codec}}, &{{.Field}})",
+				[]int{4},
+			}, nil
 		}
 	case types.Uint64:
 		if tags != nil && tags.size[0] != 8 {

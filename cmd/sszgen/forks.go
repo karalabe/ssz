@@ -7,6 +7,7 @@ package main
 // forkMapping maps fork names to fork values. This is used internally by the
 // ssz codec generator to convert tags to values.
 var forkMapping = map[string]string{
+	"unknown":        "Unknown",
 	"frontier":       "Frontier",
 	"homestead":      "Homestead",
 	"dao":            "DAO",

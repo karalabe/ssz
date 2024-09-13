@@ -68,6 +68,20 @@ func DefineBool[T ~bool](c *Codec, v *T) {
 	HashBool(c.has, *v)
 }
 
+// DefineBoolPointerOnFork defines the next field as a 1 byte boolean if present
+// in a fork.
+func DefineBoolPointerOnFork[T ~bool](c *Codec, v **T, filter ForkFilter) {
+	if c.enc != nil {
+		EncodeBoolPointerOnFork(c.enc, *v, filter)
+		return
+	}
+	if c.dec != nil {
+		DecodeBoolPointerOnFork(c.dec, v, filter)
+		return
+	}
+	HashBoolPointerOnFork(c.has, *v, filter)
+}
+
 // DefineUint8 defines the next field as a uint8.
 func DefineUint8[T ~uint8](c *Codec, n *T) {
 	if c.enc != nil {
@@ -79,6 +93,19 @@ func DefineUint8[T ~uint8](c *Codec, n *T) {
 		return
 	}
 	HashUint8(c.has, *n)
+}
+
+// DefineUint8PointerOnFork defines the next field as a uint8 if present in a fork.
+func DefineUint8PointerOnFork[T ~uint8](c *Codec, n **T, filter ForkFilter) {
+	if c.enc != nil {
+		EncodeUint8PointerOnFork(c.enc, *n, filter)
+		return
+	}
+	if c.dec != nil {
+		DecodeUint8PointerOnFork(c.dec, n, filter)
+		return
+	}
+	HashUint8PointerOnFork(c.has, *n, filter)
 }
 
 // DefineUint16 defines the next field as a uint16.
@@ -94,6 +121,19 @@ func DefineUint16[T ~uint16](c *Codec, n *T) {
 	HashUint16(c.has, *n)
 }
 
+// DefineUint16PointerOnFork defines the next field as a uint16 if present in a fork.
+func DefineUint16PointerOnFork[T ~uint16](c *Codec, n **T, filter ForkFilter) {
+	if c.enc != nil {
+		EncodeUint16PointerOnFork(c.enc, *n, filter)
+		return
+	}
+	if c.dec != nil {
+		DecodeUint16PointerOnFork(c.dec, n, filter)
+		return
+	}
+	HashUint16PointerOnFork(c.has, *n, filter)
+}
+
 // DefineUint32 defines the next field as a uint32.
 func DefineUint32[T ~uint32](c *Codec, n *T) {
 	if c.enc != nil {
@@ -105,6 +145,19 @@ func DefineUint32[T ~uint32](c *Codec, n *T) {
 		return
 	}
 	HashUint32(c.has, *n)
+}
+
+// DefineUint32PointerOnFork defines the next field as a uint32 if present in a fork.
+func DefineUint32PointerOnFork[T ~uint32](c *Codec, n **T, filter ForkFilter) {
+	if c.enc != nil {
+		EncodeUint32PointerOnFork(c.enc, *n, filter)
+		return
+	}
+	if c.dec != nil {
+		DecodeUint32PointerOnFork(c.dec, n, filter)
+		return
+	}
+	HashUint32PointerOnFork(c.has, *n, filter)
 }
 
 // DefineUint64 defines the next field as a uint64.
@@ -146,6 +199,19 @@ func DefineUint256(c *Codec, n **uint256.Int) {
 	HashUint256(c.has, *n)
 }
 
+// DefineUint256OnFork defines the next field as a uint256 if present in a fork.
+func DefineUint256OnFork(c *Codec, n **uint256.Int, filter ForkFilter) {
+	if c.enc != nil {
+		EncodeUint256OnFork(c.enc, *n, filter)
+		return
+	}
+	if c.dec != nil {
+		DecodeUint256OnFork(c.dec, n, filter)
+		return
+	}
+	HashUint256OnFork(c.has, *n, filter) // TODO(karalabe): Interesting bug, duplciate, weird place fails, explore
+}
+
 // DefineUint256BigInt defines the next field as a uint256.
 func DefineUint256BigInt(c *Codec, n **big.Int) {
 	if c.enc != nil {
@@ -157,6 +223,20 @@ func DefineUint256BigInt(c *Codec, n **big.Int) {
 		return
 	}
 	HashUint256BigInt(c.has, *n)
+}
+
+// DefineUint256BigIntOnFork defines the next field as a uint256 if present in a
+// fork.
+func DefineUint256BigIntOnFork(c *Codec, n **big.Int, filter ForkFilter) {
+	if c.enc != nil {
+		EncodeUint256BigIntOnFork(c.enc, *n, filter)
+		return
+	}
+	if c.dec != nil {
+		DecodeUint256BigIntOnFork(c.dec, n, filter)
+		return
+	}
+	HashUint256BigIntOnFork(c.has, *n, filter)
 }
 
 // DefineStaticBytes defines the next field as static binary blob. This method
@@ -350,7 +430,8 @@ func DefineArrayOfBits[T commonBitsLengths](c *Codec, bits *T, size uint64) {
 	HashArrayOfBits(c.has, bits)
 }
 
-// DefineSliceOfBitsOffset defines the next field as a dynamic slice of (packed) bits.
+// DefineSliceOfBitsOffset defines the next field as a dynamic slice of (packed)
+// bits.
 func DefineSliceOfBitsOffset(c *Codec, bits *bitfield.Bitlist, maxBits uint64) {
 	if c.enc != nil {
 		EncodeSliceOfBitsOffset(c.enc, *bits)
@@ -363,7 +444,22 @@ func DefineSliceOfBitsOffset(c *Codec, bits *bitfield.Bitlist, maxBits uint64) {
 	HashSliceOfBits(c.has, *bits, maxBits)
 }
 
-// DefineSliceOfBitsContent defines the next field as a dynamic slice of (packed) bits.
+// DefineSliceOfBitsOffsetOnFork defines the next field as a dynamic slice of
+// (packed) bits if present in a fork.
+func DefineSliceOfBitsOffsetOnFork(c *Codec, bits *bitfield.Bitlist, maxBits uint64, filter ForkFilter) {
+	if c.enc != nil {
+		EncodeSliceOfBitsOffsetOnFork(c.enc, *bits, filter)
+		return
+	}
+	if c.dec != nil {
+		DecodeSliceOfBitsOffsetOnFork(c.dec, bits, filter)
+		return
+	}
+	HashSliceOfBitsOnFork(c.has, *bits, maxBits, filter)
+}
+
+// DefineSliceOfBitsContent defines the next field as a dynamic slice of (packed)
+// bits.
 func DefineSliceOfBitsContent(c *Codec, bits *bitfield.Bitlist, maxBits uint64) {
 	if c.enc != nil {
 		EncodeSliceOfBitsContent(c.enc, *bits)
@@ -371,6 +467,20 @@ func DefineSliceOfBitsContent(c *Codec, bits *bitfield.Bitlist, maxBits uint64) 
 	}
 	if c.dec != nil {
 		DecodeSliceOfBitsContent(c.dec, bits, maxBits)
+		return
+	}
+	// No hashing, done at the offset position
+}
+
+// DefineSliceOfBitsContentOnFork defines the next field as a dynamic slice of
+// (packed) bits if present in a fork.
+func DefineSliceOfBitsContentOnFork(c *Codec, bits *bitfield.Bitlist, maxBits uint64, filter ForkFilter) {
+	if c.enc != nil {
+		EncodeSliceOfBitsContentOnFork(c.enc, *bits, filter)
+		return
+	}
+	if c.dec != nil {
+		DecodeSliceOfBitsContentOnFork(c.dec, bits, maxBits, filter)
 		return
 	}
 	// No hashing, done at the offset position
@@ -403,7 +513,7 @@ func DefineSliceOfUint64sOffset[T ~uint64](c *Codec, ns *[]T, maxItems uint64) {
 }
 
 // DefineSliceOfUint64sOffsetOnFork defines the next field as a dynamic slice of
-// uint64s if present in  fork.
+// uint64s if present in a fork.
 func DefineSliceOfUint64sOffsetOnFork[T ~uint64](c *Codec, ns *[]T, maxItems uint64, filter ForkFilter) {
 	if c.enc != nil {
 		EncodeSliceOfUint64sOffsetOnFork(c.enc, *ns, filter)

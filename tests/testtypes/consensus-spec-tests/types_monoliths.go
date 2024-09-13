@@ -4,12 +4,47 @@
 
 package consensus_spec_tests
 
-import "github.com/holiman/uint256"
+import (
+	"math/big"
+
+	"github.com/holiman/uint256"
+	"github.com/prysmaticlabs/go-bitfield"
+)
+
+//go:generate go run -cover ../../../cmd/sszgen -type SingleFieldTestStructMonolith -out gen_single_field_test_struct_monolith_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type SmallTestStructMonolith -out gen_small_test_struct_monolith_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type FixedTestStructMonolith -out gen_fixed_test_struct_monolith_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type BitsStructMonolith -out gen_bits_struct_monolith_ssz.go
 
 //go:generate go run -cover ../../../cmd/sszgen -type ExecutionPayloadMonolith -out gen_execution_payload_monolith_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type ExecutionPayloadMonolith2 -out gen_execution_payload_monolith_2_ssz.go
 //go:generate go run -cover ../../../cmd/sszgen -type ExecutionPayloadHeaderMonolith -out gen_execution_payload_header_monolith_ssz.go
 //go:generate go run -cover ../../../cmd/sszgen -type BeaconBlockBodyMonolith -out gen_beacon_block_body_monolith_ssz.go
 //go:generate go run -cover ../../../cmd/sszgen -type BeaconStateMonolith -out gen_beacon_state_monolith_ssz.go
+//go:generate go run -cover ../../../cmd/sszgen -type ValidatorMonolith -out gen_validator_monolith_ssz.go
+
+type SingleFieldTestStructMonolith struct {
+	A *byte `ssz-fork:"unknown"`
+}
+
+type SmallTestStructMonolith struct {
+	A *uint16 `ssz-fork:"unknown"`
+	B uint16
+}
+
+type FixedTestStructMonolith struct {
+	A *uint8  `ssz-fork:"unknown"`
+	B *uint64 `ssz-fork:"unknown"`
+	C *uint32 `ssz-fork:"unknown"`
+}
+
+type BitsStructMonolith struct {
+	A bitfield.Bitlist `ssz-max:"5" ssz-fork:"unknown"`
+	B [1]byte          `ssz-size:"2" ssz:"bits"`
+	C [1]byte          `ssz-size:"1" ssz:"bits"`
+	D bitfield.Bitlist `ssz-max:"6"`
+	E [1]byte          `ssz-size:"8" ssz:"bits"`
+}
 
 type BeaconBlockBodyMonolith struct {
 	RandaoReveal          [96]byte
@@ -70,8 +105,28 @@ type ExecutionPayloadMonolith struct {
 	GasLimit      uint64
 	GasUsed       uint64
 	Timestamp     uint64
-	ExtraData     []byte `ssz-max:"32" ssz-fork:"frontier"`
-	BaseFeePerGas *uint256.Int
+	ExtraData     []byte       `ssz-max:"32" ssz-fork:"frontier"`
+	BaseFeePerGas *uint256.Int `ssz-fork:"unknown"`
+	BlockHash     Hash
+	Transactions  [][]byte      `ssz-max:"1048576,1073741824"`
+	Withdrawals   []*Withdrawal `ssz-max:"16" ssz-fork:"shanghai"`
+	BlobGasUsed   *uint64       `             ssz-fork:"cancun"`
+	ExcessBlobGas *uint64       `             ssz-fork:"cancun"`
+}
+
+type ExecutionPayloadMonolith2 struct {
+	ParentHash    Hash
+	FeeRecipient  Address
+	StateRoot     Hash
+	ReceiptsRoot  Hash
+	LogsBloom     LogsBloom
+	PrevRandao    Hash
+	BlockNumber   uint64
+	GasLimit      uint64
+	GasUsed       uint64
+	Timestamp     uint64
+	ExtraData     []byte   `ssz-max:"32" ssz-fork:"frontier"`
+	BaseFeePerGas *big.Int `ssz-fork:"unknown"`
 	BlockHash     Hash
 	Transactions  [][]byte      `ssz-max:"1048576,1073741824"`
 	Withdrawals   []*Withdrawal `ssz-max:"16" ssz-fork:"shanghai"`
@@ -97,4 +152,15 @@ type ExecutionPayloadHeaderMonolith struct {
 	WithdrawalRoot   *[32]byte `ssz-fork:"shanghai"`
 	BlobGasUsed      *uint64   `ssz-fork:"cancun"`
 	ExcessBlobGas    *uint64   `ssz-fork:"cancun"`
+}
+
+type ValidatorMonolith struct {
+	Pubkey                     [48]byte
+	WithdrawalCredentials      [32]byte
+	EffectiveBalance           uint64
+	Slashed                    *bool `ssz-fork:"unknown"`
+	ActivationEligibilityEpoch uint64
+	ActivationEpoch            uint64
+	ExitEpoch                  uint64
+	WithdrawableEpoch          uint64
 }

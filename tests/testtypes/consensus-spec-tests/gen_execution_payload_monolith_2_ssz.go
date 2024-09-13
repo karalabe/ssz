@@ -6,7 +6,7 @@ import "github.com/karalabe/ssz"
 
 // SizeSSZ returns either the static size of the object if fixed == true, or
 // the total size otherwise.
-func (obj *ExecutionPayloadMonolith) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size uint32) {
+func (obj *ExecutionPayloadMonolith2) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size uint32) {
 	size = 32 + 20 + 32 + 32 + 256 + 32 + 8 + 8 + 8 + 8
 	if sizer.Fork() >= ssz.ForkFrontier {
 		size += 4
@@ -35,7 +35,7 @@ func (obj *ExecutionPayloadMonolith) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size
 }
 
 // DefineSSZ defines how an object is encoded/decoded.
-func (obj *ExecutionPayloadMonolith) DefineSSZ(codec *ssz.Codec) {
+func (obj *ExecutionPayloadMonolith2) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
 	ssz.DefineStaticBytes(codec, &obj.ParentHash)                                                                    // Field  ( 0) -    ParentHash -  32 bytes
 	ssz.DefineStaticBytes(codec, &obj.FeeRecipient)                                                                  // Field  ( 1) -  FeeRecipient -  20 bytes
@@ -48,7 +48,7 @@ func (obj *ExecutionPayloadMonolith) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineUint64(codec, &obj.GasUsed)                                                                            // Field  ( 8) -       GasUsed -   8 bytes
 	ssz.DefineUint64(codec, &obj.Timestamp)                                                                          // Field  ( 9) -     Timestamp -   8 bytes
 	ssz.DefineDynamicBytesOffsetOnFork(codec, &obj.ExtraData, 32, ssz.ForkFilter{Added: ssz.ForkFrontier})           // Offset (10) -     ExtraData -   4 bytes
-	ssz.DefineUint256OnFork(codec, &obj.BaseFeePerGas, ssz.ForkFilter{Added: ssz.ForkUnknown})                       // Field  (11) - BaseFeePerGas -  32 bytes
+	ssz.DefineUint256BigIntOnFork(codec, &obj.BaseFeePerGas, ssz.ForkFilter{Added: ssz.ForkUnknown})                 // Field  (11) - BaseFeePerGas -  32 bytes
 	ssz.DefineStaticBytes(codec, &obj.BlockHash)                                                                     // Field  (12) -     BlockHash -  32 bytes
 	ssz.DefineSliceOfDynamicBytesOffset(codec, &obj.Transactions, 1048576, 1073741824)                               // Offset (13) -  Transactions -   4 bytes
 	ssz.DefineSliceOfStaticObjectsOffsetOnFork(codec, &obj.Withdrawals, 16, ssz.ForkFilter{Added: ssz.ForkShanghai}) // Offset (14) -   Withdrawals -   4 bytes

@@ -49,10 +49,17 @@ func commonPrefix(a []byte, b []byte) []byte {
 // TestConsensusSpecBasics iterates over the basic container tests from the
 // consensus spec tests repo and runs the encoding/decoding/hashing round.
 func TestConsensusSpecBasics(t *testing.T) {
+	// Run through all the basic tests as simple types
 	testConsensusSpecBasicType[*types.SingleFieldTestStruct](t, "SingleFieldTestStruct")
 	testConsensusSpecBasicType[*types.SmallTestStruct](t, "SmallTestStruct")
 	testConsensusSpecBasicType[*types.FixedTestStruct](t, "FixedTestStruct")
 	testConsensusSpecBasicType[*types.BitsStruct](t, "BitsStruct")
+
+	// Add monolith variations to the basic types
+	testConsensusSpecBasicType[*types.SingleFieldTestStructMonolith](t, "SingleFieldTestStruct")
+	testConsensusSpecBasicType[*types.SmallTestStructMonolith](t, "SmallTestStruct")
+	testConsensusSpecBasicType[*types.FixedTestStructMonolith](t, "FixedTestStruct")
+	testConsensusSpecBasicType[*types.BitsStructMonolith](t, "BitsStruct")
 }
 
 func testConsensusSpecBasicType[T newableObject[U], U any](t *testing.T, kind string) {
@@ -232,7 +239,9 @@ func TestConsensusSpecs(t *testing.T) {
 	testConsensusSpecType[*types.BeaconBlockBodyMonolith](t, "BeaconBlockBody", "phase0", "altair", "bellatrix", "capella", "deneb")
 	testConsensusSpecType[*types.BeaconStateMonolith](t, "BeaconState", "phase0", "altair", "bellatrix", "capella", "deneb")
 	testConsensusSpecType[*types.ExecutionPayloadMonolith](t, "ExecutionPayload", "bellatrix", "capella", "deneb")
+	testConsensusSpecType[*types.ExecutionPayloadMonolith2](t, "ExecutionPayload", "bellatrix", "capella", "deneb")
 	testConsensusSpecType[*types.ExecutionPayloadHeaderMonolith](t, "ExecutionPayloadHeader", "bellatrix", "capella", "deneb")
+	testConsensusSpecType[*types.ValidatorMonolith](t, "Validator")
 
 	// Add some API variations to test different codec implementations
 	testConsensusSpecType[*types.ExecutionPayloadVariation](t, "ExecutionPayload", "bellatrix")

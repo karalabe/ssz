@@ -50,6 +50,7 @@ const (
 // ForkMapping maps fork names to fork values. This is used internally by the
 // ssz codec generator to convert tags to values.
 var ForkMapping = map[string]Fork{
+	"unknown":        ForkUnknown,
 	"frontier":       ForkFrontier,
 	"homestead":      ForkHomestead,
 	"dao":            ForkDAO,

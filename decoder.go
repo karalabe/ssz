@@ -110,6 +110,24 @@ func DecodeBool[T ~bool](dec *Decoder, v *T) {
 	}
 }
 
+// DecodeBoolPointerOnFork parses a boolean if present in a fork. If not, the
+// boolean pointer is set to nil.
+//
+// This method is similar to DecodeBool, but will also initialize the pointer
+// if it is not allocated yet.
+func DecodeBoolPointerOnFork[T ~bool](dec *Decoder, v **T, filter ForkFilter) {
+	// If the field is not active in the current fork, clear out the output
+	if dec.codec.fork < filter.Added || (filter.Removed > ForkUnknown && dec.codec.fork >= filter.Removed) {
+		*v = nil
+		return
+	}
+	// Otherwise fall back to the standard decoder
+	if *v == nil {
+		*v = new(T)
+	}
+	DecodeBool(dec, *v)
+}
+
 // DecodeUint8 parses a uint8.
 func DecodeUint8[T ~uint8](dec *Decoder, n *T) {
 	if dec.err != nil {
@@ -127,6 +145,24 @@ func DecodeUint8[T ~uint8](dec *Decoder, n *T) {
 		*n = T(dec.inBuffer[0])
 		dec.inBuffer = dec.inBuffer[1:]
 	}
+}
+
+// DecodeUint8PointerOnFork parses a uint8 if present in a fork. If not, the
+// uint8 pointer is set to nil.
+//
+// This method is similar to DecodeUint8, but will also initialize the pointer
+// if it is not allocated yet.
+func DecodeUint8PointerOnFork[T ~uint8](dec *Decoder, n **T, filter ForkFilter) {
+	// If the field is not active in the current fork, clear out the output
+	if dec.codec.fork < filter.Added || (filter.Removed > ForkUnknown && dec.codec.fork >= filter.Removed) {
+		*n = nil
+		return
+	}
+	// Otherwise fall back to the standard decoder
+	if *n == nil {
+		*n = new(T)
+	}
+	DecodeUint8(dec, *n)
 }
 
 // DecodeUint16 parses a uint16.
@@ -148,6 +184,24 @@ func DecodeUint16[T ~uint16](dec *Decoder, n *T) {
 	}
 }
 
+// DecodeUint16PointerOnFork parses a uint16 if present in a fork. If not, the
+// uint16 pointer is set to nil.
+//
+// This method is similar to DecodeUint16, but will also initialize the pointer
+// if it is not allocated yet.
+func DecodeUint16PointerOnFork[T ~uint16](dec *Decoder, n **T, filter ForkFilter) {
+	// If the field is not active in the current fork, clear out the output
+	if dec.codec.fork < filter.Added || (filter.Removed > ForkUnknown && dec.codec.fork >= filter.Removed) {
+		*n = nil
+		return
+	}
+	// Otherwise fall back to the standard decoder
+	if *n == nil {
+		*n = new(T)
+	}
+	DecodeUint16(dec, *n)
+}
+
 // DecodeUint32 parses a uint32.
 func DecodeUint32[T ~uint32](dec *Decoder, n *T) {
 	if dec.err != nil {
@@ -165,6 +219,24 @@ func DecodeUint32[T ~uint32](dec *Decoder, n *T) {
 		*n = T(binary.LittleEndian.Uint32(dec.inBuffer))
 		dec.inBuffer = dec.inBuffer[4:]
 	}
+}
+
+// DecodeUint32PointerOnFork parses a uint32 if present in a fork. If not, the
+// uint32 pointer is set to nil.
+//
+// This method is similar to DecodeUint32, but will also initialize the pointer
+// if it is not allocated yet.
+func DecodeUint32PointerOnFork[T ~uint32](dec *Decoder, n **T, filter ForkFilter) {
+	// If the field is not active in the current fork, clear out the output
+	if dec.codec.fork < filter.Added || (filter.Removed > ForkUnknown && dec.codec.fork >= filter.Removed) {
+		*n = nil
+		return
+	}
+	// Otherwise fall back to the standard decoder
+	if *n == nil {
+		*n = new(T)
+	}
+	DecodeUint32(dec, *n)
 }
 
 // DecodeUint64 parses a uint64.
@@ -233,6 +305,17 @@ func DecodeUint256(dec *Decoder, n **uint256.Int) {
 	}
 }
 
+// DecodeUint256OnFork parses a uint256 if present in a fork.
+func DecodeUint256OnFork(dec *Decoder, n **uint256.Int, filter ForkFilter) {
+	// If the field is not active in the current fork, clear out the output
+	if dec.codec.fork < filter.Added || (filter.Removed > ForkUnknown && dec.codec.fork >= filter.Removed) {
+		*n = nil
+		return
+	}
+	// Otherwise fall back to the standard decoder
+	DecodeUint256(dec, n)
+}
+
 // DecodeUint256BigInt parses a uint256 into a big.Int.
 func DecodeUint256BigInt(dec *Decoder, n **big.Int) {
 	if dec.err != nil {
@@ -256,6 +339,17 @@ func DecodeUint256BigInt(dec *Decoder, n **big.Int) {
 		dec.bufInt.IntoBig(n)
 		dec.inBuffer = dec.inBuffer[32:]
 	}
+}
+
+// DecodeUint256BigIntOnFork parses a uint256 into a big.Int if present in a fork.
+func DecodeUint256BigIntOnFork(dec *Decoder, n **big.Int, filter ForkFilter) {
+	// If the field is not active in the current fork, clear out the output
+	if dec.codec.fork < filter.Added || (filter.Removed > ForkUnknown && dec.codec.fork >= filter.Removed) {
+		*n = nil
+		return
+	}
+	// Otherwise fall back to the standard decoder
+	DecodeUint256BigInt(dec, n)
 }
 
 // DecodeStaticBytes parses a static binary blob.
@@ -487,6 +581,17 @@ func DecodeSliceOfBitsOffset(dec *Decoder, bitlist *bitfield.Bitlist) {
 	dec.decodeOffset(false)
 }
 
+// DecodeSliceOfBitsOffsetOnFork parses a dynamic slice of (packed) bits if present
+// in a fork.
+func DecodeSliceOfBitsOffsetOnFork(dec *Decoder, bitlist *bitfield.Bitlist, filter ForkFilter) {
+	// If the field is not active in the current fork, skip parsing the offset
+	if dec.codec.fork < filter.Added || (filter.Removed > ForkUnknown && dec.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard decoder
+	DecodeSliceOfBitsOffset(dec, bitlist)
+}
+
 // DecodeSliceOfBitsContent is the lazy data reader of DecodeSliceOfBitsOffset.
 func DecodeSliceOfBitsContent(dec *Decoder, bitlist *bitfield.Bitlist, maxBits uint64) {
 	if dec.err != nil {
@@ -533,6 +638,17 @@ func DecodeSliceOfBitsContent(dec *Decoder, bitlist *bitfield.Bitlist, maxBits u
 		dec.err = fmt.Errorf("%w: decoded %d bits, max %d bits", ErrMaxItemsExceeded, len, maxBits)
 		return
 	}
+}
+
+// DecodeSliceOfBitsContentOnFork is the lazy data reader of DecodeSliceOfBitsOffsetOnFork.
+func DecodeSliceOfBitsContentOnFork(dec *Decoder, bitlist *bitfield.Bitlist, maxBits uint64, filter ForkFilter) {
+	// If the field is not active in the current fork, clear out the output
+	if dec.codec.fork < filter.Added || (filter.Removed > ForkUnknown && dec.codec.fork >= filter.Removed) {
+		*bitlist = nil
+		return
+	}
+	// Otherwise fall back to the standard decoder
+	DecodeSliceOfBitsContent(dec, bitlist, maxBits)
 }
 
 // DecodeArrayOfUint64s parses a static array of uint64s.

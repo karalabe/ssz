@@ -102,6 +102,22 @@ func EncodeBool[T ~bool](enc *Encoder, v T) {
 	}
 }
 
+// EncodeBoolPointerOnFork serializes a boolean if present in a fork.
+//
+// Note, a nil pointer is serialized as false.
+func EncodeBoolPointerOnFork[T ~bool](enc *Encoder, v *T, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if enc.codec.fork < filter.Added || (filter.Removed > ForkUnknown && enc.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard encoder
+	if v == nil {
+		EncodeBool[bool](enc, false)
+		return
+	}
+	EncodeBool(enc, *v)
+}
+
 // EncodeUint8 serializes a uint8.
 func EncodeUint8[T ~uint8](enc *Encoder, n T) {
 	if enc.outWriter != nil {
@@ -114,6 +130,22 @@ func EncodeUint8[T ~uint8](enc *Encoder, n T) {
 		enc.outBuffer[0] = byte(n)
 		enc.outBuffer = enc.outBuffer[1:]
 	}
+}
+
+// EncodeUint8PointerOnFork serializes a uint8 if present in a fork.
+//
+// Note, a nil pointer is serialized as zero.
+func EncodeUint8PointerOnFork[T ~uint8](enc *Encoder, n *T, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if enc.codec.fork < filter.Added || (filter.Removed > ForkUnknown && enc.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard encoder
+	if n == nil {
+		EncodeUint8[uint8](enc, 0)
+		return
+	}
+	EncodeUint8(enc, *n)
 }
 
 // EncodeUint16 serializes a uint16.
@@ -130,6 +162,22 @@ func EncodeUint16[T ~uint16](enc *Encoder, n T) {
 	}
 }
 
+// EncodeUint16PointerOnFork serializes a uint16 if present in a fork.
+//
+// Note, a nil pointer is serialized as zero.
+func EncodeUint16PointerOnFork[T ~uint16](enc *Encoder, n *T, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if enc.codec.fork < filter.Added || (filter.Removed > ForkUnknown && enc.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard encoder
+	if n == nil {
+		EncodeUint16[uint16](enc, 0)
+		return
+	}
+	EncodeUint16(enc, *n)
+}
+
 // EncodeUint32 serializes a uint32.
 func EncodeUint32[T ~uint32](enc *Encoder, n T) {
 	if enc.outWriter != nil {
@@ -142,6 +190,22 @@ func EncodeUint32[T ~uint32](enc *Encoder, n T) {
 		binary.LittleEndian.PutUint32(enc.outBuffer, (uint32)(n))
 		enc.outBuffer = enc.outBuffer[4:]
 	}
+}
+
+// EncodeUint32PointerOnFork serializes a uint32 if present in a fork.
+//
+// Note, a nil pointer is serialized as zero.
+func EncodeUint32PointerOnFork[T ~uint32](enc *Encoder, n *T, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if enc.codec.fork < filter.Added || (filter.Removed > ForkUnknown && enc.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard encoder
+	if n == nil {
+		EncodeUint32[uint32](enc, 0)
+		return
+	}
+	EncodeUint32(enc, *n)
 }
 
 // EncodeUint64 serializes a uint64.
@@ -198,7 +262,19 @@ func EncodeUint256(enc *Encoder, n *uint256.Int) {
 	}
 }
 
-// EncodeUint256BigInt serializes a big.Ing as uint256.
+// EncodeUint256OnFork serializes a uint256 if present in a fork.
+//
+// Note, a nil pointer is serialized as zero.
+func EncodeUint256OnFork(enc *Encoder, n *uint256.Int, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if enc.codec.fork < filter.Added || (filter.Removed > ForkUnknown && enc.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard encoder
+	EncodeUint256(enc, n)
+}
+
+// EncodeUint256BigInt serializes a big.Int as uint256.
 //
 // Note, a nil pointer is serialized as zero.
 // Note, an overflow will be silently dropped.
@@ -223,6 +299,20 @@ func EncodeUint256BigInt(enc *Encoder, n *big.Int) {
 		}
 		enc.outBuffer = enc.outBuffer[32:]
 	}
+}
+
+// EncodeUint256BigIntOnFork serializes a big.Int as uint256 if present in a
+// fork.
+//
+// Note, a nil pointer is serialized as zero.
+// Note, an overflow will be silently dropped.
+func EncodeUint256BigIntOnFork(enc *Encoder, n *big.Int, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if enc.codec.fork < filter.Added || (filter.Removed > ForkUnknown && enc.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard encoder
+	EncodeUint256BigInt(enc, n)
 }
 
 // EncodeStaticBytes serializes a static binary blob.
@@ -458,6 +548,19 @@ func EncodeSliceOfBitsOffset(enc *Encoder, bits bitfield.Bitlist) {
 	}
 }
 
+// EncodeSliceOfBitsOffsetOnFork serializes a dynamic slice of (packed) bits if
+// present in a fork.
+//
+// Note, a nil slice of bits is serialized as an empty bit list.
+func EncodeSliceOfBitsOffsetOnFork(enc *Encoder, bits bitfield.Bitlist, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if enc.codec.fork < filter.Added || (filter.Removed > ForkUnknown && enc.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard encoder
+	EncodeSliceOfBitsOffset(enc, bits)
+}
+
 // EncodeSliceOfBitsContent is the lazy data writer for EncodeSliceOfBitsOffset.
 //
 // Note, a nil slice of bits is serialized as an empty bit list.
@@ -480,6 +583,18 @@ func EncodeSliceOfBitsContent(enc *Encoder, bits bitfield.Bitlist) {
 			enc.outBuffer = enc.outBuffer[len(bitlistZero):]
 		}
 	}
+}
+
+// EncodeSliceOfBitsContentOnFork is the lazy data writer for EncodeSliceOfBitsOffsetOnFork.
+//
+// Note, a nil slice of bits is serialized as an empty bit list.
+func EncodeSliceOfBitsContentOnFork(enc *Encoder, bits bitfield.Bitlist, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if enc.codec.fork < filter.Added || (filter.Removed > ForkUnknown && enc.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard encoder
+	EncodeSliceOfBitsContent(enc, bits)
 }
 
 // EncodeArrayOfUint64s serializes a static array of uint64s.

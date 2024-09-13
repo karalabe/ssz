@@ -82,11 +82,43 @@ func HashBool[T ~bool](h *Hasher, v T) {
 	}
 }
 
+// HashBoolPointerOnFork hashes a boolean if present in a fork.
+//
+// Note, a nil pointer is hashed as zero.
+func HashBoolPointerOnFork[T ~bool](h *Hasher, v *T, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	if v == nil {
+		HashBool[bool](h, false)
+		return
+	}
+	HashBool(h, *v)
+}
+
 // HashUint8 hashes a uint8.
 func HashUint8[T ~uint8](h *Hasher, n T) {
 	var buffer [32]byte
 	buffer[0] = uint8(n)
 	h.insertChunk(buffer, 0)
+}
+
+// HashUint8PointerOnFork hashes a uint8 if present in a fork.
+//
+// Note, a nil pointer is hashed as zero.
+func HashUint8PointerOnFork[T ~uint8](h *Hasher, n *T, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	if n == nil {
+		HashUint8[uint8](h, 0)
+		return
+	}
+	HashUint8(h, *n)
 }
 
 // HashUint16 hashes a uint16.
@@ -96,11 +128,43 @@ func HashUint16[T ~uint16](h *Hasher, n T) {
 	h.insertChunk(buffer, 0)
 }
 
+// HashUint16PointerOnFork hashes a uint16 if present in a fork.
+//
+// Note, a nil pointer is hashed as zero.
+func HashUint16PointerOnFork[T ~uint16](h *Hasher, n *T, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	if n == nil {
+		HashUint16[uint16](h, 0)
+		return
+	}
+	HashUint16(h, *n)
+}
+
 // HashUint32 hashes a uint32.
 func HashUint32[T ~uint32](h *Hasher, n T) {
 	var buffer [32]byte
 	binary.LittleEndian.PutUint32(buffer[:], uint32(n))
 	h.insertChunk(buffer, 0)
+}
+
+// HashUint32PointerOnFork hashes a uint32 if present in a fork.
+//
+// Note, a nil pointer is hashed as zero.
+func HashUint32PointerOnFork[T ~uint32](h *Hasher, n *T, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	if n == nil {
+		HashUint32[uint32](h, 0)
+		return
+	}
+	HashUint32(h, *n)
 }
 
 // HashUint64 hashes a uint64.
@@ -137,9 +201,22 @@ func HashUint256(h *Hasher, n *uint256.Int) {
 	h.insertChunk(buffer, 0)
 }
 
+// HashUint256OnFork hashes a uint256 if present in a fork.
+//
+// Note, a nil pointer is hashed as zero.
+func HashUint256OnFork(h *Hasher, n *uint256.Int, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	HashUint256(h, n)
+}
+
 // HashUint256BigInt hashes a big.Int as uint256.
 //
 // Note, a nil pointer is hashed as zero.
+// Note, an overflow will be silently dropped.
 func HashUint256BigInt(h *Hasher, n *big.Int) {
 	var buffer [32]byte
 	if n != nil {
@@ -148,6 +225,19 @@ func HashUint256BigInt(h *Hasher, n *big.Int) {
 		bufint.MarshalSSZInto(buffer[:])
 	}
 	h.insertChunk(buffer, 0)
+}
+
+// HashUint256BigIntOnFork hashes a big.Int as uint256 if present in a fork.
+//
+// Note, a nil pointer is hashed as zero.
+// Note, an overflow will be silently dropped.
+func HashUint256BigIntOnFork(h *Hasher, n *big.Int, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	HashUint256BigInt(h, n)
 }
 
 // HashStaticBytes hashes a static binary blob.
@@ -287,6 +377,19 @@ func HashSliceOfBits(h *Hasher, bits bitfield.Bitlist, maxBits uint64) {
 		h.insertBlobChunks(h.bitbuf)
 	}
 	h.ascendMixinLayer(size, (maxBits+255)/256)
+}
+
+// HashSliceOfBitsOnFork hashes a dynamic slice of (packed) bits if present in a
+// fork.
+//
+// Note, a nil slice of bits is serialized as an empty bit list.
+func HashSliceOfBitsOnFork(h *Hasher, bits bitfield.Bitlist, maxBits uint64, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	HashSliceOfBits(h, bits, maxBits)
 }
 
 // HashArrayOfUint64s hashes a static array of uint64s.
