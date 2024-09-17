@@ -40,7 +40,7 @@ type FixedTestStructMonolith struct {
 
 type BitsStructMonolith struct {
 	A bitfield.Bitlist `ssz-max:"5" ssz-fork:"unknown"`
-	B [1]byte          `ssz-size:"2" ssz:"bits"`
+	B *[1]byte         `ssz-size:"2" ssz:"bits" ssz-fork:"unknown"`
 	C [1]byte          `ssz-size:"1" ssz:"bits"`
 	D bitfield.Bitlist `ssz-max:"6"`
 	E [1]byte          `ssz-size:"8" ssz:"bits"`
@@ -76,7 +76,7 @@ type BeaconStateMonolith struct {
 	Validators                   []*Validator `ssz-max:"1099511627776"`
 	Balances                     []uint64     `ssz-max:"1099511627776"`
 	RandaoMixes                  [65536][32]byte
-	Slashings                    [8192]uint64
+	Slashings                    *[8192]uint64         `ssz-fork:"unknown"`
 	PreviousEpochAttestations    []*PendingAttestation `ssz-max:"4096"          ssz-fork:"!altair"`
 	CurrentEpochAttestations     []*PendingAttestation `ssz-max:"4096"          ssz-fork:"!altair"`
 	PreviousEpochParticipation   []byte                `ssz-max:"1099511627776" ssz-fork:"altair"`
@@ -108,7 +108,7 @@ type ExecutionPayloadMonolith struct {
 	ExtraData     []byte       `ssz-max:"32" ssz-fork:"frontier"`
 	BaseFeePerGas *uint256.Int `ssz-fork:"unknown"`
 	BlockHash     Hash
-	Transactions  [][]byte      `ssz-max:"1048576,1073741824"`
+	Transactions  [][]byte      `ssz-max:"1048576,1073741824" ssz-fork:"unknown"`
 	Withdrawals   []*Withdrawal `ssz-max:"16" ssz-fork:"shanghai"`
 	BlobGasUsed   *uint64       `             ssz-fork:"cancun"`
 	ExcessBlobGas *uint64       `             ssz-fork:"cancun"`

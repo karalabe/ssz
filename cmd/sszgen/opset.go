@@ -199,7 +199,12 @@ func (p *parseContext) resolveArrayOpset(typ types.Type, size int, tags *sizeTag
 						[]int{size},
 					}, nil
 				} else {
-					return nil, fmt.Errorf("pointer of array of bits not supported")
+					return &opsetStatic{
+						fmt.Sprintf("DefineArrayOfBitsPointer({{.Codec}}, &{{.Field}}, %d)", tags.size[0]), // inject bit-size directly
+						fmt.Sprintf("EncodeArrayOfBitsPointer({{.Codec}}, &{{.Field}}, %d)", tags.size[0]), // inject bit-size directly
+						fmt.Sprintf("DecodeArrayOfBitsPointer({{.Codec}}, &{{.Field}}, %d)", tags.size[0]), // inject bit-size directly
+						[]int{size},
+					}, nil
 				}
 			}
 			// Not a bitvector, interpret as plain byte array
@@ -242,7 +247,12 @@ func (p *parseContext) resolveArrayOpset(typ types.Type, size int, tags *sizeTag
 					[]int{size, 8},
 				}, nil
 			} else {
-				return nil, fmt.Errorf("pointer of array of byte basic type not supported")
+				return &opsetStatic{
+					"DefineArrayOfUint64sPointer({{.Codec}}, &{{.Field}})",
+					"EncodeArrayOfUint64sPointer({{.Codec}}, &{{.Field}})",
+					"DecodeArrayOfUint64sPointer({{.Codec}}, &{{.Field}})",
+					[]int{size, 8},
+				}, nil
 			}
 		default:
 			return nil, fmt.Errorf("unsupported array item basic type: %s", typ)

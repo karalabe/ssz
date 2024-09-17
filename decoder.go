@@ -376,9 +376,6 @@ func DecodeStaticBytes[T commonBytesLengths](dec *Decoder, blob *T) {
 
 // DecodeStaticBytesPointerOnFork parses a static binary blob if present in a fork.
 // If not, the bytes are set to nil.
-//
-// This method is similar to DecodeStaticBytes, but will also initialize the
-// pointer if it is not allocated yet.
 func DecodeStaticBytesPointerOnFork[T commonBytesLengths](dec *Decoder, blob **T, filter ForkFilter) {
 	// If the field is not active in the current fork, clear out the output
 	if dec.codec.fork < filter.Added || (filter.Removed > ForkUnknown && dec.codec.fork >= filter.Removed) {
@@ -576,6 +573,21 @@ func DecodeArrayOfBits[T commonBitsLengths](dec *Decoder, bits *T, size uint64) 
 	}
 }
 
+// DecodeArrayOfBitsPointerOnFork parses a static array of (packed) bits if present
+// in a fork. If not, the bit array pointer is set to nil.
+func DecodeArrayOfBitsPointerOnFork[T commonBitsLengths](dec *Decoder, bits **T, size uint64, filter ForkFilter) {
+	// If the field is not active in the current fork, clear out the output
+	if dec.codec.fork < filter.Added || (filter.Removed > ForkUnknown && dec.codec.fork >= filter.Removed) {
+		*bits = nil
+		return
+	}
+	// Otherwise fall back to the standard decoder
+	if *bits == nil {
+		*bits = new(T)
+	}
+	DecodeArrayOfBits(dec, *bits, size)
+}
+
 // DecodeSliceOfBitsOffset parses a dynamic slice of (packed) bits.
 func DecodeSliceOfBitsOffset(dec *Decoder, bitlist *bitfield.Bitlist) {
 	dec.decodeOffset(false)
@@ -679,6 +691,21 @@ func DecodeArrayOfUint64s[T commonUint64sLengths](dec *Decoder, ns *T) {
 			dec.inBuffer = dec.inBuffer[8:]
 		}
 	}
+}
+
+// DecodeArrayOfUint64sPointerOnFork parses a static array of uint64s if present
+// in a fork. If not, the bit array pointer is set to nil.
+func DecodeArrayOfUint64sPointerOnFork[T commonUint64sLengths](dec *Decoder, ns **T, filter ForkFilter) {
+	// If the field is not active in the current fork, clear out the output
+	if dec.codec.fork < filter.Added || (filter.Removed > ForkUnknown && dec.codec.fork >= filter.Removed) {
+		*ns = nil
+		return
+	}
+	// Otherwise fall back to the standard decoder
+	if *ns == nil {
+		*ns = new(T)
+	}
+	DecodeArrayOfUint64s(dec, *ns)
 }
 
 // DecodeSliceOfUint64sOffset parses a dynamic slice of uint64s.
@@ -919,6 +946,17 @@ func DecodeSliceOfDynamicBytesOffset(dec *Decoder, blobs *[][]byte) {
 	dec.decodeOffset(false)
 }
 
+// DecodeSliceOfDynamicBytesOffsetOnFork parses a dynamic slice of dynamic binary
+// blobs if present in a fork.
+func DecodeSliceOfDynamicBytesOffsetOnFork(dec *Decoder, blobs *[][]byte, filter ForkFilter) {
+	// If the field is not active in the current fork, skip parsing the offset
+	if dec.codec.fork < filter.Added || (filter.Removed > ForkUnknown && dec.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard decoder
+	DecodeSliceOfDynamicBytesOffset(dec, blobs)
+}
+
 // DecodeSliceOfDynamicBytesContent is the lazy data reader of DecodeSliceOfDynamicBytesOffset.
 func DecodeSliceOfDynamicBytesContent(dec *Decoder, blobs *[][]byte, maxItems uint64, maxSize uint64) {
 	if dec.err != nil {
@@ -972,6 +1010,17 @@ func DecodeSliceOfDynamicBytesContent(dec *Decoder, blobs *[][]byte, maxItems ui
 	for i := uint32(0); i < items; i++ {
 		DecodeDynamicBytesContent(dec, &(*blobs)[i], maxSize)
 	}
+}
+
+// DecodeSliceOfDynamicBytesContentOnFork is the lazy data reader of DecodeSliceOfDynamicBytesOffsetOnFork.
+func DecodeSliceOfDynamicBytesContentOnFork(dec *Decoder, blobs *[][]byte, maxItems uint64, maxSize uint64, filter ForkFilter) {
+	// If the field is not active in the current fork, clear out the output
+	if dec.codec.fork < filter.Added || (filter.Removed > ForkUnknown && dec.codec.fork >= filter.Removed) {
+		*blobs = nil
+		return
+	}
+	// Otherwise fall back to the standard decoder
+	DecodeSliceOfDynamicBytesContent(dec, blobs, maxItems, maxSize)
 }
 
 // DecodeSliceOfStaticObjectsOffset parses a dynamic slice of static ssz objects.

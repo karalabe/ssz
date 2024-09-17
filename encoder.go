@@ -527,6 +527,23 @@ func EncodeArrayOfBits[T commonBitsLengths](enc *Encoder, bits *T) {
 	}
 }
 
+// EncodeArrayOfBitsPointerOnFork serializes a static array of (packed) bits if
+// present in a fork.
+//
+// Note, a nil pointer is serialized as a zero-value bit array.
+func EncodeArrayOfBitsPointerOnFork[T commonBitsLengths](enc *Encoder, bits *T, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if enc.codec.fork < filter.Added || (filter.Removed > ForkUnknown && enc.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard encoder
+	if bits == nil {
+		enc.encodeZeroes(reflect.TypeFor[T]().Len())
+		return
+	}
+	EncodeArrayOfBits(enc, bits)
+}
+
 // EncodeSliceOfBitsOffset serializes a dynamic slice of (packed) bits.
 //
 // Note, a nil slice of bits is serialized as an empty bit list.
@@ -623,6 +640,23 @@ func EncodeArrayOfUint64s[T commonUint64sLengths](enc *Encoder, ns *T) {
 			enc.outBuffer = enc.outBuffer[8:]
 		}
 	}
+}
+
+// EncodeArrayOfUint64sPointerOnFork serializes a static array of uint64s if
+// present in a fork.
+//
+// Note, a nil pointer is serialized as a uint64 array filled with zeroes.
+func EncodeArrayOfUint64sPointerOnFork[T commonUint64sLengths](enc *Encoder, ns *T, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if enc.codec.fork < filter.Added || (filter.Removed > ForkUnknown && enc.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard encoder
+	if ns == nil {
+		enc.encodeZeroes(reflect.TypeFor[T]().Len() * 8)
+		return
+	}
+	EncodeArrayOfUint64s(enc, ns)
 }
 
 // EncodeSliceOfUint64sOffset serializes a dynamic slice of uint64s.
@@ -810,7 +844,8 @@ func EncodeSliceOfStaticBytesContentOnFork[T commonBytesLengths](enc *Encoder, b
 	EncodeSliceOfStaticBytesContent(enc, blobs)
 }
 
-// EncodeSliceOfDynamicBytesOffset serializes a dynamic slice of dynamic binary blobs.
+// EncodeSliceOfDynamicBytesOffset serializes a dynamic slice of dynamic binary
+// blobs.
 func EncodeSliceOfDynamicBytesOffset(enc *Encoder, blobs [][]byte) {
 	if enc.outWriter != nil {
 		if enc.err != nil {
@@ -825,6 +860,17 @@ func EncodeSliceOfDynamicBytesOffset(enc *Encoder, blobs [][]byte) {
 	for _, blob := range blobs {
 		enc.offset += uint32(4 + len(blob))
 	}
+}
+
+// EncodeSliceOfDynamicBytesOffsetOnFork serializes a dynamic slice of dynamic
+// binary blob if present in a fork.
+func EncodeSliceOfDynamicBytesOffsetOnFork(enc *Encoder, blobs [][]byte, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if enc.codec.fork < filter.Added || (filter.Removed > ForkUnknown && enc.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard encoder
+	EncodeSliceOfDynamicBytesOffset(enc, blobs)
 }
 
 // EncodeSliceOfDynamicBytesContent is the lazy data writer for EncodeSliceOfDynamicBytesOffset.
@@ -873,6 +919,16 @@ func EncodeSliceOfDynamicBytesContent(enc *Encoder, blobs [][]byte) {
 			enc.outBuffer = enc.outBuffer[len(blob):]
 		}
 	}
+}
+
+// EncodeSliceOfDynamicBytesContentOnFork is the lazy data writer for EncodeSliceOfDynamicBytesOffsetOnFork.
+func EncodeSliceOfDynamicBytesContentOnFork(enc *Encoder, blobs [][]byte, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if enc.codec.fork < filter.Added || (filter.Removed > ForkUnknown && enc.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard encoder
+	EncodeSliceOfDynamicBytesContent(enc, blobs)
 }
 
 // EncodeSliceOfStaticObjectsOffset serializes a dynamic slice of static ssz objects.

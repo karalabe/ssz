@@ -14,7 +14,10 @@ func (obj *BeaconStateMonolith) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size uint
 	if fork := int(sizer.Fork()); fork < len(staticSizeCacheBeaconStateMonolith) {
 		size = staticSizeCacheBeaconStateMonolith[fork]
 	} else {
-		size = 8 + 32 + 8 + (*Fork)(nil).SizeSSZ(sizer) + (*BeaconBlockHeader)(nil).SizeSSZ(sizer) + 8192*32 + 8192*32 + 4 + (*Eth1Data)(nil).SizeSSZ(sizer) + 4 + 8 + 4 + 4 + 65536*32 + 8192*8
+		size = 8 + 32 + 8 + (*Fork)(nil).SizeSSZ(sizer) + (*BeaconBlockHeader)(nil).SizeSSZ(sizer) + 8192*32 + 8192*32 + 4 + (*Eth1Data)(nil).SizeSSZ(sizer) + 4 + 8 + 4 + 4 + 65536*32
+		if sizer.Fork() >= ssz.ForkUnknown {
+			size += 8192 * 8
+		}
 		if sizer.Fork() < ssz.ForkAltair {
 			size += 4 + 4
 		}
@@ -75,7 +78,7 @@ func (obj *BeaconStateMonolith) DefineSSZ(codec *ssz.Codec) {
 	ssz.DefineSliceOfStaticObjectsOffset(codec, &obj.Validators, 1099511627776)                                                       // Offset (11) -                   Validators -       4 bytes
 	ssz.DefineSliceOfUint64sOffset(codec, &obj.Balances, 1099511627776)                                                               // Offset (12) -                     Balances -       4 bytes
 	ssz.DefineUnsafeArrayOfStaticBytes(codec, obj.RandaoMixes[:])                                                                     // Field  (13) -                  RandaoMixes - 2097152 bytes
-	ssz.DefineArrayOfUint64s(codec, &obj.Slashings)                                                                                   // Field  (14) -                    Slashings -   65536 bytes
+	ssz.DefineArrayOfUint64sPointerOnFork(codec, &obj.Slashings, ssz.ForkFilter{Added: ssz.ForkUnknown})                              // Field  (14) -                    Slashings -   65536 bytes
 	ssz.DefineSliceOfDynamicObjectsOffsetOnFork(codec, &obj.PreviousEpochAttestations, 4096, ssz.ForkFilter{Removed: ssz.ForkAltair}) // Offset (15) -    PreviousEpochAttestations -       4 bytes
 	ssz.DefineSliceOfDynamicObjectsOffsetOnFork(codec, &obj.CurrentEpochAttestations, 4096, ssz.ForkFilter{Removed: ssz.ForkAltair})  // Offset (16) -     CurrentEpochAttestations -       4 bytes
 	ssz.DefineDynamicBytesOffsetOnFork(codec, &obj.PreviousEpochParticipation, 1099511627776, ssz.ForkFilter{Added: ssz.ForkAltair})  // Offset (17) -   PreviousEpochParticipation -       4 bytes

@@ -8,9 +8,9 @@ import "github.com/karalabe/ssz"
 // the total size otherwise.
 func (obj *BitsStructMonolith) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size uint32) {
 	if sizer.Fork() >= ssz.ForkUnknown {
-		size += 4
+		size += 4 + 1
 	}
-	size += 1 + 1 + 4 + 1
+	size += 1 + 4 + 1
 	if fixed {
 		return size
 	}
@@ -25,11 +25,11 @@ func (obj *BitsStructMonolith) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size uint3
 // DefineSSZ defines how an object is encoded/decoded.
 func (obj *BitsStructMonolith) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
-	ssz.DefineSliceOfBitsOffsetOnFork(codec, &obj.A, 5, ssz.ForkFilter{Added: ssz.ForkUnknown}) // Offset (0) - A - 4 bytes
-	ssz.DefineArrayOfBits(codec, &obj.B, 2)                                                     // Field  (1) - B - 1 bytes
-	ssz.DefineArrayOfBits(codec, &obj.C, 1)                                                     // Field  (2) - C - 1 bytes
-	ssz.DefineSliceOfBitsOffset(codec, &obj.D, 6)                                               // Offset (3) - D - 4 bytes
-	ssz.DefineArrayOfBits(codec, &obj.E, 8)                                                     // Field  (4) - E - 1 bytes
+	ssz.DefineSliceOfBitsOffsetOnFork(codec, &obj.A, 5, ssz.ForkFilter{Added: ssz.ForkUnknown})  // Offset (0) - A - 4 bytes
+	ssz.DefineArrayOfBitsPointerOnFork(codec, &obj.B, 2, ssz.ForkFilter{Added: ssz.ForkUnknown}) // Field  (1) - B - 1 bytes
+	ssz.DefineArrayOfBits(codec, &obj.C, 1)                                                      // Field  (2) - C - 1 bytes
+	ssz.DefineSliceOfBitsOffset(codec, &obj.D, 6)                                                // Offset (3) - D - 4 bytes
+	ssz.DefineArrayOfBits(codec, &obj.E, 8)                                                      // Field  (4) - E - 1 bytes
 
 	// Define the dynamic data (fields)
 	ssz.DefineSliceOfBitsContentOnFork(codec, &obj.A, 5, ssz.ForkFilter{Added: ssz.ForkUnknown}) // Field  (0) - A - ? bytes

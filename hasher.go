@@ -259,7 +259,7 @@ func HashStaticBytesPointerOnFork[T commonBytesLengths](h *Hasher, blob *T, filt
 		// costs, or we use reflect. Both is kind of crappy.
 		//
 		// https://github.com/golang/go/issues/69100
-		h.hashBytesEmpty(reflect.TypeOf(blob).Elem().Len())
+		h.hashBytesEmpty(reflect.TypeFor[T]().Len())
 		return
 	}
 	HashStaticBytes(h, blob)
@@ -336,6 +336,25 @@ func HashArrayOfBits[T commonBitsLengths](h *Hasher, bits *T) {
 	// The code below should have used `*bits[:]`, alas Go's generics compiler
 	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 	h.hashBytes(unsafe.Slice(&(*bits)[0], len(*bits)))
+}
+
+// HashArrayOfBitsPointerOnFork hashes a static array of (packed) bits if present
+// in a fork.
+func HashArrayOfBitsPointerOnFork[T commonBitsLengths](h *Hasher, bits *T, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	if bits == nil {
+		// Go generics cannot do len(T{}), so we either allocate and bear the GC
+		// costs, or we use reflect. Both is kind of crappy.
+		//
+		// https://github.com/golang/go/issues/69100
+		h.hashBytesEmpty(reflect.TypeFor[T]().Len())
+		return
+	}
+	HashArrayOfBits(h, bits)
 }
 
 // HashSliceOfBits hashes a dynamic slice of (packed) bits.
@@ -416,6 +435,23 @@ func HashArrayOfUint64s[T commonUint64sLengths](h *Hasher, ns *T) {
 		h.insertChunk(buffer, 0)
 	}
 	h.ascendLayer(0)
+}
+
+// HashArrayOfUint64sPointerOnFork hashes a static array of uint64s if present
+// in a fork.
+func HashArrayOfUint64sPointerOnFork[T commonUint64sLengths](h *Hasher, ns *T, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	if ns == nil {
+		h.descendLayer()
+		h.insertBlobChunksEmpty(reflect.TypeFor[T]().Len() * 8)
+		h.ascendLayer(0)
+		return
+	}
+	HashArrayOfUint64s(h, ns)
 }
 
 // HashSliceOfUint64s hashes a dynamic slice of uint64s.
@@ -517,6 +553,17 @@ func HashSliceOfDynamicBytes(h *Hasher, blobs [][]byte, maxItems uint64, maxSize
 		h.ascendMixinLayer(uint64(len(blob)), (maxSize+31)/32)
 	}
 	h.ascendMixinLayer(uint64(len(blobs)), maxItems)
+}
+
+// HashSliceOfDynamicBytesOnFork hashes a dynamic slice of dynamic binary blobs
+// if present in a fork.
+func HashSliceOfDynamicBytesOnFork(h *Hasher, blobs [][]byte, maxItems uint64, maxSize uint64, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	HashSliceOfDynamicBytes(h, blobs, maxItems, maxSize)
 }
 
 // HashSliceOfStaticObjects hashes a dynamic slice of static ssz objects.

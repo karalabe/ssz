@@ -14,7 +14,10 @@ func (obj *ExecutionPayloadMonolith) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size
 	if sizer.Fork() >= ssz.ForkUnknown {
 		size += 32
 	}
-	size += 32 + 4
+	size += 32
+	if sizer.Fork() >= ssz.ForkUnknown {
+		size += 4
+	}
 	if sizer.Fork() >= ssz.ForkShanghai {
 		size += 4
 	}
@@ -27,7 +30,9 @@ func (obj *ExecutionPayloadMonolith) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size
 	if sizer.Fork() >= ssz.ForkFrontier {
 		size += ssz.SizeDynamicBytes(sizer, obj.ExtraData)
 	}
-	size += ssz.SizeSliceOfDynamicBytes(sizer, obj.Transactions)
+	if sizer.Fork() >= ssz.ForkUnknown {
+		size += ssz.SizeSliceOfDynamicBytes(sizer, obj.Transactions)
+	}
 	if sizer.Fork() >= ssz.ForkShanghai {
 		size += ssz.SizeSliceOfStaticObjects(sizer, obj.Withdrawals)
 	}
@@ -37,26 +42,26 @@ func (obj *ExecutionPayloadMonolith) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size
 // DefineSSZ defines how an object is encoded/decoded.
 func (obj *ExecutionPayloadMonolith) DefineSSZ(codec *ssz.Codec) {
 	// Define the static data (fields and dynamic offsets)
-	ssz.DefineStaticBytes(codec, &obj.ParentHash)                                                                    // Field  ( 0) -    ParentHash -  32 bytes
-	ssz.DefineStaticBytes(codec, &obj.FeeRecipient)                                                                  // Field  ( 1) -  FeeRecipient -  20 bytes
-	ssz.DefineStaticBytes(codec, &obj.StateRoot)                                                                     // Field  ( 2) -     StateRoot -  32 bytes
-	ssz.DefineStaticBytes(codec, &obj.ReceiptsRoot)                                                                  // Field  ( 3) -  ReceiptsRoot -  32 bytes
-	ssz.DefineStaticBytes(codec, &obj.LogsBloom)                                                                     // Field  ( 4) -     LogsBloom - 256 bytes
-	ssz.DefineStaticBytes(codec, &obj.PrevRandao)                                                                    // Field  ( 5) -    PrevRandao -  32 bytes
-	ssz.DefineUint64(codec, &obj.BlockNumber)                                                                        // Field  ( 6) -   BlockNumber -   8 bytes
-	ssz.DefineUint64(codec, &obj.GasLimit)                                                                           // Field  ( 7) -      GasLimit -   8 bytes
-	ssz.DefineUint64(codec, &obj.GasUsed)                                                                            // Field  ( 8) -       GasUsed -   8 bytes
-	ssz.DefineUint64(codec, &obj.Timestamp)                                                                          // Field  ( 9) -     Timestamp -   8 bytes
-	ssz.DefineDynamicBytesOffsetOnFork(codec, &obj.ExtraData, 32, ssz.ForkFilter{Added: ssz.ForkFrontier})           // Offset (10) -     ExtraData -   4 bytes
-	ssz.DefineUint256OnFork(codec, &obj.BaseFeePerGas, ssz.ForkFilter{Added: ssz.ForkUnknown})                       // Field  (11) - BaseFeePerGas -  32 bytes
-	ssz.DefineStaticBytes(codec, &obj.BlockHash)                                                                     // Field  (12) -     BlockHash -  32 bytes
-	ssz.DefineSliceOfDynamicBytesOffset(codec, &obj.Transactions, 1048576, 1073741824)                               // Offset (13) -  Transactions -   4 bytes
-	ssz.DefineSliceOfStaticObjectsOffsetOnFork(codec, &obj.Withdrawals, 16, ssz.ForkFilter{Added: ssz.ForkShanghai}) // Offset (14) -   Withdrawals -   4 bytes
-	ssz.DefineUint64PointerOnFork(codec, &obj.BlobGasUsed, ssz.ForkFilter{Added: ssz.ForkCancun})                    // Field  (15) -   BlobGasUsed -   8 bytes
-	ssz.DefineUint64PointerOnFork(codec, &obj.ExcessBlobGas, ssz.ForkFilter{Added: ssz.ForkCancun})                  // Field  (16) - ExcessBlobGas -   8 bytes
+	ssz.DefineStaticBytes(codec, &obj.ParentHash)                                                                                    // Field  ( 0) -    ParentHash -  32 bytes
+	ssz.DefineStaticBytes(codec, &obj.FeeRecipient)                                                                                  // Field  ( 1) -  FeeRecipient -  20 bytes
+	ssz.DefineStaticBytes(codec, &obj.StateRoot)                                                                                     // Field  ( 2) -     StateRoot -  32 bytes
+	ssz.DefineStaticBytes(codec, &obj.ReceiptsRoot)                                                                                  // Field  ( 3) -  ReceiptsRoot -  32 bytes
+	ssz.DefineStaticBytes(codec, &obj.LogsBloom)                                                                                     // Field  ( 4) -     LogsBloom - 256 bytes
+	ssz.DefineStaticBytes(codec, &obj.PrevRandao)                                                                                    // Field  ( 5) -    PrevRandao -  32 bytes
+	ssz.DefineUint64(codec, &obj.BlockNumber)                                                                                        // Field  ( 6) -   BlockNumber -   8 bytes
+	ssz.DefineUint64(codec, &obj.GasLimit)                                                                                           // Field  ( 7) -      GasLimit -   8 bytes
+	ssz.DefineUint64(codec, &obj.GasUsed)                                                                                            // Field  ( 8) -       GasUsed -   8 bytes
+	ssz.DefineUint64(codec, &obj.Timestamp)                                                                                          // Field  ( 9) -     Timestamp -   8 bytes
+	ssz.DefineDynamicBytesOffsetOnFork(codec, &obj.ExtraData, 32, ssz.ForkFilter{Added: ssz.ForkFrontier})                           // Offset (10) -     ExtraData -   4 bytes
+	ssz.DefineUint256OnFork(codec, &obj.BaseFeePerGas, ssz.ForkFilter{Added: ssz.ForkUnknown})                                       // Field  (11) - BaseFeePerGas -  32 bytes
+	ssz.DefineStaticBytes(codec, &obj.BlockHash)                                                                                     // Field  (12) -     BlockHash -  32 bytes
+	ssz.DefineSliceOfDynamicBytesOffsetOnFork(codec, &obj.Transactions, 1048576, 1073741824, ssz.ForkFilter{Added: ssz.ForkUnknown}) // Offset (13) -  Transactions -   4 bytes
+	ssz.DefineSliceOfStaticObjectsOffsetOnFork(codec, &obj.Withdrawals, 16, ssz.ForkFilter{Added: ssz.ForkShanghai})                 // Offset (14) -   Withdrawals -   4 bytes
+	ssz.DefineUint64PointerOnFork(codec, &obj.BlobGasUsed, ssz.ForkFilter{Added: ssz.ForkCancun})                                    // Field  (15) -   BlobGasUsed -   8 bytes
+	ssz.DefineUint64PointerOnFork(codec, &obj.ExcessBlobGas, ssz.ForkFilter{Added: ssz.ForkCancun})                                  // Field  (16) - ExcessBlobGas -   8 bytes
 
 	// Define the dynamic data (fields)
-	ssz.DefineDynamicBytesContentOnFork(codec, &obj.ExtraData, 32, ssz.ForkFilter{Added: ssz.ForkFrontier})           // Field  (10) -     ExtraData - ? bytes
-	ssz.DefineSliceOfDynamicBytesContent(codec, &obj.Transactions, 1048576, 1073741824)                               // Field  (13) -  Transactions - ? bytes
-	ssz.DefineSliceOfStaticObjectsContentOnFork(codec, &obj.Withdrawals, 16, ssz.ForkFilter{Added: ssz.ForkShanghai}) // Field  (14) -   Withdrawals - ? bytes
+	ssz.DefineDynamicBytesContentOnFork(codec, &obj.ExtraData, 32, ssz.ForkFilter{Added: ssz.ForkFrontier})                           // Field  (10) -     ExtraData - ? bytes
+	ssz.DefineSliceOfDynamicBytesContentOnFork(codec, &obj.Transactions, 1048576, 1073741824, ssz.ForkFilter{Added: ssz.ForkUnknown}) // Field  (13) -  Transactions - ? bytes
+	ssz.DefineSliceOfStaticObjectsContentOnFork(codec, &obj.Withdrawals, 16, ssz.ForkFilter{Added: ssz.ForkShanghai})                 // Field  (14) -   Withdrawals - ? bytes
 }
