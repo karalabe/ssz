@@ -209,7 +209,7 @@ func DefineUint256OnFork(c *Codec, n **uint256.Int, filter ForkFilter) {
 		DecodeUint256OnFork(c.dec, n, filter)
 		return
 	}
-	HashUint256OnFork(c.has, *n, filter) // TODO(karalabe): Interesting bug, duplciate, weird place fails, explore
+	HashUint256OnFork(c.has, *n, filter)
 }
 
 // DefineUint256BigInt defines the next field as a uint256.

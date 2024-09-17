@@ -325,7 +325,7 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 
 		// Run all the subtests found in the folder
 		for _, test := range tests {
-			t.Run(fmt.Sprintf("%s/%s/%s", fork, kind, test.Name()), func(t *testing.T) {
+			t.Run(fmt.Sprintf("%s/%s/%s", fork, reflect.TypeFor[U]().Name(), test.Name()), func(t *testing.T) {
 				// Parse the input SSZ data and the expected root for the test
 				inSnappy, err := os.ReadFile(filepath.Join(path, test.Name(), "serialized.ssz_snappy"))
 				if err != nil {

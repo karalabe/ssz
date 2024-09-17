@@ -68,11 +68,6 @@ type groupStats struct {
 	chunks int // Number of chunks in this group
 }
 
-// Fork retrieves the current fork (if any) that the hasher is operating in.
-func (h *Hasher) Fork() Fork {
-	return h.codec.fork
-}
-
 // HashBool hashes a boolean.
 func HashBool[T ~bool](h *Hasher, v T) {
 	if !v {
@@ -530,7 +525,7 @@ func HashSliceOfStaticObjects[T StaticObject](h *Hasher, objects []T, maxItems u
 	defer h.ascendMixinLayer(uint64(len(objects)), maxItems)
 
 	// If threading is disabled, or hashing nothing, do it sequentially
-	if !h.threads || len(objects) == 0 || len(objects)*int(Size(objects[0], h.Fork())) < concurrencyThreshold {
+	if !h.threads || len(objects) == 0 || len(objects)*int(Size(objects[0], h.codec.fork)) < concurrencyThreshold {
 		for _, obj := range objects {
 			h.descendLayer()
 			obj.DefineSSZ(h.codec)
