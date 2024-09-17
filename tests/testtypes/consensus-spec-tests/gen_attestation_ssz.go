@@ -5,16 +5,22 @@ package consensus_spec_tests
 import "github.com/karalabe/ssz"
 
 // Cached static size computed on package init.
-var staticSizeCacheAttestation = 4 + (*AttestationData)(nil).SizeSSZ() + 96
+var staticSizeCacheAttestation = ssz.PrecomputeStaticSizeCache((*Attestation)(nil))
 
 // SizeSSZ returns either the static size of the object if fixed == true, or
 // the total size otherwise.
-func (obj *Attestation) SizeSSZ(fixed bool) uint32 {
-	var size = uint32(staticSizeCacheAttestation)
+func (obj *Attestation) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size uint32) {
+	// Load static size if already precomputed, calculate otherwise
+	if fork := int(sizer.Fork()); fork < len(staticSizeCacheAttestation) {
+		size = staticSizeCacheAttestation[fork]
+	} else {
+		size = 4 + (*AttestationData)(nil).SizeSSZ(sizer) + 96
+	}
+	// Either return the static size or accumulate the dynamic too
 	if fixed {
 		return size
 	}
-	size += ssz.SizeSliceOfBits(obj.AggregationBits)
+	size += ssz.SizeSliceOfBits(sizer, obj.AggregationBits)
 
 	return size
 }

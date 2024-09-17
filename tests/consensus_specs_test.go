@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -48,13 +49,26 @@ func commonPrefix(a []byte, b []byte) []byte {
 // TestConsensusSpecBasics iterates over the basic container tests from the
 // consensus spec tests repo and runs the encoding/decoding/hashing round.
 func TestConsensusSpecBasics(t *testing.T) {
+	// Run through all the basic tests as simple types
 	testConsensusSpecBasicType[*types.SingleFieldTestStruct](t, "SingleFieldTestStruct")
 	testConsensusSpecBasicType[*types.SmallTestStruct](t, "SmallTestStruct")
 	testConsensusSpecBasicType[*types.FixedTestStruct](t, "FixedTestStruct")
 	testConsensusSpecBasicType[*types.BitsStruct](t, "BitsStruct")
+
+	// Add monolith variations to the basic types
+	testConsensusSpecBasicType[*types.SingleFieldTestStructMonolith](t, "SingleFieldTestStruct")
+	testConsensusSpecBasicType[*types.SmallTestStructMonolith](t, "SmallTestStruct")
+	testConsensusSpecBasicType[*types.FixedTestStructMonolith](t, "FixedTestStruct")
+	testConsensusSpecBasicType[*types.BitsStructMonolith](t, "BitsStruct")
 }
 
 func testConsensusSpecBasicType[T newableObject[U], U any](t *testing.T, kind string) {
+	// Sanity check that the zero values can be handled before diving into the
+	// actual test datasets. This is mostly to catch implementation faults with
+	// uninitialized field handling.
+	t.Run(fmt.Sprintf("zero/%s", kind), func(t *testing.T) {
+		testZeroValue[T, U](t, ssz.ForkUnknown)
+	})
 	// Filter out the valid tests for this specific type
 	path := filepath.Join(consensusSpecTestsBasicsRoot, "valid")
 
@@ -95,11 +109,11 @@ func testConsensusSpecBasicType[T newableObject[U], U any](t *testing.T, kind st
 			// from yaml and check that too, but hex-in-yaml makes everything
 			// beyond annoying. C'est la vie.
 			obj := T(new(U))
-			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err != nil {
+			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ)), ssz.ForkUnknown); err != nil {
 				t.Fatalf("failed to decode SSZ stream: %v", err)
 			}
 			blob := new(bytes.Buffer)
-			if err := ssz.EncodeToStream(blob, obj); err != nil {
+			if err := ssz.EncodeToStream(blob, obj, ssz.ForkUnknown); err != nil {
 				t.Fatalf("failed to re-encode SSZ stream: %v", err)
 			}
 			if !bytes.Equal(blob.Bytes(), inSSZ) {
@@ -108,11 +122,11 @@ func testConsensusSpecBasicType[T newableObject[U], U any](t *testing.T, kind st
 					blob, inSSZ, len(prefix), blob.Bytes()[len(prefix):], inSSZ[len(prefix):])
 			}
 			obj = T(new(U))
-			if err := ssz.DecodeFromBytes(inSSZ, obj); err != nil {
+			if err := ssz.DecodeFromBytes(inSSZ, obj, ssz.ForkUnknown); err != nil {
 				t.Fatalf("failed to decode SSZ buffer: %v", err)
 			}
-			bin := make([]byte, ssz.Size(obj))
-			if err := ssz.EncodeToBytes(bin, obj); err != nil {
+			bin := make([]byte, ssz.Size(obj, ssz.ForkUnknown))
+			if err := ssz.EncodeToBytes(bin, obj, ssz.ForkUnknown); err != nil {
 				t.Fatalf("failed to re-encode SSZ buffer: %v", err)
 			}
 			if !bytes.Equal(bin, inSSZ) {
@@ -122,14 +136,14 @@ func testConsensusSpecBasicType[T newableObject[U], U any](t *testing.T, kind st
 			}
 			// Encoder/decoder seems to work, check if the size reported by the
 			// encoded object actually matches the encoded stream
-			if size := ssz.Size(obj); size != uint32(len(inSSZ)) {
+			if size := ssz.Size(obj, ssz.ForkUnknown); size != uint32(len(inSSZ)) {
 				t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
 			}
-			hash := ssz.HashSequential(obj)
+			hash := ssz.HashSequential(obj, ssz.ForkUnknown)
 			if fmt.Sprintf("%#x", hash) != inRoot.Root {
 				t.Fatalf("sequential merkle root mismatch: have %#x, want %s", hash, inRoot.Root)
 			}
-			hash = ssz.HashConcurrent(obj)
+			hash = ssz.HashConcurrent(obj, ssz.ForkUnknown)
 			if fmt.Sprintf("%#x", hash) != inRoot.Root {
 				t.Fatalf("concurrent merkle root mismatch: have %#x, want %s", hash, inRoot.Root)
 			}
@@ -163,11 +177,11 @@ func testConsensusSpecBasicType[T newableObject[U], U any](t *testing.T, kind st
 			}
 			// Try to decode, it should fail
 			obj := T(new(U))
-			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err == nil {
+			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ)), ssz.ForkUnknown); err == nil {
 				t.Fatalf("succeeded in decoding invalid SSZ stream")
 			}
 			obj = T(new(U))
-			if err := ssz.DecodeFromBytes(inSSZ, obj); err == nil {
+			if err := ssz.DecodeFromBytes(inSSZ, obj, ssz.ForkUnknown); err == nil {
 				t.Fatalf("succeeded in decoding invalid SSZ buffer")
 			}
 		})
@@ -177,6 +191,7 @@ func testConsensusSpecBasicType[T newableObject[U], U any](t *testing.T, kind st
 // TestConsensusSpecs iterates over all the (supported) consensus SSZ types and
 // runs the encoding/decoding/hashing round.
 func TestConsensusSpecs(t *testing.T) {
+	// Run through all the consensus specs as simple types
 	testConsensusSpecType[*types.AggregateAndProof](t, "AggregateAndProof", "altair", "bellatrix", "capella", "deneb", "eip7594", "phase0", "whisk")
 	testConsensusSpecType[*types.Attestation](t, "Attestation", "altair", "bellatrix", "capella", "deneb", "eip7594", "phase0", "whisk")
 	testConsensusSpecType[*types.AttestationData](t, "AttestationData")
@@ -189,6 +204,7 @@ func TestConsensusSpecs(t *testing.T) {
 	testConsensusSpecType[*types.BeaconBlockBodyDeneb](t, "BeaconBlockBody", "deneb", "eip7594")
 	testConsensusSpecType[*types.BeaconBlockHeader](t, "BeaconBlockHeader")
 	testConsensusSpecType[*types.BeaconState](t, "BeaconState", "phase0")
+	testConsensusSpecType[*types.BeaconStateAltair](t, "BeaconState", "altair")
 	testConsensusSpecType[*types.BeaconStateCapella](t, "BeaconState", "capella")
 	testConsensusSpecType[*types.BeaconStateDeneb](t, "BeaconState", "deneb")
 	testConsensusSpecType[*types.BLSToExecutionChange](t, "BLSToExecutionChange")
@@ -219,10 +235,24 @@ func TestConsensusSpecs(t *testing.T) {
 	testConsensusSpecType[*types.VoluntaryExit](t, "VoluntaryExit")
 	testConsensusSpecType[*types.Withdrawal](t, "Withdrawal")
 
+	// Add monolith variations to the consensus types
+	testConsensusSpecType[*types.BeaconBlockBodyMonolith](t, "BeaconBlockBody", "phase0", "altair", "bellatrix", "capella", "deneb")
+	testConsensusSpecType[*types.BeaconStateMonolith](t, "BeaconState", "phase0", "altair", "bellatrix", "capella", "deneb")
+	testConsensusSpecType[*types.ExecutionPayloadMonolith](t, "ExecutionPayload", "bellatrix", "capella", "deneb")
+	testConsensusSpecType[*types.ExecutionPayloadMonolith2](t, "ExecutionPayload", "bellatrix", "capella", "deneb")
+	testConsensusSpecType[*types.ExecutionPayloadHeaderMonolith](t, "ExecutionPayloadHeader", "bellatrix", "capella", "deneb")
+	testConsensusSpecType[*types.ValidatorMonolith](t, "Validator")
+
 	// Add some API variations to test different codec implementations
 	testConsensusSpecType[*types.ExecutionPayloadVariation](t, "ExecutionPayload", "bellatrix")
 	testConsensusSpecType[*types.HistoricalBatchVariation](t, "HistoricalBatch")
 	testConsensusSpecType[*types.WithdrawalVariation](t, "Withdrawal")
+	testConsensusSpecType[*types.AttestationVariation1](t, "Attestation", "altair", "bellatrix", "capella", "deneb", "eip7594", "phase0", "whisk")
+	testConsensusSpecType[*types.AttestationVariation2](t, "Attestation", "altair", "bellatrix", "capella", "deneb", "eip7594", "phase0", "whisk")
+	testConsensusSpecType[*types.AttestationVariation3](t, "Attestation", "altair", "bellatrix", "capella", "deneb", "eip7594", "phase0", "whisk")
+	testConsensusSpecType[*types.AttestationDataVariation1](t, "AttestationData")
+	testConsensusSpecType[*types.AttestationDataVariation2](t, "AttestationData")
+	testConsensusSpecType[*types.AttestationDataVariation3](t, "AttestationData")
 
 	// Iterate over all the untouched tests and report them
 	// 	forks, err := os.ReadDir(consensusSpecTestsRoot)
@@ -271,6 +301,13 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 	}
 	// Some specific fork was requested, look that up explicitly
 	for _, fork := range forks {
+		// Sanity check that the zero values can be handled before diving into the
+		// actual test datasets. This is mostly to catch implementation faults with
+		// uninitialized field handling.
+		t.Run(fmt.Sprintf("zero/%s/%s", fork, kind), func(t *testing.T) {
+			testZeroValue[T, U](t, ssz.ForkMapping[fork])
+		})
+		// Zero value on this specific fork ok, pull in the consensus dataset
 		path := filepath.Join(consensusSpecTestsRoot, fork, "ssz_static", kind, "ssz_random")
 
 		tests, err := os.ReadDir(path)
@@ -288,7 +325,7 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 
 		// Run all the subtests found in the folder
 		for _, test := range tests {
-			t.Run(fmt.Sprintf("%s/%s/%s", fork, kind, test.Name()), func(t *testing.T) {
+			t.Run(fmt.Sprintf("%s/%s/%s", fork, reflect.TypeFor[U]().Name(), test.Name()), func(t *testing.T) {
 				// Parse the input SSZ data and the expected root for the test
 				inSnappy, err := os.ReadFile(filepath.Join(path, test.Name(), "serialized.ssz_snappy"))
 				if err != nil {
@@ -312,11 +349,11 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 				// from yaml and check that too, but hex-in-yaml makes everything
 				// beyond annoying. C'est la vie.
 				obj := T(new(U))
-				if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err != nil {
+				if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ)), ssz.ForkMapping[fork]); err != nil {
 					t.Fatalf("failed to decode SSZ stream: %v", err)
 				}
 				blob := new(bytes.Buffer)
-				if err := ssz.EncodeToStream(blob, obj); err != nil {
+				if err := ssz.EncodeToStream(blob, obj, ssz.ForkMapping[fork]); err != nil {
 					t.Fatalf("failed to re-encode SSZ stream: %v", err)
 				}
 				if !bytes.Equal(blob.Bytes(), inSSZ) {
@@ -325,11 +362,11 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 						blob, inSSZ, len(prefix), blob.Bytes()[len(prefix):], inSSZ[len(prefix):])
 				}
 				obj = T(new(U))
-				if err := ssz.DecodeFromBytes(inSSZ, obj); err != nil {
+				if err := ssz.DecodeFromBytes(inSSZ, obj, ssz.ForkMapping[fork]); err != nil {
 					t.Fatalf("failed to decode SSZ buffer: %v", err)
 				}
-				bin := make([]byte, ssz.Size(obj))
-				if err := ssz.EncodeToBytes(bin, obj); err != nil {
+				bin := make([]byte, ssz.Size(obj, ssz.ForkMapping[fork]))
+				if err := ssz.EncodeToBytes(bin, obj, ssz.ForkMapping[fork]); err != nil {
 					t.Fatalf("failed to re-encode SSZ buffer: %v", err)
 				}
 				if !bytes.Equal(bin, inSSZ) {
@@ -339,14 +376,14 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 				}
 				// Encoder/decoder seems to work, check if the size reported by the
 				// encoded object actually matches the encoded stream
-				if size := ssz.Size(obj); size != uint32(len(inSSZ)) {
+				if size := ssz.Size(obj, ssz.ForkMapping[fork]); size != uint32(len(inSSZ)) {
 					t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
 				}
-				hash := ssz.HashSequential(obj)
+				hash := ssz.HashSequential(obj, ssz.ForkMapping[fork])
 				if fmt.Sprintf("%#x", hash) != inRoot.Root {
 					t.Fatalf("sequential merkle root mismatch: have %#x, want %s", hash, inRoot.Root)
 				}
-				hash = ssz.HashConcurrent(obj)
+				hash = ssz.HashConcurrent(obj, ssz.ForkMapping[fork])
 				if fmt.Sprintf("%#x", hash) != inRoot.Root {
 					t.Fatalf("concurrent merkle root mismatch: have %#x, want %s", hash, inRoot.Root)
 				}
@@ -358,16 +395,16 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 // BenchmarkConsensusSpecs iterates over all the (supported) consensus SSZ types and
 // runs the encoding/decoding/hashing benchmark round.
 func BenchmarkConsensusSpecs(b *testing.B) {
-	benchmarkConsensusSpecType[*types.ExecutionPayloadVariation](b, "bellatrix", "ExecutionPayload")
-
 	benchmarkConsensusSpecType[*types.AggregateAndProof](b, "deneb", "AggregateAndProof")
 	benchmarkConsensusSpecType[*types.Attestation](b, "deneb", "Attestation")
 	benchmarkConsensusSpecType[*types.AttestationData](b, "deneb", "AttestationData")
 	benchmarkConsensusSpecType[*types.AttesterSlashing](b, "deneb", "AttesterSlashing")
 	benchmarkConsensusSpecType[*types.BeaconBlock](b, "phase0", "BeaconBlock")
 	benchmarkConsensusSpecType[*types.BeaconBlockBodyDeneb](b, "deneb", "BeaconBlockBody")
+	benchmarkConsensusSpecType[*types.BeaconBlockBodyMonolith](b, "deneb", "BeaconBlockBody")
 	benchmarkConsensusSpecType[*types.BeaconBlockHeader](b, "deneb", "BeaconBlockHeader")
-	benchmarkConsensusSpecType[*types.BeaconState](b, "phase0", "BeaconState")
+	benchmarkConsensusSpecType[*types.BeaconStateDeneb](b, "deneb", "BeaconState")
+	benchmarkConsensusSpecType[*types.BeaconStateMonolith](b, "deneb", "BeaconState")
 	benchmarkConsensusSpecType[*types.BLSToExecutionChange](b, "deneb", "BLSToExecutionChange")
 	benchmarkConsensusSpecType[*types.Checkpoint](b, "deneb", "Checkpoint")
 	benchmarkConsensusSpecType[*types.Deposit](b, "deneb", "Deposit")
@@ -376,7 +413,9 @@ func BenchmarkConsensusSpecs(b *testing.B) {
 	benchmarkConsensusSpecType[*types.Eth1Block](b, "deneb", "Eth1Block")
 	benchmarkConsensusSpecType[*types.Eth1Data](b, "deneb", "Eth1Data")
 	benchmarkConsensusSpecType[*types.ExecutionPayloadDeneb](b, "deneb", "ExecutionPayload")
+	benchmarkConsensusSpecType[*types.ExecutionPayloadMonolith](b, "deneb", "ExecutionPayload")
 	benchmarkConsensusSpecType[*types.ExecutionPayloadHeaderDeneb](b, "deneb", "ExecutionPayloadHeader")
+	benchmarkConsensusSpecType[*types.ExecutionPayloadHeaderMonolith](b, "deneb", "ExecutionPayloadHeader")
 	benchmarkConsensusSpecType[*types.Fork](b, "deneb", "Fork")
 	benchmarkConsensusSpecType[*types.HistoricalBatch](b, "deneb", "HistoricalBatch")
 	benchmarkConsensusSpecType[*types.HistoricalSummary](b, "deneb", "HistoricalSummary")
@@ -406,22 +445,22 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 		b.Fatalf("failed to parse snappy ssz binary: %v", err)
 	}
 	inObj := T(new(U))
-	if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), inObj, uint32(len(inSSZ))); err != nil {
+	if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), inObj, uint32(len(inSSZ)), ssz.ForkMapping[fork]); err != nil {
 		b.Fatalf("failed to decode SSZ stream: %v", err)
 	}
 	// Start the benchmarks for all the different operations
-	b.Run(fmt.Sprintf("%s/encode-stream", kind), func(b *testing.B) {
+	b.Run(fmt.Sprintf("%s/encode-stream", reflect.TypeOf(inObj).Elem().Name()), func(b *testing.B) {
 		b.SetBytes(int64(len(inSSZ)))
 		b.ReportAllocs()
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			if err := ssz.EncodeToStream(io.Discard, inObj); err != nil {
+			if err := ssz.EncodeToStream(io.Discard, inObj, ssz.ForkMapping[fork]); err != nil {
 				b.Fatalf("failed to encode SSZ stream: %v", err)
 			}
 		}
 	})
-	b.Run(fmt.Sprintf("%s/encode-buffer", kind), func(b *testing.B) {
+	b.Run(fmt.Sprintf("%s/encode-buffer", reflect.TypeOf(inObj).Elem().Name()), func(b *testing.B) {
 		blob := make([]byte, len(inSSZ))
 
 		b.SetBytes(int64(len(inSSZ)))
@@ -429,12 +468,12 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			if err := ssz.EncodeToBytes(blob, inObj); err != nil {
+			if err := ssz.EncodeToBytes(blob, inObj, ssz.ForkMapping[fork]); err != nil {
 				b.Fatalf("failed to encode SSZ bytes: %v", err)
 			}
 		}
 	})
-	b.Run(fmt.Sprintf("%s/decode-stream", kind), func(b *testing.B) {
+	b.Run(fmt.Sprintf("%s/decode-stream", reflect.TypeOf(inObj).Elem().Name()), func(b *testing.B) {
 		obj := T(new(U))
 		r := bytes.NewReader(inSSZ)
 
@@ -443,13 +482,13 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			if err := ssz.DecodeFromStream(r, obj, uint32(len(inSSZ))); err != nil {
+			if err := ssz.DecodeFromStream(r, obj, uint32(len(inSSZ)), ssz.ForkMapping[fork]); err != nil {
 				b.Fatalf("failed to decode SSZ stream: %v", err)
 			}
 			r.Reset(inSSZ)
 		}
 	})
-	b.Run(fmt.Sprintf("%s/decode-buffer", kind), func(b *testing.B) {
+	b.Run(fmt.Sprintf("%s/decode-buffer", reflect.TypeOf(inObj).Elem().Name()), func(b *testing.B) {
 		obj := T(new(U))
 
 		b.SetBytes(int64(len(inSSZ)))
@@ -457,14 +496,14 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			if err := ssz.DecodeFromBytes(inSSZ, obj); err != nil {
+			if err := ssz.DecodeFromBytes(inSSZ, obj, ssz.ForkMapping[fork]); err != nil {
 				b.Fatalf("failed to decode SSZ stream: %v", err)
 			}
 		}
 	})
-	b.Run(fmt.Sprintf("%s/merkleize-sequential", kind), func(b *testing.B) {
+	b.Run(fmt.Sprintf("%s/merkleize-sequential", reflect.TypeOf(inObj).Elem().Name()), func(b *testing.B) {
 		obj := T(new(U))
-		if err := ssz.DecodeFromBytes(inSSZ, obj); err != nil {
+		if err := ssz.DecodeFromBytes(inSSZ, obj, ssz.ForkMapping[fork]); err != nil {
 			b.Fatalf("failed to decode SSZ stream: %v", err)
 		}
 		b.SetBytes(int64(len(inSSZ)))
@@ -472,12 +511,12 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			ssz.HashSequential(obj)
+			ssz.HashSequential(obj, ssz.ForkMapping[fork])
 		}
 	})
-	b.Run(fmt.Sprintf("%s/merkleize-concurrent", kind), func(b *testing.B) {
+	b.Run(fmt.Sprintf("%s/merkleize-concurrent", reflect.TypeOf(inObj).Elem().Name()), func(b *testing.B) {
 		obj := T(new(U))
-		if err := ssz.DecodeFromBytes(inSSZ, obj); err != nil {
+		if err := ssz.DecodeFromBytes(inSSZ, obj, ssz.ForkMapping[fork]); err != nil {
 			b.Fatalf("failed to decode SSZ stream: %v", err)
 		}
 		b.SetBytes(int64(len(inSSZ)))
@@ -485,7 +524,7 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			ssz.HashConcurrent(obj)
+			ssz.HashConcurrent(obj, ssz.ForkMapping[fork])
 		}
 	})
 }
@@ -530,6 +569,18 @@ func FuzzConsensusSpecsBeaconBlockHeader(f *testing.F) {
 }
 func FuzzConsensusSpecsBeaconState(f *testing.F) {
 	fuzzConsensusSpecType[*types.BeaconState](f, "BeaconState")
+}
+func FuzzConsensusSpecsBeaconStateAltair(f *testing.F) {
+	fuzzConsensusSpecType[*types.BeaconStateAltair](f, "BeaconState")
+}
+func FuzzConsensusSpecsBeaconStateBellatrix(f *testing.F) {
+	fuzzConsensusSpecType[*types.BeaconStateBellatrix](f, "BeaconState")
+}
+func FuzzConsensusSpecsBeaconStateCapella(f *testing.F) {
+	fuzzConsensusSpecType[*types.BeaconStateCapella](f, "BeaconState")
+}
+func FuzzConsensusSpecsBeaconStateDeneb(f *testing.F) {
+	fuzzConsensusSpecType[*types.BeaconStateDeneb](f, "BeaconState")
 }
 func FuzzConsensusSpecsBLSToExecutionChange(f *testing.F) {
 	fuzzConsensusSpecType[*types.BLSToExecutionChange](f, "BLSToExecutionChange")
@@ -613,6 +664,19 @@ func FuzzConsensusSpecsWithdrawal(f *testing.F) {
 	fuzzConsensusSpecType[*types.Withdrawal](f, "Withdrawal")
 }
 
+func FuzzConsensusSpecsBeaconBlockBodyMonolith(f *testing.F) {
+	fuzzConsensusSpecType[*types.BeaconBlockBodyMonolith](f, "BeaconBlockBody")
+}
+func FuzzConsensusSpecsBeaconStateMonolith(f *testing.F) {
+	fuzzConsensusSpecType[*types.BeaconStateMonolith](f, "BeaconState")
+}
+func FuzzConsensusSpecsExecutionPayloadMonolith(f *testing.F) {
+	fuzzConsensusSpecType[*types.ExecutionPayloadMonolith](f, "ExecutionPayload")
+}
+func FuzzConsensusSpecsExecutionPayloadHeaderMonolith(f *testing.F) {
+	fuzzConsensusSpecType[*types.ExecutionPayloadHeaderMonolith](f, "ExecutionPayloadHeader")
+}
+
 func FuzzConsensusSpecsExecutionPayloadVariation(f *testing.F) {
 	fuzzConsensusSpecType[*types.ExecutionPayloadVariation](f, "ExecutionPayload")
 }
@@ -653,7 +717,7 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 				f.Fatalf("failed to parse snappy ssz binary: %v", err)
 			}
 			obj := T(new(U))
-			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err == nil {
+			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ)), ssz.ForkFuture); err == nil {
 				// Stash away all valid ssz streams so we can play with decoding
 				// into previously used objects
 				valids = append(valids, inSSZ)
@@ -670,11 +734,11 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 
 		// Try the stream encoder/decoder
 		obj := T(new(U))
-		if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err == nil {
+		if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ)), ssz.ForkFuture); err == nil {
 			// Stream decoder succeeded, make sure it re-encodes correctly and
 			// that the buffer decoder also succeeds parsing
 			blob := new(bytes.Buffer)
-			if err := ssz.EncodeToStream(blob, obj); err != nil {
+			if err := ssz.EncodeToStream(blob, obj, ssz.ForkFuture); err != nil {
 				t.Fatalf("failed to re-encode stream: %v", err)
 			}
 			if !bytes.Equal(blob.Bytes(), inSSZ) {
@@ -682,27 +746,27 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 				t.Fatalf("re-encoded stream mismatch: have %x, want %x, common prefix %d, have left %x, want left %x",
 					blob, inSSZ, len(prefix), blob.Bytes()[len(prefix):], inSSZ[len(prefix):])
 			}
-			if err := ssz.DecodeFromBytes(inSSZ, obj); err != nil {
+			if err := ssz.DecodeFromBytes(inSSZ, obj, ssz.ForkFuture); err != nil {
 				t.Fatalf("failed to decode buffer: %v", err)
 			}
 			// Sanity check that hashing and size retrieval works
-			hash1 := ssz.HashSequential(obj)
-			hash2 := ssz.HashConcurrent(obj)
+			hash1 := ssz.HashSequential(obj, ssz.ForkFuture)
+			hash2 := ssz.HashConcurrent(obj, ssz.ForkFuture)
 			if hash1 != hash2 {
 				t.Fatalf("sequential/concurrent hash mismatch: sequencial %x, concurrent %x", hash1, hash2)
 			}
-			if size := ssz.Size(obj); size != uint32(len(inSSZ)) {
+			if size := ssz.Size(obj, ssz.ForkFuture); size != uint32(len(inSSZ)) {
 				t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
 			}
 			valid = true
 		}
 		// Try the buffer encoder/decoder
 		obj = T(new(U))
-		if err := ssz.DecodeFromBytes(inSSZ, obj); err == nil {
+		if err := ssz.DecodeFromBytes(inSSZ, obj, ssz.ForkFuture); err == nil {
 			// Buffer decoder succeeded, make sure it re-encodes correctly and
 			// that the stream decoder also succeeds parsing
-			bin := make([]byte, ssz.Size(obj))
-			if err := ssz.EncodeToBytes(bin, obj); err != nil {
+			bin := make([]byte, ssz.Size(obj, ssz.ForkFuture))
+			if err := ssz.EncodeToBytes(bin, obj, ssz.ForkFuture); err != nil {
 				t.Fatalf("failed to re-encode buffer: %v", err)
 			}
 			if !bytes.Equal(bin, inSSZ) {
@@ -710,16 +774,16 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 				t.Fatalf("re-encoded buffer mismatch: have %x, want %x, common prefix %d, have left %x, want left %x",
 					bin, inSSZ, len(prefix), bin[len(prefix):], inSSZ[len(prefix):])
 			}
-			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err != nil {
+			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ)), ssz.ForkFuture); err != nil {
 				t.Fatalf("failed to decode stream: %v", err)
 			}
 			// Sanity check that hashing and size retrieval works
-			hash1 := ssz.HashSequential(obj)
-			hash2 := ssz.HashConcurrent(obj)
+			hash1 := ssz.HashSequential(obj, ssz.ForkFuture)
+			hash2 := ssz.HashConcurrent(obj, ssz.ForkFuture)
 			if hash1 != hash2 {
 				t.Fatalf("sequential/concurrent hash mismatch: sequencial %x, concurrent %x", hash1, hash2)
 			}
-			if size := ssz.Size(obj); size != uint32(len(inSSZ)) {
+			if size := ssz.Size(obj, ssz.ForkFuture); size != uint32(len(inSSZ)) {
 				t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
 			}
 		}
@@ -730,14 +794,14 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 
 			// Try the stream encoder/decoder into a prepped object
 			obj = T(new(U))
-			if err := ssz.DecodeFromBytes(vSSZ, obj); err != nil {
+			if err := ssz.DecodeFromBytes(vSSZ, obj, ssz.ForkFuture); err != nil {
 				panic(err) // we've already decoded this, cannot fail
 			}
-			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err != nil {
+			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ)), ssz.ForkFuture); err != nil {
 				t.Fatalf("failed to decode stream into used object: %v", err)
 			}
 			blob := new(bytes.Buffer)
-			if err := ssz.EncodeToStream(blob, obj); err != nil {
+			if err := ssz.EncodeToStream(blob, obj, ssz.ForkFuture); err != nil {
 				t.Fatalf("failed to re-encode stream from used object: %v", err)
 			}
 			if !bytes.Equal(blob.Bytes(), inSSZ) {
@@ -745,24 +809,24 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 				t.Fatalf("re-encoded stream from used object mismatch: have %x, want %x, common prefix %d, have left %x, want left %x",
 					blob, inSSZ, len(prefix), blob.Bytes()[len(prefix):], inSSZ[len(prefix):])
 			}
-			hash1 := ssz.HashSequential(obj)
-			hash2 := ssz.HashConcurrent(obj)
+			hash1 := ssz.HashSequential(obj, ssz.ForkFuture)
+			hash2 := ssz.HashConcurrent(obj, ssz.ForkFuture)
 			if hash1 != hash2 {
 				t.Fatalf("sequential/concurrent hash mismatch: sequencial %x, concurrent %x", hash1, hash2)
 			}
-			if size := ssz.Size(obj); size != uint32(len(inSSZ)) {
+			if size := ssz.Size(obj, ssz.ForkFuture); size != uint32(len(inSSZ)) {
 				t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
 			}
 			// Try the buffer encoder/decoder into a prepped object
 			obj = T(new(U))
-			if err := ssz.DecodeFromBytes(vSSZ, obj); err != nil {
+			if err := ssz.DecodeFromBytes(vSSZ, obj, ssz.ForkFuture); err != nil {
 				panic(err) // we've already decoded this, cannot fail
 			}
-			if err := ssz.DecodeFromBytes(inSSZ, obj); err != nil {
+			if err := ssz.DecodeFromBytes(inSSZ, obj, ssz.ForkFuture); err != nil {
 				t.Fatalf("failed to decode buffer into used object: %v", err)
 			}
-			bin := make([]byte, ssz.Size(obj))
-			if err := ssz.EncodeToBytes(bin, obj); err != nil {
+			bin := make([]byte, ssz.Size(obj, ssz.ForkFuture))
+			if err := ssz.EncodeToBytes(bin, obj, ssz.ForkFuture); err != nil {
 				t.Fatalf("failed to re-encode buffer from used object: %v", err)
 			}
 			if !bytes.Equal(bin, inSSZ) {
@@ -770,12 +834,12 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 				t.Fatalf("re-encoded buffer from used object mismatch: have %x, want %x, common prefix %d, have left %x, want left %x",
 					blob, inSSZ, len(prefix), bin[len(prefix):], inSSZ[len(prefix):])
 			}
-			hash1 = ssz.HashSequential(obj)
-			hash2 = ssz.HashConcurrent(obj)
+			hash1 = ssz.HashSequential(obj, ssz.ForkFuture)
+			hash2 = ssz.HashConcurrent(obj, ssz.ForkFuture)
 			if hash1 != hash2 {
 				t.Fatalf("sequential/concurrent hash mismatch: sequencial %x, concurrent %x", hash1, hash2)
 			}
-			if size := ssz.Size(obj); size != uint32(len(inSSZ)) {
+			if size := ssz.Size(obj, ssz.ForkFuture); size != uint32(len(inSSZ)) {
 				t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
 			}
 		}

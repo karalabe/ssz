@@ -5,11 +5,15 @@ package consensus_spec_tests
 import "github.com/karalabe/ssz"
 
 // Cached static size computed on package init.
-var staticSizeCacheSignedBLSToExecutionChange = (*BLSToExecutionChange)(nil).SizeSSZ() + 96
+var staticSizeCacheSignedBLSToExecutionChange = ssz.PrecomputeStaticSizeCache((*SignedBLSToExecutionChange)(nil))
 
 // SizeSSZ returns the total size of the static ssz object.
-func (obj *SignedBLSToExecutionChange) SizeSSZ() uint32 {
-	return staticSizeCacheSignedBLSToExecutionChange
+func (obj *SignedBLSToExecutionChange) SizeSSZ(sizer *ssz.Sizer) (size uint32) {
+	if fork := int(sizer.Fork()); fork < len(staticSizeCacheSignedBLSToExecutionChange) {
+		return staticSizeCacheSignedBLSToExecutionChange[fork]
+	}
+	size = (*BLSToExecutionChange)(nil).SizeSSZ(sizer) + 96
+	return size
 }
 
 // DefineSSZ defines how an object is encoded/decoded.

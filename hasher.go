@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"math/big"
 	bitops "math/bits"
+	"reflect"
 	"runtime"
 	"unsafe"
 
@@ -27,6 +28,7 @@ const concurrencyThreshold = 65536
 
 // Some helpers to avoid occasional allocations
 var (
+	hasherZeroChunk = [32]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 	hasherBoolFalse = [32]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 	hasherBoolTrue  = [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
@@ -52,7 +54,9 @@ type Hasher struct {
 	groups []groupStats // Hashing progress tracking for the chunk groups
 	layer  int          // Layer depth being hasher now
 
-	codec  *Codec // Self-referencing to pass DefineSSZ calls through (API trick)
+	codec *Codec // Self-referencing to pass DefineSSZ calls through (API trick)
+	sizer *Sizer // Self-referencing to pass SizeSSZ call through (API trick)
+
 	bitbuf []byte // Bitlist conversion buffer
 }
 
@@ -73,11 +77,43 @@ func HashBool[T ~bool](h *Hasher, v T) {
 	}
 }
 
+// HashBoolPointerOnFork hashes a boolean if present in a fork.
+//
+// Note, a nil pointer is hashed as zero.
+func HashBoolPointerOnFork[T ~bool](h *Hasher, v *T, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	if v == nil {
+		HashBool[bool](h, false)
+		return
+	}
+	HashBool(h, *v)
+}
+
 // HashUint8 hashes a uint8.
 func HashUint8[T ~uint8](h *Hasher, n T) {
 	var buffer [32]byte
 	buffer[0] = uint8(n)
 	h.insertChunk(buffer, 0)
+}
+
+// HashUint8PointerOnFork hashes a uint8 if present in a fork.
+//
+// Note, a nil pointer is hashed as zero.
+func HashUint8PointerOnFork[T ~uint8](h *Hasher, n *T, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	if n == nil {
+		HashUint8[uint8](h, 0)
+		return
+	}
+	HashUint8(h, *n)
 }
 
 // HashUint16 hashes a uint16.
@@ -87,6 +123,22 @@ func HashUint16[T ~uint16](h *Hasher, n T) {
 	h.insertChunk(buffer, 0)
 }
 
+// HashUint16PointerOnFork hashes a uint16 if present in a fork.
+//
+// Note, a nil pointer is hashed as zero.
+func HashUint16PointerOnFork[T ~uint16](h *Hasher, n *T, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	if n == nil {
+		HashUint16[uint16](h, 0)
+		return
+	}
+	HashUint16(h, *n)
+}
+
 // HashUint32 hashes a uint32.
 func HashUint32[T ~uint32](h *Hasher, n T) {
 	var buffer [32]byte
@@ -94,11 +146,43 @@ func HashUint32[T ~uint32](h *Hasher, n T) {
 	h.insertChunk(buffer, 0)
 }
 
+// HashUint32PointerOnFork hashes a uint32 if present in a fork.
+//
+// Note, a nil pointer is hashed as zero.
+func HashUint32PointerOnFork[T ~uint32](h *Hasher, n *T, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	if n == nil {
+		HashUint32[uint32](h, 0)
+		return
+	}
+	HashUint32(h, *n)
+}
+
 // HashUint64 hashes a uint64.
 func HashUint64[T ~uint64](h *Hasher, n T) {
 	var buffer [32]byte
 	binary.LittleEndian.PutUint64(buffer[:], uint64(n))
 	h.insertChunk(buffer, 0)
+}
+
+// HashUint64PointerOnFork hashes a uint64 if present in a fork.
+//
+// Note, a nil pointer is hashed as zero.
+func HashUint64PointerOnFork[T ~uint64](h *Hasher, n *T, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	if n == nil {
+		HashUint64[uint64](h, 0)
+		return
+	}
+	HashUint64(h, *n)
 }
 
 // HashUint256 hashes a uint256.
@@ -112,9 +196,22 @@ func HashUint256(h *Hasher, n *uint256.Int) {
 	h.insertChunk(buffer, 0)
 }
 
+// HashUint256OnFork hashes a uint256 if present in a fork.
+//
+// Note, a nil pointer is hashed as zero.
+func HashUint256OnFork(h *Hasher, n *uint256.Int, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	HashUint256(h, n)
+}
+
 // HashUint256BigInt hashes a big.Int as uint256.
 //
 // Note, a nil pointer is hashed as zero.
+// Note, an overflow will be silently dropped.
 func HashUint256BigInt(h *Hasher, n *big.Int) {
 	var buffer [32]byte
 	if n != nil {
@@ -125,6 +222,19 @@ func HashUint256BigInt(h *Hasher, n *big.Int) {
 	h.insertChunk(buffer, 0)
 }
 
+// HashUint256BigIntOnFork hashes a big.Int as uint256 if present in a fork.
+//
+// Note, a nil pointer is hashed as zero.
+// Note, an overflow will be silently dropped.
+func HashUint256BigIntOnFork(h *Hasher, n *big.Int, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	HashUint256BigInt(h, n)
+}
+
 // HashStaticBytes hashes a static binary blob.
 //
 // The blob is passed by pointer to avoid high stack copy costs and a potential
@@ -133,6 +243,26 @@ func HashStaticBytes[T commonBytesLengths](h *Hasher, blob *T) {
 	// The code below should have used `blob[:]`, alas Go's generics compiler
 	// is missing that (i.e. a bug): https://github.com/golang/go/issues/51740
 	h.hashBytes(unsafe.Slice(&(*blob)[0], len(*blob)))
+}
+
+// HashStaticBytesPointerOnFork hashes a static binary blob if present in a fork.
+//
+// Note, a nil pointer is hashed as an empty binary blob.
+func HashStaticBytesPointerOnFork[T commonBytesLengths](h *Hasher, blob *T, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	if blob == nil {
+		// Go generics cannot do len(T{}), so we either allocate and bear the GC
+		// costs, or we use reflect. Both is kind of crappy.
+		//
+		// https://github.com/golang/go/issues/69100
+		h.hashBytesEmpty(reflect.TypeFor[T]().Len())
+		return
+	}
+	HashStaticBytes(h, blob)
 }
 
 // HashCheckedStaticBytes hashes a static binary blob.
@@ -147,18 +277,58 @@ func HashDynamicBytes(h *Hasher, blob []byte, maxSize uint64) {
 	h.ascendMixinLayer(uint64(len(blob)), (maxSize+31)/32)
 }
 
+// HashDynamicBytesOnFork hashes a dynamic binary blob if present in a fork.
+func HashDynamicBytesOnFork(h *Hasher, blob []byte, maxSize uint64, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	HashDynamicBytes(h, blob, maxSize)
+}
+
 // HashStaticObject hashes a static ssz object.
-func HashStaticObject(h *Hasher, obj StaticObject) {
+func HashStaticObject[T newableStaticObject[U], U any](h *Hasher, obj T) {
 	h.descendLayer()
+	if obj == nil {
+		// If the object is nil, pull up it's zero value. This will be very slow,
+		// but it should not happen in production, only during tests mostly.
+		obj = zeroValueStatic[T, U]()
+	}
 	obj.DefineSSZ(h.codec)
 	h.ascendLayer(0)
 }
 
+// HashStaticObjectOnFork hashes a static ssz object if present in a fork.
+func HashStaticObjectOnFork[T newableStaticObject[U], U any](h *Hasher, obj T, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	HashStaticObject(h, obj)
+}
+
 // HashDynamicObject hashes a dynamic ssz object.
-func HashDynamicObject(h *Hasher, obj DynamicObject) {
+func HashDynamicObject[T newableDynamicObject[U], U any](h *Hasher, obj T) {
 	h.descendLayer()
+	if obj == nil {
+		// If the object is nil, pull up it's zero value. This will be very slow,
+		// but it should not happen in production, only during tests mostly.
+		obj = zeroValueDynamic[T, U]()
+	}
 	obj.DefineSSZ(h.codec)
 	h.ascendLayer(0)
+}
+
+// HashDynamicObjectOnFork hashes a dynamic ssz object if present in a fork.
+func HashDynamicObjectOnFork[T newableDynamicObject[U], U any](h *Hasher, obj T, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	HashDynamicObject(h, obj)
 }
 
 // HashArrayOfBits hashes a static array of (packed) bits.
@@ -168,8 +338,34 @@ func HashArrayOfBits[T commonBitsLengths](h *Hasher, bits *T) {
 	h.hashBytes(unsafe.Slice(&(*bits)[0], len(*bits)))
 }
 
+// HashArrayOfBitsPointerOnFork hashes a static array of (packed) bits if present
+// in a fork.
+func HashArrayOfBitsPointerOnFork[T commonBitsLengths](h *Hasher, bits *T, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	if bits == nil {
+		// Go generics cannot do len(T{}), so we either allocate and bear the GC
+		// costs, or we use reflect. Both is kind of crappy.
+		//
+		// https://github.com/golang/go/issues/69100
+		h.hashBytesEmpty(reflect.TypeFor[T]().Len())
+		return
+	}
+	HashArrayOfBits(h, bits)
+}
+
 // HashSliceOfBits hashes a dynamic slice of (packed) bits.
+//
+// Note, a nil slice of bits is serialized as an empty bit list.
 func HashSliceOfBits(h *Hasher, bits bitfield.Bitlist, maxBits uint64) {
+	// If the slice of bits is nil (i.e. uninitialized), hash it as empty
+	if bits == nil {
+		HashSliceOfBits(h, bitlistZero, maxBits)
+		return
+	}
 	// Parse the bit-list into a hashable representation
 	var (
 		msb  = uint8(bitops.Len8(bits[len(bits)-1])) - 1
@@ -195,6 +391,19 @@ func HashSliceOfBits(h *Hasher, bits bitfield.Bitlist, maxBits uint64) {
 		h.insertBlobChunks(h.bitbuf)
 	}
 	h.ascendMixinLayer(size, (maxBits+255)/256)
+}
+
+// HashSliceOfBitsOnFork hashes a dynamic slice of (packed) bits if present in a
+// fork.
+//
+// Note, a nil slice of bits is serialized as an empty bit list.
+func HashSliceOfBitsOnFork(h *Hasher, bits bitfield.Bitlist, maxBits uint64, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	HashSliceOfBits(h, bits, maxBits)
 }
 
 // HashArrayOfUint64s hashes a static array of uint64s.
@@ -228,6 +437,23 @@ func HashArrayOfUint64s[T commonUint64sLengths](h *Hasher, ns *T) {
 	h.ascendLayer(0)
 }
 
+// HashArrayOfUint64sPointerOnFork hashes a static array of uint64s if present
+// in a fork.
+func HashArrayOfUint64sPointerOnFork[T commonUint64sLengths](h *Hasher, ns *T, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	if ns == nil {
+		h.descendLayer()
+		h.insertBlobChunksEmpty(reflect.TypeFor[T]().Len() * 8)
+		h.ascendLayer(0)
+		return
+	}
+	HashArrayOfUint64s(h, ns)
+}
+
 // HashSliceOfUint64s hashes a dynamic slice of uint64s.
 func HashSliceOfUint64s[T ~uint64](h *Hasher, ns []T, maxItems uint64) {
 	h.descendMixinLayer()
@@ -251,6 +477,16 @@ func HashSliceOfUint64s[T ~uint64](h *Hasher, ns []T, maxItems uint64) {
 		h.insertChunk(buffer, 0)
 	}
 	h.ascendMixinLayer(uint64(len(ns)), (maxItems*8+31)/32)
+}
+
+// HashSliceOfUint64sOnFork hashes a dynamic slice of uint64s if present in a fork.
+func HashSliceOfUint64sOnFork[T ~uint64](h *Hasher, ns []T, maxItems uint64, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	HashSliceOfUint64s(h, ns, maxItems)
 }
 
 // HashArrayOfStaticBytes hashes a static array of static binary blobs.
@@ -297,6 +533,17 @@ func HashSliceOfStaticBytes[T commonBytesLengths](h *Hasher, blobs []T, maxItems
 	h.ascendMixinLayer(uint64(len(blobs)), maxItems)
 }
 
+// HashSliceOfStaticBytesOnFork hashes a dynamic slice of static binary blobs if
+// present in a fork.
+func HashSliceOfStaticBytesOnFork[T commonBytesLengths](h *Hasher, blobs []T, maxItems uint64, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	HashSliceOfStaticBytes(h, blobs, maxItems)
+}
+
 // HashSliceOfDynamicBytes hashes a dynamic slice of dynamic binary blobs.
 func HashSliceOfDynamicBytes(h *Hasher, blobs [][]byte, maxItems uint64, maxSize uint64) {
 	h.descendMixinLayer()
@@ -308,13 +555,24 @@ func HashSliceOfDynamicBytes(h *Hasher, blobs [][]byte, maxItems uint64, maxSize
 	h.ascendMixinLayer(uint64(len(blobs)), maxItems)
 }
 
+// HashSliceOfDynamicBytesOnFork hashes a dynamic slice of dynamic binary blobs
+// if present in a fork.
+func HashSliceOfDynamicBytesOnFork(h *Hasher, blobs [][]byte, maxItems uint64, maxSize uint64, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	HashSliceOfDynamicBytes(h, blobs, maxItems, maxSize)
+}
+
 // HashSliceOfStaticObjects hashes a dynamic slice of static ssz objects.
 func HashSliceOfStaticObjects[T StaticObject](h *Hasher, objects []T, maxItems uint64) {
 	h.descendMixinLayer()
 	defer h.ascendMixinLayer(uint64(len(objects)), maxItems)
 
 	// If threading is disabled, or hashing nothing, do it sequentially
-	if !h.threads || len(objects) == 0 || len(objects)*int(Size(objects[0])) < concurrencyThreshold {
+	if !h.threads || len(objects) == 0 || len(objects)*int(Size(objects[0], h.codec.fork)) < concurrencyThreshold {
 		for _, obj := range objects {
 			h.descendLayer()
 			obj.DefineSSZ(h.codec)
@@ -367,6 +625,17 @@ func HashSliceOfStaticObjects[T StaticObject](h *Hasher, objects []T, maxItems u
 	}
 }
 
+// HashSliceOfStaticObjectsOnFork hashes a dynamic slice of static ssz objects
+// if present in a fork.
+func HashSliceOfStaticObjectsOnFork[T StaticObject](h *Hasher, objects []T, maxItems uint64, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	HashSliceOfStaticObjects(h, objects, maxItems)
+}
+
 // HashSliceOfDynamicObjects hashes a dynamic slice of dynamic ssz objects.
 func HashSliceOfDynamicObjects[T DynamicObject](h *Hasher, objects []T, maxItems uint64) {
 	h.descendMixinLayer()
@@ -376,6 +645,17 @@ func HashSliceOfDynamicObjects[T DynamicObject](h *Hasher, objects []T, maxItems
 		h.ascendLayer(0)
 	}
 	h.ascendMixinLayer(uint64(len(objects)), maxItems)
+}
+
+// HashSliceOfDynamicObjectsOnFork hashes a dynamic slice of dynamic ssz objects
+// if present in a fork.
+func HashSliceOfDynamicObjectsOnFork[T DynamicObject](h *Hasher, objects []T, maxItems uint64, filter ForkFilter) {
+	// If the field is not active in the current fork, early return
+	if h.codec.fork < filter.Added || (filter.Removed > ForkUnknown && h.codec.fork >= filter.Removed) {
+		return
+	}
+	// Otherwise fall back to the standard hasher
+	HashSliceOfDynamicObjects(h, objects, maxItems)
 }
 
 // hashBytes either appends the blob to the hasher's scratch space if it's small
@@ -391,6 +671,21 @@ func (h *Hasher) hashBytes(blob []byte) {
 	// Otherwise hash it as its own tree
 	h.descendLayer()
 	h.insertBlobChunks(blob)
+	h.ascendLayer(0)
+}
+
+// hashBytesEmpty is analogous to hashBytes, but where the input is all zeroes,
+// so it's passed by length, not by content. This allows hashing zero pointers
+// without allocating them first.
+func (h *Hasher) hashBytesEmpty(size int) {
+	// If the blob is small, accumulate as a single chunk
+	if size <= 32 {
+		h.insertChunk(hasherZeroChunk, 0)
+		return
+	}
+	// Otherwise hash it as its own tree
+	h.descendLayer()
+	h.insertBlobChunksEmpty(size)
 	h.ascendLayer(0)
 }
 
@@ -464,6 +759,16 @@ func (h *Hasher) insertBlobChunks(blob []byte) {
 		buffer = [32]byte{}
 		copy(buffer[:], blob)
 		h.insertChunk(buffer, 0)
+	}
+}
+
+// insertBlobChunksEmpty is analogous to insertBlobChunks, but where the input
+// is all zeroes, so it's passed by length, not by content. This allows hashing
+// zero pointers without allocating them first.
+func (h *Hasher) insertBlobChunksEmpty(size int) {
+	for size > 0 { // will insert a full chunk for the last segment
+		h.insertChunk(hasherZeroChunk, 0)
+		size -= 32
 	}
 }
 

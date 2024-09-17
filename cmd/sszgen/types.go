@@ -13,9 +13,10 @@ type sszContainer struct {
 	*types.Struct
 	named  *types.Named
 	static bool
-	fields []string
-	types  []types.Type
-	opsets []opset
+	fields []string     // Name of the struct field
+	types  []types.Type // Type of the struct field
+	opsets []opset      // Opset for the struct field
+	forks  []string     // Fork constraint for the struct field
 }
 
 // makeContainer iterates over the fields of the struct and attempt to match each
@@ -26,6 +27,7 @@ func (p *parseContext) makeContainer(named *types.Named, typ *types.Struct) (*ss
 		fields []string
 		types  []types.Type
 		opsets []opset
+		forks  []string
 	)
 	// Iterate over all the fields of the struct
 	for i := 0; i < typ.NumFields(); i++ {
@@ -34,7 +36,7 @@ func (p *parseContext) makeContainer(named *types.Named, typ *types.Struct) (*ss
 		if !f.Exported() {
 			continue
 		}
-		ignore, tags, err := parseTags(typ.Tag(i))
+		ignore, tags, fork, err := parseTags(typ.Tag(i))
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse field %s.%s tags: %v", named.Obj().Name(), f.Name(), err)
 		}
@@ -42,7 +44,7 @@ func (p *parseContext) makeContainer(named *types.Named, typ *types.Struct) (*ss
 			continue
 		}
 		// Required field found, validate type with tag content
-		opset, err := p.resolveOpset(f.Type(), tags)
+		opset, err := p.resolveOpset(f.Type(), tags, false)
 		if err != nil {
 			return nil, fmt.Errorf("failed to validate field %s.%s: %v", named.Obj().Name(), f.Name(), err)
 		}
@@ -52,6 +54,7 @@ func (p *parseContext) makeContainer(named *types.Named, typ *types.Struct) (*ss
 		fields = append(fields, f.Name())
 		types = append(types, f.Type())
 		opsets = append(opsets, opset)
+		forks = append(forks, fork)
 	}
 	return &sszContainer{
 		Struct: typ,
@@ -60,6 +63,7 @@ func (p *parseContext) makeContainer(named *types.Named, typ *types.Struct) (*ss
 		fields: fields,
 		types:  types,
 		opsets: opsets,
+		forks:  forks,
 	}, nil
 }
 
@@ -67,24 +71,32 @@ func (p *parseContext) makeContainer(named *types.Named, typ *types.Struct) (*ss
 // whether there's a collision between them, or if more tags are needed to fully
 // derive the size. If the type/tags are in sync and well-defined, an opset will
 // be returned that the generator can use to create the code.
-func (p *parseContext) resolveOpset(typ types.Type, tags *sizeTag) (opset, error) {
+func (p *parseContext) resolveOpset(typ types.Type, tags *sizeTag, pointer bool) (opset, error) {
 	switch t := typ.(type) {
 	case *types.Named:
 		if isBitlist(typ) {
 			return p.resolveBitlistOpset(tags)
 		}
-		return p.resolveOpset(t.Underlying(), tags)
+		return p.resolveOpset(t.Underlying(), tags, pointer)
 
 	case *types.Basic:
-		return p.resolveBasicOpset(t, tags)
+		return p.resolveBasicOpset(t, tags, pointer)
 
 	case *types.Array:
-		return p.resolveArrayOpset(t.Elem(), int(t.Len()), tags)
+		return p.resolveArrayOpset(t.Elem(), int(t.Len()), tags, pointer)
 
 	case *types.Slice:
 		return p.resolveSliceOpset(t.Elem(), tags)
 
 	case *types.Pointer:
+		switch tt := t.Elem().(type) {
+		case *types.Basic:
+			return p.resolveBasicOpset(tt, tags, true)
+
+		case *types.Array:
+			return p.resolveArrayOpset(tt.Elem(), int(tt.Len()), tags, true)
+
+		}
 		return p.resolvePointerOpset(t, tags)
 	}
 	return nil, fmt.Errorf("unsupported type %s", typ.String())

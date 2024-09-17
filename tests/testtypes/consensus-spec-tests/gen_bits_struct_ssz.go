@@ -6,13 +6,13 @@ import "github.com/karalabe/ssz"
 
 // SizeSSZ returns either the static size of the object if fixed == true, or
 // the total size otherwise.
-func (obj *BitsStruct) SizeSSZ(fixed bool) uint32 {
-	var size = uint32(4 + 1 + 1 + 4 + 1)
+func (obj *BitsStruct) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size uint32) {
+	size = 4 + 1 + 1 + 4 + 1
 	if fixed {
 		return size
 	}
-	size += ssz.SizeSliceOfBits(obj.A)
-	size += ssz.SizeSliceOfBits(obj.D)
+	size += ssz.SizeSliceOfBits(sizer, obj.A)
+	size += ssz.SizeSliceOfBits(sizer, obj.D)
 
 	return size
 }
