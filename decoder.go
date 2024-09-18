@@ -733,7 +733,11 @@ func DecodeSliceOfUint64sContent[T ~uint64](dec *Decoder, ns *[]T, maxItems uint
 	size := dec.retrieveSize()
 	if size == 0 {
 		// Empty slice, remove anything extra
-		*ns = (*ns)[:0]
+		if *ns == nil {
+			*ns = make([]T, 0) // Don't leave nil, init to empty
+		} else {
+			*ns = (*ns)[:0]
+		}
 		return
 	}
 	// Compute the number of items based on the item size of the type
@@ -880,7 +884,11 @@ func DecodeSliceOfStaticBytesContent[T commonBytesLengths](dec *Decoder, blobs *
 	size := dec.retrieveSize()
 	if size == 0 {
 		// Empty slice, remove anything extra
-		*blobs = (*blobs)[:0]
+		if *blobs == nil {
+			*blobs = make([]T, 0) // Don't leave nil, init to empty
+		} else {
+			*blobs = (*blobs)[:0]
+		}
 		return
 	}
 	// Compute the number of items based on the item size of the type
@@ -967,7 +975,11 @@ func DecodeSliceOfDynamicBytesContent(dec *Decoder, blobs *[][]byte, maxItems ui
 	size := dec.retrieveSize()
 	if size == 0 {
 		// Empty slice, remove anything extra
-		*blobs = (*blobs)[:0]
+		if *blobs == nil {
+			*blobs = make([][]byte, 0) // Don't leave nil, init to empty
+		} else {
+			*blobs = (*blobs)[:0]
+		}
 		return
 	}
 	if size < 4 {
@@ -1048,7 +1060,11 @@ func DecodeSliceOfStaticObjectsContent[T newableStaticObject[U], U any](dec *Dec
 	size := dec.retrieveSize()
 	if size == 0 {
 		// Empty slice, remove anything extra
-		*objects = (*objects)[:0]
+		if *objects == nil {
+			*objects = make([]T, 0) // Don't leave nil, init to empty
+		} else {
+			*objects = (*objects)[:0]
+		}
 		return
 	}
 	// Compute the number of items based on the item size of the type
@@ -1122,7 +1138,11 @@ func DecodeSliceOfDynamicObjectsContent[T newableDynamicObject[U], U any](dec *D
 	size := dec.retrieveSize()
 	if size == 0 {
 		// Empty slice, remove anything extra
-		*objects = (*objects)[:0]
+		if *objects == nil {
+			*objects = make([]T, 0) // Don't leave nil, init to empty
+		} else {
+			*objects = (*objects)[:0]
+		}
 		return
 	}
 	if size < 4 {
