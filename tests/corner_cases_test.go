@@ -102,3 +102,66 @@ func TestInvalidBoolean(t *testing.T) {
 		t.Errorf("decode error mismatch: have %v, want %v", err, ssz.ErrInvalidBoolean)
 	}
 }
+
+// Tests that decoding empty slices will init them instead of leaving as nil.
+func TestEmptySliceInit(t *testing.T) {
+	obj := new(testEmptySlicesType)
+	buf := new(bytes.Buffer)
+
+	if err := ssz.EncodeToStream(buf, obj); err != nil {
+		panic(err)
+	}
+	if err := ssz.DecodeFromBytes(buf.Bytes(), obj); err != nil {
+		panic(err)
+	}
+	if obj.A == nil {
+		t.Errorf("failed to init empty uint64 slice")
+	}
+	if obj.B == nil {
+		t.Errorf("failed to init empty statc bytes slice")
+	}
+	if obj.C == nil {
+		t.Errorf("failed to init empty dynamic bytes slice")
+	}
+	if obj.D == nil {
+		t.Errorf("failed to init empty static objects slice")
+	}
+	if obj.E == nil {
+		t.Errorf("failed to init empty dynamic objects slice")
+	}
+}
+
+type testEmptySlicesType struct {
+	A []uint64                  // Slice of uint64
+	B [][32]byte                // Slice of static bytes
+	C [][]byte                  // Slice of dynamic bytes
+	D []*types.Withdrawal       // Slice of static objects
+	E []*types.ExecutionPayload // Slice of dynamic objects
+}
+
+func (t *testEmptySlicesType) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size uint32) {
+	size = 5 * 4
+	if fixed {
+		return size
+	}
+	size += ssz.SizeSliceOfUint64s(sizer, t.A)
+	size += ssz.SizeSliceOfStaticBytes(sizer, t.B)
+	size += ssz.SizeSliceOfDynamicBytes(sizer, t.C)
+	size += ssz.SizeSliceOfStaticObjects(sizer, t.D)
+	size += ssz.SizeSliceOfDynamicObjects(sizer, t.E)
+
+	return size
+}
+func (t *testEmptySlicesType) DefineSSZ(codec *ssz.Codec) {
+	ssz.DefineSliceOfUint64sOffset(codec, &t.A, 16)
+	ssz.DefineSliceOfStaticBytesOffset(codec, &t.B, 16)
+	ssz.DefineSliceOfDynamicBytesOffset(codec, &t.C, 16, 16)
+	ssz.DefineSliceOfStaticObjectsOffset(codec, &t.D, 16)
+	ssz.DefineSliceOfDynamicObjectsOffset(codec, &t.E, 16)
+
+	ssz.DefineSliceOfUint64sContent(codec, &t.A, 16)
+	ssz.DefineSliceOfStaticBytesContent(codec, &t.B, 16)
+	ssz.DefineSliceOfDynamicBytesContent(codec, &t.C, 16, 16)
+	ssz.DefineSliceOfStaticObjectsContent(codec, &t.D, 16)
+	ssz.DefineSliceOfDynamicObjectsContent(codec, &t.E, 16)
+}
