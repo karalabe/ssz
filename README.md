@@ -290,6 +290,119 @@ Notably, the `ssz.DefineStaticBytes` call from our old code (which got given a `
 
 Note, *checked methods* entail a runtime cost. When decoding such opaque slices, we can't blindly fill the fields with data, rather we need to ensure that they are allocated and that they are of the correct size.  Ideally only use *checked methods* for prototyping or for pre-existing types where you just have to run with whatever you have and can't change the field to an array.
 
+### Monolithic types
+
+We've seen previously, that asymmetric codecs can be used to implement custom serialization logic for types that might encode in a variety of ways depending on their data content.
+
+One verify specific subset of that scenario is the Ethereum consensus typeset. Whenever a new fork is released, a number of types are slightly modified, usually by adding new fields to existing structs. In the beacon specs, this usually results in an explosion of types: a new base type for fork X is created (e.g. `BeaconBlockBodyBellatrix`), but any type including that also needs to be re-created for fork X (e.g. `BeaconBlockBellatrix`), resulting in cascading type creations. Point in case, there are [79 consensus types in Prysm](https://pkg.go.dev/github.com/prysmaticlabs/prysm/v5@v5.1.0/proto/eth/v2#pkg-types), most of which are copies of one another with tiny additions.
+
+This design is definitely clean and works well if these containers are used just as data transmission objects or storage objects. However, operating on hundreds of types storing the same thing in a live codebase is unwieldy. In [go-ethereum](https://github.com/ethereum/go-ethereum) we've always used monolithic types that encode just right according to the RLP specs of EL forks and thus this library aims to provide similar support for the SSZ world too.
+
+We define a *monolithic type* as a container that can be encoded/decoded differently, based on what fork the codec runs in. To give an example, let's look at the previous `ExecutionPayload`, but instead of using it to represent a single possible consensus form, let's define *all* possible fields across all possible forks:
+
+```go
+type ExecutionPayloadMonolith struct {
+	ParentHash    Hash
+	FeeRecipient  Address
+	StateRoot     Hash
+	ReceiptsRoot  Hash
+	LogsBloom     LogsBLoom
+	PrevRandao    Hash
+	BlockNumber   uint64
+	GasLimit      uint64
+	GasUsed       uint64
+	Timestamp     uint64
+	ExtraData     []byte
+	BaseFeePerGas *uint256.Int
+	BlockHash     Hash
+	Transactions  [][]byte
+	Withdrawals   []*Withdrawal // Appears in the Shanghai fork
+	BlobGasUsed   *uint64       // Appears in the Cancun fork
+	ExcessBlobGas *uint64       // Appears in the Cancun fork
+}
+```
+
+Not much difference versus what we've used previously, but note, the fields that are fork-specific must all be nil-able (`Withdrawal` is a slice that can be `nil` and the blob gas fields are `*uint64`, which again can be `nil`).
+
+Like before, we need to implement the `SizeSSZ` method:
+
+```go
+func (e *ExecutionPayloadMonolith) SizeSSZ(sizer *ssz.Sizer, fixed bool) uint32 {
+	// Start out with the static size
+	size := uint32(512)
+	if sizer.Fork() >= ssz.ForkShanghai {
+		size += 4
+	}
+	if sizer.Fork() >= ssz.ForkCancun {
+		size += 16
+	}
+	if fixed {
+		return size
+	}
+	// Append all the dynamic sizes
+	size += ssz.SizeDynamicBytes(sizer, obj.ExtraData)
+	size += ssz.SizeSliceOfDynamicBytes(sizer, obj.Transactions)
+	if sizer.Fork() >= ssz.ForkShanghai {
+		size += ssz.SizeSliceOfStaticObjects(sizer, obj.Withdrawals)
+	}
+	return size
+}
+```
+
+This time, it was a bit more complex:
+
+- The static size can change depending on which fork we're encoding into. The base Frontier encoding is 512 bytes, but Shanghai adds the dynamic withdrawals (4 bytes static offset) and Cancun adds 2 static uint64s (2x8 bytes). You can retrieve what fork we're encoding into via the `ssz.Sizer` method argument.
+- The dynamic size can change just the same, if we're encoding into Shanghai, we need to account for the withdrawals too. The uint64s are not dynamic, so they don't appear in the that section of the size.
+
+Similarly to how `SizeSSZ` needs to be fork-enabled, `DefineSSZ` goes through a transformation:
+
+```go
+func (obj *ExecutionPayloadMonolith) DefineSSZ(codec *ssz.Codec) {
+	// Define the static data (fields and dynamic offsets)
+	ssz.DefineStaticBytes(codec, &obj.ParentHash)                                                                    // Field  ( 0) -    ParentHash -  32 bytes
+	ssz.DefineStaticBytes(codec, &obj.FeeRecipient)                                                                  // Field  ( 1) -  FeeRecipient -  20 bytes
+	ssz.DefineStaticBytes(codec, &obj.StateRoot)                                                                     // Field  ( 2) -     StateRoot -  32 bytes
+	ssz.DefineStaticBytes(codec, &obj.ReceiptsRoot)                                                                  // Field  ( 3) -  ReceiptsRoot -  32 bytes
+	ssz.DefineStaticBytes(codec, &obj.LogsBloom)                                                                     // Field  ( 4) -     LogsBloom - 256 bytes
+	ssz.DefineStaticBytes(codec, &obj.PrevRandao)                                                                    // Field  ( 5) -    PrevRandao -  32 bytes
+	ssz.DefineUint64(codec, &obj.BlockNumber)                                                                        // Field  ( 6) -   BlockNumber -   8 bytes
+	ssz.DefineUint64(codec, &obj.GasLimit)                                                                           // Field  ( 7) -      GasLimit -   8 bytes
+	ssz.DefineUint64(codec, &obj.GasUsed)                                                                            // Field  ( 8) -       GasUsed -   8 bytes
+	ssz.DefineUint64(codec, &obj.Timestamp)                                                                          // Field  ( 9) -     Timestamp -   8 bytes
+	ssz.DefineDynamicBytesOffset(codec, &obj.ExtraData, 32)                                                          // Offset (10) -     ExtraData -   4 bytes
+	ssz.DefineUint256(codec, &obj.BaseFeePerGas)                                                                     // Field  (11) - BaseFeePerGas -  32 bytes
+	ssz.DefineStaticBytes(codec, &obj.BlockHash)                                                                     // Field  (12) -     BlockHash -  32 bytes
+	ssz.DefineSliceOfDynamicBytesOffset(codec, &obj.Transactions, 1048576, 1073741824)                               // Offset (13) -  Transactions -   4 bytes
+	ssz.DefineSliceOfStaticObjectsOffsetOnFork(codec, &obj.Withdrawals, 16, ssz.ForkFilter{Added: ssz.ForkShanghai}) // Offset (14) -   Withdrawals -   4 bytes
+	ssz.DefineUint64PointerOnFork(codec, &obj.BlobGasUsed, ssz.ForkFilter{Added: ssz.ForkCancun})                    // Field  (15) -   BlobGasUsed -   8 bytes
+	ssz.DefineUint64PointerOnFork(codec, &obj.ExcessBlobGas, ssz.ForkFilter{Added: ssz.ForkCancun})                  // Field  (16) - ExcessBlobGas -   8 bytes
+
+	// Define the dynamic data (fields)
+	ssz.DefineDynamicBytesContent(codec, &obj.ExtraData, 32)                                                          // Field  (10) -     ExtraData - ? bytes
+	ssz.DefineSliceOfDynamicBytesContentOnFork(codec, &obj.Transactions, 1048576, 1073741824)                         // Field  (13) -  Transactions - ? bytes
+	ssz.DefineSliceOfStaticObjectsContentOnFork(codec, &obj.Withdrawals, 16, ssz.ForkFilter{Added: ssz.ForkShanghai}) // Field  (14) -   Withdrawals - ? bytes
+}
+```
+
+The above code is eerily similar to our previous codec, yet, weirdly strange. Wherever fork specific fields appear, the methods get suffixed with `OnFork` and get passed the rule as to which fork to apply in (e.g. `ssz.ForkFilter{Added: ssz.ForkCancun}`). There are good reasons for both:
+
+- The `SizeSSZ` method used `if` clauses to check for forks and behaved differently based on which fork we're in. That is clean, however decoding has a quirk: if we decode into a pre-existing object (with fields set to arbitrary junk), the fields not present in a fork needs to be nil-ed out. As such, `if` clauses within the definitions won't work any more, we need to "define" missing fields too to ensure they get nil-ed correctly. Thus `OnFork` suffix for all fields, always.
+- Of course, calling an `OnFork` method it kind of pointless without specifying which fork we want a field to be present in. That's the `ssz.ForkFilter` parameter. By making it a slightly more complex filter type, the SSZ library supports both adding new fields in a fork, and also removing old fields (both cases happened in the beacon chain). Other operations will be added as needed.
+
+Lastly, to encode the above `ExecutionPayloadMonolith` into an SSZ stream, we can't use the tried and proven `ssz.EncodeToStream`, since that will not know what fork we'd like to use. Rather, again, we need to call an `OnFork` version:
+
+```go
+func main() {
+	out := new(bytes.Buffer)
+	if err := ssz.EncodeToStreamOnFork(out, new(ExecutionPayloadMonolith), ssz.ForkCancun); err != nil {
+		panic(err)
+	}
+	fmt.Printf("ssz: %#x\n", blob)
+}
+```
+
+*As a side emphasis, although the SSZ library has the Ethereum hard-forks included (e.g. `ssz.ForkCancun` and `ssz.ForkDeneb`), there is nothing stopping a user of the library from using their own fork enum (e.g. `mypkg.ForkAlice` and `mypkg.ForkBob`), just type it with `ssz.Fork` and make sure `0` means some variation of `unknown`/`present in all forks`*.
+
 ## Generated encoders
 
 More often than not, the Go structs that you'd like to serialize to/from SSZ are simple data containers. Without some particular quirk you'd like to explicitly support, there's little reason to spend precious time counting the bits and digging through a long list of encoder methods to call.
@@ -378,7 +491,7 @@ type ExecutionPayload struct {
 }
 ```
 
-Calling the generator as before, just with the `ExecutionPayload` yields in the below, much more interesting code:
+Calling the generator as before, just with the `ExecutionPayload` yields the below, fork-enhanced code:
 
 ```go
 // Code generated by github.com/karalabe/ssz. DO NOT EDIT.
@@ -457,6 +570,101 @@ The code generator will take into consideration the information in both the fiel
 This functionality can be very helpful in detecting refactor issues, where the user changes the type of a field, which would result in a different encoding. By having the field tagged with an `ssz-size`, such an error would be detected.
 
 As such, we'd recommend *always* tagging all SSZ encoded fields with their sizes. It results in both safer code and self-documenting code.
+
+### Monolithic types
+
+This library supports monolithic types that encode differently based on what fork the codec is operating in. Naturally, that is a perfect example of something that would be useful to be able to generate, and indeed, can do.
+
+- Monolithic type fields can be tagged with a `ssz-fork:"name"` Go struct tag, which will be picked up and mapped by the code generator from their textual form to pre-declared fork identifiers.
+- The fork names follow the Go build constraint rules:
+  - A field can be declared introduced in fork `X` via `ssz-fork:"x"`.
+  - A field can be declared removed in fork `X` via `ssz-fork:"!x"`.
+
+```go
+type ExecutionPayloadMonolith struct {
+	ParentHash    Hash
+	FeeRecipient  Address
+	StateRoot     Hash
+	ReceiptsRoot  Hash
+	LogsBloom     LogsBloom
+	PrevRandao    Hash
+	BlockNumber   uint64
+	GasLimit      uint64
+	GasUsed       uint64
+	Timestamp     uint64
+	ExtraData     []byte       `ssz-max:"32"`
+	BaseFeePerGas *uint256.Int
+	BlockHash     Hash
+	Transactions  [][]byte      `ssz-max:"1048576,1073741824"`
+	Withdrawals   []*Withdrawal `ssz-max:"16" ssz-fork:"shanghai"`
+	BlobGasUsed   *uint64       `             ssz-fork:"cancun"`
+	ExcessBlobGas *uint64       `             ssz-fork:"cancun"`
+}
+```
+
+Calling the generator as before, just with the `ExecutionPayloadMonolith` yields the below, much more interesting code:
+
+```go
+// Code generated by github.com/karalabe/ssz. DO NOT EDIT.
+
+package main
+
+import "github.com/karalabe/ssz"
+
+// SizeSSZ returns either the static size of the object if fixed == true, or
+// the total size otherwise.
+func (obj *ExecutionPayloadMonolith) SizeSSZ(sizer *ssz.Sizer, fixed bool) (size uint32) {
+	size = 32 + 20 + 32 + 32 + 256 + 32 + 8 + 8 + 8 + 8 + 4 + 32 + 32 + 4
+	if sizer.Fork() >= ssz.ForkShanghai {
+		size += 4
+	}
+	if sizer.Fork() >= ssz.ForkCancun {
+		size += 8 + 8
+	}
+	if fixed {
+		return size
+	}
+	size += ssz.SizeDynamicBytes(sizer, obj.ExtraData)
+	size += ssz.SizeSliceOfDynamicBytes(sizer, obj.Transactions)
+	if sizer.Fork() >= ssz.ForkShanghai {
+		size += ssz.SizeSliceOfStaticObjects(sizer, obj.Withdrawals)
+	}
+	return size
+}
+
+// DefineSSZ defines how an object is encoded/decoded.
+func (obj *ExecutionPayloadMonolith) DefineSSZ(codec *ssz.Codec) {
+	// Define the static data (fields and dynamic offsets)
+	ssz.DefineStaticBytes(codec, &obj.ParentHash)                                                                    // Field  ( 0) -    ParentHash -  32 bytes
+	ssz.DefineStaticBytes(codec, &obj.FeeRecipient)                                                                  // Field  ( 1) -  FeeRecipient -  20 bytes
+	ssz.DefineStaticBytes(codec, &obj.StateRoot)                                                                     // Field  ( 2) -     StateRoot -  32 bytes
+	ssz.DefineStaticBytes(codec, &obj.ReceiptsRoot)                                                                  // Field  ( 3) -  ReceiptsRoot -  32 bytes
+	ssz.DefineStaticBytes(codec, &obj.LogsBloom)                                                                     // Field  ( 4) -     LogsBloom - 256 bytes
+	ssz.DefineStaticBytes(codec, &obj.PrevRandao)                                                                    // Field  ( 5) -    PrevRandao -  32 bytes
+	ssz.DefineUint64(codec, &obj.BlockNumber)                                                                        // Field  ( 6) -   BlockNumber -   8 bytes
+	ssz.DefineUint64(codec, &obj.GasLimit)                                                                           // Field  ( 7) -      GasLimit -   8 bytes
+	ssz.DefineUint64(codec, &obj.GasUsed)                                                                            // Field  ( 8) -       GasUsed -   8 bytes
+	ssz.DefineUint64(codec, &obj.Timestamp)                                                                          // Field  ( 9) -     Timestamp -   8 bytes
+	ssz.DefineDynamicBytesOffset(codec, &obj.ExtraData, 32)                                                          // Offset (10) -     ExtraData -   4 bytes
+	ssz.DefineUint256(codec, &obj.BaseFeePerGas)                                                                     // Field  (11) - BaseFeePerGas -  32 bytes
+	ssz.DefineStaticBytes(codec, &obj.BlockHash)                                                                     // Field  (12) -     BlockHash -  32 bytes
+	ssz.DefineSliceOfDynamicBytesOffset(codec, &obj.Transactions, 1048576, 1073741824)                               // Offset (13) -  Transactions -   4 bytes
+	ssz.DefineSliceOfStaticObjectsOffsetOnFork(codec, &obj.Withdrawals, 16, ssz.ForkFilter{Added: ssz.ForkShanghai}) // Offset (14) -   Withdrawals -   4 bytes
+	ssz.DefineUint64PointerOnFork(codec, &obj.BlobGasUsed, ssz.ForkFilter{Added: ssz.ForkCancun})                    // Field  (15) -   BlobGasUsed -   8 bytes
+	ssz.DefineUint64PointerOnFork(codec, &obj.ExcessBlobGas, ssz.ForkFilter{Added: ssz.ForkCancun})                  // Field  (16) - ExcessBlobGas -   8 bytes
+
+	// Define the dynamic data (fields)
+	ssz.DefineDynamicBytesContent(codec, &obj.ExtraData, 32)                                                          // Field  (10) -     ExtraData - ? bytes
+	ssz.DefineSliceOfDynamicBytesContent(codec, &obj.Transactions, 1048576, 1073741824)                               // Field  (13) -  Transactions - ? bytes
+	ssz.DefineSliceOfStaticObjectsContentOnFork(codec, &obj.Withdrawals, 16, ssz.ForkFilter{Added: ssz.ForkShanghai}) // Field  (14) -   Withdrawals - ? bytes
+}
+```
+
+To explicitly highlight, the `ssz-fork` tags have been extracted from the struct definition and mapped into both an updated `SizeSSZ` method as well as a new definition style in `DefineSSZ`.
+
+Do note, this type (or anything embedding it) will require the `OnFork` versions of `ssz.Encode`, `ssz.Decode`, `ssz.Hash` and `ssz.Size` to be called, since naturally it relies on a correct fork being set in the codec's context.
+
+*Lastly, whilst the library itself supports custom fork enums, there is no support yet for these in the code generator. This will probably be added eventually via a `--forks=mypkg` or similar CLI flag, but it's a TODO for now.* 
 
 ### Go generate
 

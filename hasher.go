@@ -572,7 +572,7 @@ func HashSliceOfStaticObjects[T StaticObject](h *Hasher, objects []T, maxItems u
 	defer h.ascendMixinLayer(uint64(len(objects)), maxItems)
 
 	// If threading is disabled, or hashing nothing, do it sequentially
-	if !h.threads || len(objects) == 0 || len(objects)*int(Size(objects[0], h.codec.fork)) < concurrencyThreshold {
+	if !h.threads || len(objects) == 0 || len(objects)*int(SizeOnFork(objects[0], h.codec.fork)) < concurrencyThreshold {
 		for _, obj := range objects {
 			h.descendLayer()
 			obj.DefineSSZ(h.codec)
