@@ -41,11 +41,11 @@ func (w *WithdrawalAsym) DefineSSZ(codec *ssz.Codec) {
 }
 
 func ExampleEncodeAsymmetricObject() {
-	blob := make([]byte, ssz.Size((*WithdrawalAsym)(nil), ssz.ForkUnknown))
-	if err := ssz.EncodeToBytes(blob, new(WithdrawalAsym), ssz.ForkUnknown); err != nil {
+	blob := make([]byte, ssz.Size((*WithdrawalAsym)(nil)))
+	if err := ssz.EncodeToBytes(blob, new(WithdrawalAsym)); err != nil {
 		panic(err)
 	}
-	hash := ssz.HashSequential(new(WithdrawalAsym), ssz.ForkUnknown)
+	hash := ssz.HashSequential(new(WithdrawalAsym))
 
 	fmt.Printf("ssz: %#x\nhash: %#x\n", blob, hash)
 	// Output:

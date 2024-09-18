@@ -109,11 +109,11 @@ func testConsensusSpecBasicType[T newableObject[U], U any](t *testing.T, kind st
 			// from yaml and check that too, but hex-in-yaml makes everything
 			// beyond annoying. C'est la vie.
 			obj := T(new(U))
-			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ)), ssz.ForkUnknown); err != nil {
+			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err != nil {
 				t.Fatalf("failed to decode SSZ stream: %v", err)
 			}
 			blob := new(bytes.Buffer)
-			if err := ssz.EncodeToStream(blob, obj, ssz.ForkUnknown); err != nil {
+			if err := ssz.EncodeToStream(blob, obj); err != nil {
 				t.Fatalf("failed to re-encode SSZ stream: %v", err)
 			}
 			if !bytes.Equal(blob.Bytes(), inSSZ) {
@@ -122,11 +122,11 @@ func testConsensusSpecBasicType[T newableObject[U], U any](t *testing.T, kind st
 					blob, inSSZ, len(prefix), blob.Bytes()[len(prefix):], inSSZ[len(prefix):])
 			}
 			obj = T(new(U))
-			if err := ssz.DecodeFromBytes(inSSZ, obj, ssz.ForkUnknown); err != nil {
+			if err := ssz.DecodeFromBytes(inSSZ, obj); err != nil {
 				t.Fatalf("failed to decode SSZ buffer: %v", err)
 			}
-			bin := make([]byte, ssz.Size(obj, ssz.ForkUnknown))
-			if err := ssz.EncodeToBytes(bin, obj, ssz.ForkUnknown); err != nil {
+			bin := make([]byte, ssz.Size(obj))
+			if err := ssz.EncodeToBytes(bin, obj); err != nil {
 				t.Fatalf("failed to re-encode SSZ buffer: %v", err)
 			}
 			if !bytes.Equal(bin, inSSZ) {
@@ -136,14 +136,14 @@ func testConsensusSpecBasicType[T newableObject[U], U any](t *testing.T, kind st
 			}
 			// Encoder/decoder seems to work, check if the size reported by the
 			// encoded object actually matches the encoded stream
-			if size := ssz.Size(obj, ssz.ForkUnknown); size != uint32(len(inSSZ)) {
+			if size := ssz.Size(obj); size != uint32(len(inSSZ)) {
 				t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
 			}
-			hash := ssz.HashSequential(obj, ssz.ForkUnknown)
+			hash := ssz.HashSequential(obj)
 			if fmt.Sprintf("%#x", hash) != inRoot.Root {
 				t.Fatalf("sequential merkle root mismatch: have %#x, want %s", hash, inRoot.Root)
 			}
-			hash = ssz.HashConcurrent(obj, ssz.ForkUnknown)
+			hash = ssz.HashConcurrent(obj)
 			if fmt.Sprintf("%#x", hash) != inRoot.Root {
 				t.Fatalf("concurrent merkle root mismatch: have %#x, want %s", hash, inRoot.Root)
 			}
@@ -177,11 +177,11 @@ func testConsensusSpecBasicType[T newableObject[U], U any](t *testing.T, kind st
 			}
 			// Try to decode, it should fail
 			obj := T(new(U))
-			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ)), ssz.ForkUnknown); err == nil {
+			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ))); err == nil {
 				t.Fatalf("succeeded in decoding invalid SSZ stream")
 			}
 			obj = T(new(U))
-			if err := ssz.DecodeFromBytes(inSSZ, obj, ssz.ForkUnknown); err == nil {
+			if err := ssz.DecodeFromBytes(inSSZ, obj); err == nil {
 				t.Fatalf("succeeded in decoding invalid SSZ buffer")
 			}
 		})
@@ -349,11 +349,11 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 				// from yaml and check that too, but hex-in-yaml makes everything
 				// beyond annoying. C'est la vie.
 				obj := T(new(U))
-				if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ)), ssz.ForkMapping[fork]); err != nil {
+				if err := ssz.DecodeFromStreamOnFork(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ)), ssz.ForkMapping[fork]); err != nil {
 					t.Fatalf("failed to decode SSZ stream: %v", err)
 				}
 				blob := new(bytes.Buffer)
-				if err := ssz.EncodeToStream(blob, obj, ssz.ForkMapping[fork]); err != nil {
+				if err := ssz.EncodeToStreamOnFork(blob, obj, ssz.ForkMapping[fork]); err != nil {
 					t.Fatalf("failed to re-encode SSZ stream: %v", err)
 				}
 				if !bytes.Equal(blob.Bytes(), inSSZ) {
@@ -362,11 +362,11 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 						blob, inSSZ, len(prefix), blob.Bytes()[len(prefix):], inSSZ[len(prefix):])
 				}
 				obj = T(new(U))
-				if err := ssz.DecodeFromBytes(inSSZ, obj, ssz.ForkMapping[fork]); err != nil {
+				if err := ssz.DecodeFromBytesOnFork(inSSZ, obj, ssz.ForkMapping[fork]); err != nil {
 					t.Fatalf("failed to decode SSZ buffer: %v", err)
 				}
-				bin := make([]byte, ssz.Size(obj, ssz.ForkMapping[fork]))
-				if err := ssz.EncodeToBytes(bin, obj, ssz.ForkMapping[fork]); err != nil {
+				bin := make([]byte, ssz.SizeOnFork(obj, ssz.ForkMapping[fork]))
+				if err := ssz.EncodeToBytesOnFork(bin, obj, ssz.ForkMapping[fork]); err != nil {
 					t.Fatalf("failed to re-encode SSZ buffer: %v", err)
 				}
 				if !bytes.Equal(bin, inSSZ) {
@@ -376,14 +376,14 @@ func testConsensusSpecType[T newableObject[U], U any](t *testing.T, kind string,
 				}
 				// Encoder/decoder seems to work, check if the size reported by the
 				// encoded object actually matches the encoded stream
-				if size := ssz.Size(obj, ssz.ForkMapping[fork]); size != uint32(len(inSSZ)) {
+				if size := ssz.SizeOnFork(obj, ssz.ForkMapping[fork]); size != uint32(len(inSSZ)) {
 					t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
 				}
-				hash := ssz.HashSequential(obj, ssz.ForkMapping[fork])
+				hash := ssz.HashSequentialOnFork(obj, ssz.ForkMapping[fork])
 				if fmt.Sprintf("%#x", hash) != inRoot.Root {
 					t.Fatalf("sequential merkle root mismatch: have %#x, want %s", hash, inRoot.Root)
 				}
-				hash = ssz.HashConcurrent(obj, ssz.ForkMapping[fork])
+				hash = ssz.HashConcurrentOnFork(obj, ssz.ForkMapping[fork])
 				if fmt.Sprintf("%#x", hash) != inRoot.Root {
 					t.Fatalf("concurrent merkle root mismatch: have %#x, want %s", hash, inRoot.Root)
 				}
@@ -445,7 +445,7 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 		b.Fatalf("failed to parse snappy ssz binary: %v", err)
 	}
 	inObj := T(new(U))
-	if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), inObj, uint32(len(inSSZ)), ssz.ForkMapping[fork]); err != nil {
+	if err := ssz.DecodeFromStreamOnFork(bytes.NewReader(inSSZ), inObj, uint32(len(inSSZ)), ssz.ForkMapping[fork]); err != nil {
 		b.Fatalf("failed to decode SSZ stream: %v", err)
 	}
 	// Start the benchmarks for all the different operations
@@ -455,7 +455,7 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			if err := ssz.EncodeToStream(io.Discard, inObj, ssz.ForkMapping[fork]); err != nil {
+			if err := ssz.EncodeToStreamOnFork(io.Discard, inObj, ssz.ForkMapping[fork]); err != nil {
 				b.Fatalf("failed to encode SSZ stream: %v", err)
 			}
 		}
@@ -468,7 +468,7 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			if err := ssz.EncodeToBytes(blob, inObj, ssz.ForkMapping[fork]); err != nil {
+			if err := ssz.EncodeToBytesOnFork(blob, inObj, ssz.ForkMapping[fork]); err != nil {
 				b.Fatalf("failed to encode SSZ bytes: %v", err)
 			}
 		}
@@ -482,7 +482,7 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			if err := ssz.DecodeFromStream(r, obj, uint32(len(inSSZ)), ssz.ForkMapping[fork]); err != nil {
+			if err := ssz.DecodeFromStreamOnFork(r, obj, uint32(len(inSSZ)), ssz.ForkMapping[fork]); err != nil {
 				b.Fatalf("failed to decode SSZ stream: %v", err)
 			}
 			r.Reset(inSSZ)
@@ -496,14 +496,14 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			if err := ssz.DecodeFromBytes(inSSZ, obj, ssz.ForkMapping[fork]); err != nil {
+			if err := ssz.DecodeFromBytesOnFork(inSSZ, obj, ssz.ForkMapping[fork]); err != nil {
 				b.Fatalf("failed to decode SSZ stream: %v", err)
 			}
 		}
 	})
 	b.Run(fmt.Sprintf("%s/merkleize-sequential", reflect.TypeOf(inObj).Elem().Name()), func(b *testing.B) {
 		obj := T(new(U))
-		if err := ssz.DecodeFromBytes(inSSZ, obj, ssz.ForkMapping[fork]); err != nil {
+		if err := ssz.DecodeFromBytesOnFork(inSSZ, obj, ssz.ForkMapping[fork]); err != nil {
 			b.Fatalf("failed to decode SSZ stream: %v", err)
 		}
 		b.SetBytes(int64(len(inSSZ)))
@@ -511,12 +511,12 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			ssz.HashSequential(obj, ssz.ForkMapping[fork])
+			ssz.HashSequentialOnFork(obj, ssz.ForkMapping[fork])
 		}
 	})
 	b.Run(fmt.Sprintf("%s/merkleize-concurrent", reflect.TypeOf(inObj).Elem().Name()), func(b *testing.B) {
 		obj := T(new(U))
-		if err := ssz.DecodeFromBytes(inSSZ, obj, ssz.ForkMapping[fork]); err != nil {
+		if err := ssz.DecodeFromBytesOnFork(inSSZ, obj, ssz.ForkMapping[fork]); err != nil {
 			b.Fatalf("failed to decode SSZ stream: %v", err)
 		}
 		b.SetBytes(int64(len(inSSZ)))
@@ -524,7 +524,7 @@ func benchmarkConsensusSpecType[T newableObject[U], U any](b *testing.B, fork, k
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			ssz.HashConcurrent(obj, ssz.ForkMapping[fork])
+			ssz.HashConcurrentOnFork(obj, ssz.ForkMapping[fork])
 		}
 	})
 }
@@ -717,7 +717,7 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 				f.Fatalf("failed to parse snappy ssz binary: %v", err)
 			}
 			obj := T(new(U))
-			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ)), ssz.ForkFuture); err == nil {
+			if err := ssz.DecodeFromStreamOnFork(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ)), ssz.ForkFuture); err == nil {
 				// Stash away all valid ssz streams so we can play with decoding
 				// into previously used objects
 				valids = append(valids, inSSZ)
@@ -734,11 +734,11 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 
 		// Try the stream encoder/decoder
 		obj := T(new(U))
-		if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ)), ssz.ForkFuture); err == nil {
+		if err := ssz.DecodeFromStreamOnFork(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ)), ssz.ForkFuture); err == nil {
 			// Stream decoder succeeded, make sure it re-encodes correctly and
 			// that the buffer decoder also succeeds parsing
 			blob := new(bytes.Buffer)
-			if err := ssz.EncodeToStream(blob, obj, ssz.ForkFuture); err != nil {
+			if err := ssz.EncodeToStreamOnFork(blob, obj, ssz.ForkFuture); err != nil {
 				t.Fatalf("failed to re-encode stream: %v", err)
 			}
 			if !bytes.Equal(blob.Bytes(), inSSZ) {
@@ -746,27 +746,27 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 				t.Fatalf("re-encoded stream mismatch: have %x, want %x, common prefix %d, have left %x, want left %x",
 					blob, inSSZ, len(prefix), blob.Bytes()[len(prefix):], inSSZ[len(prefix):])
 			}
-			if err := ssz.DecodeFromBytes(inSSZ, obj, ssz.ForkFuture); err != nil {
+			if err := ssz.DecodeFromBytesOnFork(inSSZ, obj, ssz.ForkFuture); err != nil {
 				t.Fatalf("failed to decode buffer: %v", err)
 			}
 			// Sanity check that hashing and size retrieval works
-			hash1 := ssz.HashSequential(obj, ssz.ForkFuture)
-			hash2 := ssz.HashConcurrent(obj, ssz.ForkFuture)
+			hash1 := ssz.HashSequentialOnFork(obj, ssz.ForkFuture)
+			hash2 := ssz.HashConcurrentOnFork(obj, ssz.ForkFuture)
 			if hash1 != hash2 {
 				t.Fatalf("sequential/concurrent hash mismatch: sequencial %x, concurrent %x", hash1, hash2)
 			}
-			if size := ssz.Size(obj, ssz.ForkFuture); size != uint32(len(inSSZ)) {
+			if size := ssz.SizeOnFork(obj, ssz.ForkFuture); size != uint32(len(inSSZ)) {
 				t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
 			}
 			valid = true
 		}
 		// Try the buffer encoder/decoder
 		obj = T(new(U))
-		if err := ssz.DecodeFromBytes(inSSZ, obj, ssz.ForkFuture); err == nil {
+		if err := ssz.DecodeFromBytesOnFork(inSSZ, obj, ssz.ForkFuture); err == nil {
 			// Buffer decoder succeeded, make sure it re-encodes correctly and
 			// that the stream decoder also succeeds parsing
-			bin := make([]byte, ssz.Size(obj, ssz.ForkFuture))
-			if err := ssz.EncodeToBytes(bin, obj, ssz.ForkFuture); err != nil {
+			bin := make([]byte, ssz.SizeOnFork(obj, ssz.ForkFuture))
+			if err := ssz.EncodeToBytesOnFork(bin, obj, ssz.ForkFuture); err != nil {
 				t.Fatalf("failed to re-encode buffer: %v", err)
 			}
 			if !bytes.Equal(bin, inSSZ) {
@@ -774,16 +774,16 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 				t.Fatalf("re-encoded buffer mismatch: have %x, want %x, common prefix %d, have left %x, want left %x",
 					bin, inSSZ, len(prefix), bin[len(prefix):], inSSZ[len(prefix):])
 			}
-			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ)), ssz.ForkFuture); err != nil {
+			if err := ssz.DecodeFromStreamOnFork(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ)), ssz.ForkFuture); err != nil {
 				t.Fatalf("failed to decode stream: %v", err)
 			}
 			// Sanity check that hashing and size retrieval works
-			hash1 := ssz.HashSequential(obj, ssz.ForkFuture)
-			hash2 := ssz.HashConcurrent(obj, ssz.ForkFuture)
+			hash1 := ssz.HashSequentialOnFork(obj, ssz.ForkFuture)
+			hash2 := ssz.HashConcurrentOnFork(obj, ssz.ForkFuture)
 			if hash1 != hash2 {
 				t.Fatalf("sequential/concurrent hash mismatch: sequencial %x, concurrent %x", hash1, hash2)
 			}
-			if size := ssz.Size(obj, ssz.ForkFuture); size != uint32(len(inSSZ)) {
+			if size := ssz.SizeOnFork(obj, ssz.ForkFuture); size != uint32(len(inSSZ)) {
 				t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
 			}
 		}
@@ -794,14 +794,14 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 
 			// Try the stream encoder/decoder into a prepped object
 			obj = T(new(U))
-			if err := ssz.DecodeFromBytes(vSSZ, obj, ssz.ForkFuture); err != nil {
+			if err := ssz.DecodeFromBytesOnFork(vSSZ, obj, ssz.ForkFuture); err != nil {
 				panic(err) // we've already decoded this, cannot fail
 			}
-			if err := ssz.DecodeFromStream(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ)), ssz.ForkFuture); err != nil {
+			if err := ssz.DecodeFromStreamOnFork(bytes.NewReader(inSSZ), obj, uint32(len(inSSZ)), ssz.ForkFuture); err != nil {
 				t.Fatalf("failed to decode stream into used object: %v", err)
 			}
 			blob := new(bytes.Buffer)
-			if err := ssz.EncodeToStream(blob, obj, ssz.ForkFuture); err != nil {
+			if err := ssz.EncodeToStreamOnFork(blob, obj, ssz.ForkFuture); err != nil {
 				t.Fatalf("failed to re-encode stream from used object: %v", err)
 			}
 			if !bytes.Equal(blob.Bytes(), inSSZ) {
@@ -809,24 +809,24 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 				t.Fatalf("re-encoded stream from used object mismatch: have %x, want %x, common prefix %d, have left %x, want left %x",
 					blob, inSSZ, len(prefix), blob.Bytes()[len(prefix):], inSSZ[len(prefix):])
 			}
-			hash1 := ssz.HashSequential(obj, ssz.ForkFuture)
-			hash2 := ssz.HashConcurrent(obj, ssz.ForkFuture)
+			hash1 := ssz.HashSequentialOnFork(obj, ssz.ForkFuture)
+			hash2 := ssz.HashConcurrentOnFork(obj, ssz.ForkFuture)
 			if hash1 != hash2 {
 				t.Fatalf("sequential/concurrent hash mismatch: sequencial %x, concurrent %x", hash1, hash2)
 			}
-			if size := ssz.Size(obj, ssz.ForkFuture); size != uint32(len(inSSZ)) {
+			if size := ssz.SizeOnFork(obj, ssz.ForkFuture); size != uint32(len(inSSZ)) {
 				t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
 			}
 			// Try the buffer encoder/decoder into a prepped object
 			obj = T(new(U))
-			if err := ssz.DecodeFromBytes(vSSZ, obj, ssz.ForkFuture); err != nil {
+			if err := ssz.DecodeFromBytesOnFork(vSSZ, obj, ssz.ForkFuture); err != nil {
 				panic(err) // we've already decoded this, cannot fail
 			}
-			if err := ssz.DecodeFromBytes(inSSZ, obj, ssz.ForkFuture); err != nil {
+			if err := ssz.DecodeFromBytesOnFork(inSSZ, obj, ssz.ForkFuture); err != nil {
 				t.Fatalf("failed to decode buffer into used object: %v", err)
 			}
-			bin := make([]byte, ssz.Size(obj, ssz.ForkFuture))
-			if err := ssz.EncodeToBytes(bin, obj, ssz.ForkFuture); err != nil {
+			bin := make([]byte, ssz.SizeOnFork(obj, ssz.ForkFuture))
+			if err := ssz.EncodeToBytesOnFork(bin, obj, ssz.ForkFuture); err != nil {
 				t.Fatalf("failed to re-encode buffer from used object: %v", err)
 			}
 			if !bytes.Equal(bin, inSSZ) {
@@ -834,12 +834,12 @@ func fuzzConsensusSpecType[T newableObject[U], U any](f *testing.F, kind string)
 				t.Fatalf("re-encoded buffer from used object mismatch: have %x, want %x, common prefix %d, have left %x, want left %x",
 					blob, inSSZ, len(prefix), bin[len(prefix):], inSSZ[len(prefix):])
 			}
-			hash1 = ssz.HashSequential(obj, ssz.ForkFuture)
-			hash2 = ssz.HashConcurrent(obj, ssz.ForkFuture)
+			hash1 = ssz.HashSequentialOnFork(obj, ssz.ForkFuture)
+			hash2 = ssz.HashConcurrentOnFork(obj, ssz.ForkFuture)
 			if hash1 != hash2 {
 				t.Fatalf("sequential/concurrent hash mismatch: sequencial %x, concurrent %x", hash1, hash2)
 			}
-			if size := ssz.Size(obj, ssz.ForkFuture); size != uint32(len(inSSZ)) {
+			if size := ssz.SizeOnFork(obj, ssz.ForkFuture); size != uint32(len(inSSZ)) {
 				t.Fatalf("reported/generated size mismatch: reported %v, generated %v", size, len(inSSZ))
 			}
 		}

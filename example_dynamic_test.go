@@ -72,8 +72,8 @@ func (e *ExecutionPayload) DefineSSZ(codec *ssz.Codec) {
 func ExampleEncodeDynamicObject() {
 	obj := new(ExecutionPayload)
 
-	blob := make([]byte, ssz.Size(obj, ssz.ForkUnknown))
-	if err := ssz.EncodeToBytes(blob, obj, ssz.ForkUnknown); err != nil {
+	blob := make([]byte, ssz.Size(obj))
+	if err := ssz.EncodeToBytes(blob, obj); err != nil {
 		panic(err)
 	}
 	fmt.Printf("ssz: %#x\n", blob)

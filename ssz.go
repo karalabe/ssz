@@ -87,10 +87,21 @@ var sizerPool = sync.Pool{
 	},
 }
 
-// EncodeToStream serializes the object into a data stream. Do not use this
-// method with a bytes.Buffer to write into a []byte slice, as that will do
-// double the byte copying. For that use case, use EncodeToBytes instead.
-func EncodeToStream(w io.Writer, obj Object, fork Fork) error {
+// EncodeToStream serializes a non-monolithic object into a data stream. If the
+// type contains fork-specific rules, use EncodeToStreamOnFork.
+//
+// Do not use this method with a bytes.Buffer to write into a []byte slice, as
+// that will do double the byte copying. For that use case, use EncodeToBytes.
+func EncodeToStream(w io.Writer, obj Object) error {
+	return EncodeToStreamOnFork(w, obj, ForkUnknown)
+}
+
+// EncodeToStreamOnFork serializes a monolithic object into a data stream. If the
+// type does not contain fork-specific rules, you can also use EncodeToStream.
+//
+// Do not use this method with a bytes.Buffer to write into a []byte slice, as that
+// will do double the byte copying. For that use case, use EncodeToBytesOnFork.
+func EncodeToStreamOnFork(w io.Writer, obj Object, fork Fork) error {
 	codec := encoderPool.Get().(*Codec)
 	defer encoderPool.Put(codec)
 
@@ -113,13 +124,25 @@ func EncodeToStream(w io.Writer, obj Object, fork Fork) error {
 	return err
 }
 
-// EncodeToBytes serializes the object into a byte buffer. Don't use this method
-// if you want to then write the buffer into a stream via some writer, as that
-// would double the memory use for the temporary buffer. For that use case, use
-// EncodeToStream instead.
-func EncodeToBytes(buf []byte, obj Object, fork Fork) error {
+// EncodeToBytes serializes a non-monolithic object into a byte buffer. If the
+// type contains fork-specific rules, use EncodeToBytesOnFork.
+//
+// Don't use this method if you want to then write the buffer into a stream via
+// some writer, as that would double the memory use for the temporary buffer.
+// For that use case, use EncodeToStream.
+func EncodeToBytes(buf []byte, obj Object) error {
+	return EncodeToBytesOnFork(buf, obj, ForkUnknown)
+}
+
+// EncodeToBytesOnFork serializes a monolithic object into a byte buffer. If the
+// type does not contain fork-specific rules, you can also use EncodeToBytes.
+//
+// Don't use this method if you want to then write the buffer into a stream via
+// some writer, as that would double the memory use for the temporary buffer.
+// For that use case, use EncodeToStreamOnFork.
+func EncodeToBytesOnFork(buf []byte, obj Object, fork Fork) error {
 	// Sanity check that we have enough space to serialize into
-	if size := Size(obj, fork); int(size) > len(buf) {
+	if size := SizeOnFork(obj, fork); int(size) > len(buf) {
 		return fmt.Errorf("%w: buffer %d bytes, object %d bytes", ErrBufferTooSmall, len(buf), size)
 	}
 	codec := encoderPool.Get().(*Codec)
@@ -144,10 +167,22 @@ func EncodeToBytes(buf []byte, obj Object, fork Fork) error {
 	return err
 }
 
-// DecodeFromStream parses an object with the given size out of a stream. Do not
-// use this method with a bytes.Buffer to read from a []byte slice, as that will
-// double the byte copying. For that use case, use DecodeFromBytes instead.
-func DecodeFromStream(r io.Reader, obj Object, size uint32, fork Fork) error {
+// DecodeFromStream parses a non-monolithic object with the given size out of a
+// stream. If the type contains fork-specific rules, use DecodeFromStreamOnFork.
+//
+// Do not use this method with a bytes.Buffer to read from a []byte slice, as that
+// will double the byte copying. For that use case, use DecodeFromBytes.
+func DecodeFromStream(r io.Reader, obj Object, size uint32) error {
+	return DecodeFromStreamOnFork(r, obj, size, ForkUnknown)
+}
+
+// DecodeFromStreamOnFork parses a monolithic object with the given size out of
+// a stream. If the type does not contain fork-specific rules, you can also use
+// DecodeFromStream.
+//
+// Do not use this method with a bytes.Buffer to read from a []byte slice, as that
+// will double the byte copying. For that use case, use DecodeFromBytesOnFork.
+func DecodeFromStreamOnFork(r io.Reader, obj Object, size uint32, fork Fork) error {
 	// Retrieve a new decoder codec and set its data source
 	codec := decoderPool.Get().(*Codec)
 	defer decoderPool.Put(codec)
@@ -178,11 +213,23 @@ func DecodeFromStream(r io.Reader, obj Object, size uint32, fork Fork) error {
 	return err
 }
 
-// DecodeFromBytes parses an object from a byte buffer. Do not use this method
-// if you want to first read the buffer from a stream via some reader, as that
-// would double the memory use for the temporary buffer. For that use case, use
-// DecodeFromStream instead.
-func DecodeFromBytes(blob []byte, obj Object, fork Fork) error {
+// DecodeFromBytes parses a non-monolithic object from a byte buffer. If the type
+// contains fork-specific rules, use DecodeFromBytesOnFork.
+//
+// Do not use this method if you want to first read the buffer from a stream via
+// some reader, as that would double the memory use for the temporary buffer. For
+// that use case, use DecodeFromStream instead.
+func DecodeFromBytes(blob []byte, obj Object) error {
+	return DecodeFromBytesOnFork(blob, obj, ForkUnknown)
+}
+
+// DecodeFromBytesOnFork parses a monolithic object from a byte buffer. If the
+// type does not contain fork-specific rules, you can also use DecodeFromBytes.
+//
+// Do not use this method if you want to first read the buffer from a stream via
+// some reader, as that would double the memory use for the temporary buffer. For
+// that use case, use DecodeFromStreamOnFork instead.
+func DecodeFromBytesOnFork(blob []byte, obj Object, fork Fork) error {
 	// Reject decoding from an empty slice
 	if len(blob) == 0 {
 		return io.ErrUnexpectedEOF
@@ -220,10 +267,21 @@ func DecodeFromBytes(blob []byte, obj Object, fork Fork) error {
 	return err
 }
 
-// HashSequential computes the ssz merkle root of the object on a single thread.
-// This is useful for processing small objects with stable runtime and O(1) GC
-// guarantees.
-func HashSequential(obj Object, fork Fork) [32]byte {
+// HashSequential computes the merkle root of a non-monolithic object on a single
+// thread. This is useful for processing small objects with stable runtime and O(1)
+// GC guarantees.
+//
+// If the type contains fork-specific rules, use HashSequentialOnFork.
+func HashSequential(obj Object) [32]byte {
+	return HashSequentialOnFork(obj, ForkUnknown)
+}
+
+// HashSequentialOnFork computes the merkle root of a monolithic object on a single
+// thread. This is useful for processing small objects with stable runtime and O(1)
+// GC guarantees.
+//
+// If the type does not contain fork-specific rules, you can also use HashSequential.
+func HashSequentialOnFork(obj Object, fork Fork) [32]byte {
 	codec := hasherPool.Get().(*Codec)
 	defer hasherPool.Put(codec)
 	defer codec.has.Reset()
@@ -240,11 +298,23 @@ func HashSequential(obj Object, fork Fork) [32]byte {
 	return codec.has.chunks[0]
 }
 
-// HashConcurrent computes the ssz merkle root of the object on potentially multiple
-// concurrent threads (iff some data segments are large enough to be worth it). This
-// is useful for processing large objects, but will place a bigger load on your CPU
-// and GC; and might be more variable timing wise depending on other load.
-func HashConcurrent(obj Object, fork Fork) [32]byte {
+// HashConcurrent computes the merkle root of a non-monolithic object on potentially
+// multiple concurrent threads (iff some data segments are large enough to be worth
+// it). This is useful for processing large objects, but will place a bigger load on
+// your CPU and GC; and might be more variable timing wise depending on other load.
+//
+// If the type contains fork-specific rules, use HashConcurrentOnFork.
+func HashConcurrent(obj Object) [32]byte {
+	return HashConcurrentOnFork(obj, ForkUnknown)
+}
+
+// HashConcurrentOnFork computes the merkle root of a monolithic object on potentially
+// multiple concurrent threads (iff some data segments are large enough to be worth
+// it). This is useful for processing large objects, but will place a bigger load on
+// your CPU and GC; and might be more variable timing wise depending on other load.
+//
+// If the type does not contain fork-specific rules, you can also use HashConcurrent.
+func HashConcurrentOnFork(obj Object, fork Fork) [32]byte {
 	codec := hasherPool.Get().(*Codec)
 	defer hasherPool.Put(codec)
 	defer codec.has.Reset()
@@ -263,9 +333,16 @@ func HashConcurrent(obj Object, fork Fork) [32]byte {
 	return codec.has.chunks[0]
 }
 
-// Size retrieves the size of a ssz object, independent if it's a static or a
-// dynamic one.
-func Size(obj Object, fork Fork) uint32 {
+// Size retrieves the size of a non-monolithic object, independent if it is static
+// or dynamic. If the type contains fork-specific rules, use SizeOnFork.
+func Size(obj Object) uint32 {
+	return SizeOnFork(obj, ForkUnknown)
+}
+
+// SizeOnFork retrieves the size of a monolithic object, independent if it is
+// static or dynamic. If the type does not contain fork-specific rules, you can
+// also use Size.
+func SizeOnFork(obj Object, fork Fork) uint32 {
 	sizer := sizerPool.Get().(*Sizer)
 	defer sizerPool.Put(sizer)
 
