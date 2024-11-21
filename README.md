@@ -707,7 +707,7 @@ func (w *Withdrawal) DefineSSZ(codec *ssz.Codec) {
 }
 ```
 
-Hashing this works out of the box. To merkleize the above `Withdrawal` and calculate it's merkel trie root, use either `ssz.HashSequential` or `ssz.HashConcurrent`. The former will run on a single thread and use 0 allocations, whereas the latter might run on multiple threads concurrently (if large enough fields are present) and use O(1) memory.
+Hashing this works out of the box. To merkleize the above `Withdrawal` and calculate it's merkle trie root, use either `ssz.HashSequential` or `ssz.HashConcurrent`. The former will run on a single thread and use 0 allocations, whereas the latter might run on multiple threads concurrently (if large enough fields are present) and use O(1) memory.
 
 ```go
 func main() {
